@@ -575,11 +575,28 @@ exports.updateBill = async (req, res) => {
 
       // Calculate tax
       // Use MRP from inventory as the selling price (first batch in FIFO)
-      const inventoryMrpUpdate = availableInventory.length > 0 ? availableInventory[0].mrp : 0;
-      const rate = item.rate || inventoryMrpUpdate || medicine.defaultSellingPrice || 0;
-      const baseAmount = item.unitQuantity * rate;
-      const gstPercent = item.gstPercent || medicine.gstPercent || 0;
-      const taxCalculation = calculateTax(rate, gstPercent, item.unitQuantity, interstate);
+    const inventoryMrp = availableInventory.length > 0 ? availableInventory[0].mrp : 0;
+const rate = item.rate || inventoryMrp || medicine.defaultSellingPrice || 0;
+
+// conversion factor (example: 1 pack = 10 tablets)
+const conversionFactor = medicine.conversionFactor || 1;
+
+// convert pack price to unit price
+let ratePerUnit;
+
+if (item.packQuantity && item.packQuantity > 0) {
+  ratePerUnit = rate / conversionFactor;
+} else {
+  ratePerUnit = rate;
+}
+
+// calculate base amount using base units
+const baseAmount = item.unitQuantity * ratePerUnit;
+
+const gstPercent = item.gstPercent || medicine.gstPercent || 0;
+
+// GST calculation
+const taxCalculation = calculateTax(ratePerUnit, gstPercent, item.unitQuantity, interstate);
       const itemDiscount = baseAmount * ((item.discountPercent || 0) / 100);
 
       calculatedSubtotal += baseAmount;
@@ -627,7 +644,7 @@ exports.updateBill = async (req, res) => {
         looseQuantity: item.looseQuantity || 0,
         packQuantity: item.packQuantity || 0,
         unitQuantity: item.unitQuantity,
-        rate: rate,
+        rate: ratePerUnit,
         hsnCode: batchInfo?.hsnCode || medicine.hsnCodeString || '',
         gstPercent: taxCalculation.gstPercent,
         cgstPercent: taxCalculation.cgstPercent,

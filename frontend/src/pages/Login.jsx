@@ -189,11 +189,6 @@ const Login = () => {
           </form>
         )}
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Demo Credentials:</p>
-          <p>Email: admin@medicalstore.com</p>
-          <p>Password: admin123</p>
-        </div>
       </div>
     </div>
   );

@@ -208,6 +208,7 @@ export default function Billing() {
       // Determine increment based on current unit
       const increment = 1;
       const newQty = existingItem.quantity + increment;
+      const newQty = existingItem.quantity + 1;
       
       // Validate stock (convert to base units for comparison)
       const newBaseQty = existingItem.isPack 
@@ -347,6 +348,10 @@ export default function Billing() {
       removeItem(medicineId);
       return;
     }
+  if (newQuantity < 1) {
+    removeItem(medicineId);
+    return;
+  }
 
     // Find the item and check stock
     const item = billItems.find(i => i.medicineId === medicineId);
@@ -375,6 +380,37 @@ export default function Billing() {
       return item;
     }));
   };
+  const item = billItems.find(i => i.medicineId === medicineId);
+  if (!item) return;
+
+  // convert to base tablets
+  const baseQty = item.isPack
+    ? newQuantity * item.conversionFactor
+    : newQuantity;
+
+  if (baseQty > item.availableStock) {
+    setErrorMessage(
+      `Insufficient stock for ${item.medicineName}. Available: ${item.availableStock} ${item.baseUnit}`
+    );
+    return;
+  }
+
+  setErrorMessage("");
+
+  const unitPrice = item.isPack ? item.packMrp : item.looseMrp;
+
+  setBillItems(prev =>
+    prev.map(i =>
+      i.medicineId === medicineId
+        ? {
+            ...i,
+            quantity: newQuantity,
+            amount: unitPrice * newQuantity
+          }
+        : i
+    )
+  );
+};
 
   const removeItem = (medicineId) => {
     setBillItems(billItems.filter(item => item.medicineId !== medicineId));
@@ -742,6 +778,9 @@ export default function Billing() {
                               onClick={() => {
                                 updateQuantity(item.medicineId, item.quantity - 1);
                               }}
+  onClick={() => {
+    updateQuantity(item.medicineId, item.quantity - 1);
+}}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                             >-</button>
                             <span className="w-16 text-center font-medium">{item.quantity}</span>
@@ -749,6 +788,9 @@ export default function Billing() {
                               onClick={() => {
                                 updateQuantity(item.medicineId, item.quantity + 1);
                               }}
+  onClick={() => {
+    updateQuantity(item.medicineId, item.quantity + 1);
+}}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                             >+</button>
                           </div>

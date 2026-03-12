@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
-const medicineSchema = new mongoose.Schema({
+const medicineSchema = new mongoose.Schema(
+{
   medicineName: {
     type: String,
     required: true,
@@ -8,7 +9,7 @@ const medicineSchema = new mongoose.Schema({
     uppercase: true
   },
 
-  // Optional fields - can be null
+  // Optional fields
   brandName: {
     type: String,
     trim: true,
@@ -36,82 +37,87 @@ const medicineSchema = new mongoose.Schema({
 
   barcode: {
     type: String,
-    sparse: true,
-    trim: true
+    trim: true,
+    sparse: true
   },
 
   gtin: {
     type: String,
-    sparse: true,
-    trim: true
+    trim: true,
+    sparse: true
   },
 
-  // HSN Code reference - GST will be auto-linked from HSN
+  // HSN reference (GST comes from HSN collection)
   hsnCode: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'HSN',
     sparse: true
   },
 
-  // Manual HSN code string for quick lookup (backup)
+  // Backup HSN string
   hsnCodeString: {
     type: String,
-    sparse: true,
-    trim: true
+    trim: true,
+    sparse: true
   },
 
-  // NOTE: GST fields removed - GST now comes only from HSN collection
-  // GST is calculated per-purchase based on selected HSN code
-
-  // Unit Conversion System (Part 2)
+  // Unit Conversion System
   baseUnit: {
     type: String,
-    default: null,
-    trim: true
+    trim: true,
+    default: null
   },
+
   sellingUnit: {
     type: String,
-    default: null,
-    trim: true
+    trim: true,
+    default: null
   },
+
   conversionFactor: {
     type: Number,
     default: 1,
     min: 1
   },
+
   allowDecimal: {
     type: Boolean,
     default: false
   },
 
-  // More Options fields (Part 4)
+  // More Options
   askDose: {
     type: Boolean,
     default: false
   },
+
   salt: {
     type: String,
-    default: null,
-    trim: true
+    trim: true,
+    default: null
   },
+
   colorType: {
     type: String,
-    default: null,
-    trim: true
+    trim: true,
+    default: null
   },
+
   packing: {
     type: String,
-    default: null,
-    trim: true
+    trim: true,
+    default: null
   },
+
   decimalAllowed: {
     type: Boolean,
     default: false
   },
+
   itemType: {
     type: String,
-    default: null,
-    trim: true
+    trim: true,
+    default: null
   },
 
   defaultSellingPrice: {
@@ -137,28 +143,27 @@ const medicineSchema = new mongoose.Schema({
     select: false
   }
 
-}, {
+},
+{
   timestamps: true
-});
+}
+);
 
-// NOTE: GST is no longer stored in Medicine model
-// GST is fetched from HSN collection during purchase
-// calculateTax should now be called with GST percent as parameter
 
-medicineSchema.index({ medicineName: 'text', brandName: 'text' });
-medicineSchema.index({ barcode: 1 });
-medicineSchema.index({ gtin: 1 });
-medicineSchema.index({ hsnCode: 1 });
-medicineSchema.index({ hsnCodeString: 1 });
+// ================= INDEXES =================
 
-// Ensure virtuals are included in JSON
-medicineSchema.set('toJSON', { virtuals: true });
-medicineSchema.set('toObject', { virtuals: true });
+// Text search index
+medicineSchema.index({ medicineName: "text", brandName: "text" });
 
-// Static method to calculate GST breakdown (Part 7 - IGST Support)
-// For same state: CGST = GST/2, SGST = GST/2, IGST = 0
-// For interstate: CGST = 0, SGST = 0, IGST = GST
-medicineSchema.statics.calculateGST = function(gstPercent) {
+
+// Include virtuals
+medicineSchema.set("toJSON", { virtuals: true });
+medicineSchema.set("toObject", { virtuals: true });
+
+
+// ================= GST CALCULATION =================
+
+medicineSchema.statics.calculateGST = function (gstPercent) {
   return {
     cgst: gstPercent / 2,
     sgst: gstPercent / 2,
@@ -166,4 +171,5 @@ medicineSchema.statics.calculateGST = function(gstPercent) {
   };
 };
 
-module.exports = mongoose.model('Medicine', medicineSchema);
+
+module.exports = mongoose.model("Medicine", medicineSchema);

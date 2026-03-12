@@ -65,7 +65,7 @@ export default function Billing() {
           packSize: medicine.packSize,
           baseUnit: medicine.baseUnit,
           sellingUnit: medicine.sellingUnit,
-          conversionFactor: medicine.conversionFactor || 1,
+          conversionFactor: Number(medicine.conversionFactor) || 1,
           quantity: item.quantityAvailable || 0,
           expiryDate: item.expiryDate,
           defaultSellingPrice: item.mrp || 0,
@@ -194,7 +194,7 @@ export default function Billing() {
     setErrorMessage('');
     
     // Get conversion factor and pack info from medicine
-    const conversionFactor = medicine.conversionFactor || 1;
+    const conversionFactor = Number(medicine.conversionFactor) || 1;
     const packSize = medicine.packSize || '1';
     const baseUnit = medicine.baseUnit || 'TAB';
     const sellingUnit = medicine.sellingUnit || baseUnit;
@@ -206,7 +206,7 @@ export default function Billing() {
     const existingItem = billItems.find(item => item.medicineId === medicine._id);
     if (existingItem) {
       // Determine increment based on current unit
-      const increment = existingItem.isPack ? conversionFactor : 1;
+      const increment = 1;
       const newQty = existingItem.quantity + increment;
       
       // Validate stock (convert to base units for comparison)
@@ -267,9 +267,7 @@ export default function Billing() {
     }
 
     // Calculate default quantity based on unit
-    const defaultQty = defaultIsPack ? 1 : conversionFactor;
-    const baseQty = defaultIsPack ? conversionFactor : 1;
-
+    const defaultQty = 1;
     const newItem = {
       medicineId: medicine._id,
       medicineName: medicine.medicineName,
@@ -307,7 +305,7 @@ export default function Billing() {
     if (!item || item.conversionFactor <= 1) return; // No conversion for single-unit medicines
     
     const newIsPack = !item.isPack;
-    const conversionFactor = item.conversionFactor;
+    const conversionFactor = Number(item.conversionFactor) || 1;
     
     // Convert quantity to maintain same base amount
     const currentBaseQty = item.isPack ? item.quantity * conversionFactor : item.quantity;
@@ -339,7 +337,13 @@ export default function Billing() {
 
   // Update quantity with stock validation
   const updateQuantity = (medicineId, newQuantity) => {
-    if (newQuantity < 1) {
+    const normalizedQuantity = Number(newQuantity);
+
+    if (!Number.isFinite(normalizedQuantity)) {
+      return;
+    }
+
+    if (normalizedQuantity < 1) {
       removeItem(medicineId);
       return;
     }
@@ -348,7 +352,7 @@ export default function Billing() {
     const item = billItems.find(i => i.medicineId === medicineId);
     if (item) {
       // Convert to base units for comparison
-      const baseQty = item.isPack ? newQuantity * item.conversionFactor : newQuantity;
+      const baseQty = item.isPack ? normalizedQuantity * item.conversionFactor : normalizedQuantity;
       
       if (baseQty > item.availableStock) {
         setErrorMessage(`Insufficient stock for ${item.medicineName}. Available: ${item.availableStock} ${item.baseUnit}`);
@@ -359,16 +363,13 @@ export default function Billing() {
     setErrorMessage('');
     
     // Calculate amount based on unit
-    const unitMrp = item.isPack ? item.packMrp : item.looseMrp;
-    
     setBillItems(billItems.map(item => {
       if (item.medicineId === medicineId) {
-        const currentBaseQty = item.isPack ? newQuantity * item.conversionFactor : newQuantity;
         const currentUnitMrp = item.isPack ? item.packMrp : item.looseMrp;
         return {
           ...item,
-          quantity: newQuantity,
-          amount: currentUnitMrp * newQuantity
+          quantity: normalizedQuantity,
+          amount: currentUnitMrp * normalizedQuantity
         };
       }
       return item;
@@ -739,16 +740,14 @@ export default function Billing() {
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => {
-                                const decrement = item.isPack ? item.conversionFactor : 1;
-                                updateQuantity(item.medicineId, item.quantity - decrement);
+                                updateQuantity(item.medicineId, item.quantity - 1);
                               }}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                             >-</button>
                             <span className="w-16 text-center font-medium">{item.quantity}</span>
                             <button
                               onClick={() => {
-                                const increment = item.isPack ? item.conversionFactor : 1;
-                                updateQuantity(item.medicineId, item.quantity + increment);
+                                updateQuantity(item.medicineId, item.quantity + 1);
                               }}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                             >+</button>

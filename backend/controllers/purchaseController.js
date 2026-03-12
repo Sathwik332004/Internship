@@ -1,0 +1,618 @@
+const mongoose = require('mongoose');
+const Purchase = require('../models/Purchase');
+const Medicine = require('../models/Medicine');
+const Inventory = require('../models/Inventory');
+const Supplier = require('../models/Supplier');
+const HSN = require('../models/HSN');
+
+// @desc    Get last purchase price for a medicine
+// @route   GET /api/purchases/last-price/:medicineId
+// @access  Private
+exports.getLastPurchasePrice = async (req, res) => {
+  try {
+    const { medicineId } = req.params;
+
+    // Find the last purchase that included this medicine
+    const lastPurchase = await Purchase.findOne({
+      'items.medicine': medicineId,
+      isDeleted: false
+    })
+      .sort({ purchaseDate: -1 })
+      .populate('items.medicine', 'medicineName');
+
+    if (!lastPurchase) {
+      return res.status(200).json({
+        success: true,
+        data: null,
+        message: 'No previous purchase found'
+      });
+    }
+
+    // Get the specific item from the purchase
+    const item = lastPurchase.items.find(
+      i => i.medicine._id.toString() === medicineId
+    );
+
+    // Get HSN details for GST calculation
+    let gstPercent = 0;
+    let cgstPercent = 0;
+    let sgstPercent = 0;
+    let igstPercent = 0;
+    
+    if (item?.hsnCode) {
+      const hsn = await HSN.findOne({ hsnCode: item.hsnCode, isDeleted: false });
+      if (hsn) {
+        gstPercent = hsn.gstPercent || 0;
+        cgstPercent = hsn.cgstPercent || 0;
+        sgstPercent = hsn.sgstPercent || 0;
+        igstPercent = hsn.igstPercent || 0;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        purchasePrice: item?.purchasePrice || 0,
+        mrp: item?.mrp || 0,
+        batchNumber: item?.batchNumber || '',
+        expiryDate: item?.expiryDate || null,
+        purchaseDate: lastPurchase.purchaseDate,
+        supplier: lastPurchase.supplier,
+        hsnCode: item?.hsnCode || '',
+        gstPercent: gstPercent,
+        cgstPercent: cgstPercent,
+        sgstPercent: sgstPercent,
+        igstPercent: igstPercent,
+        unit: item?.unit || null,
+        baseUnit: item?.baseUnit || null,
+        sellingUnit: item?.sellingUnit || null,
+        conversionFactor: item?.conversionFactor || 1
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting last purchase price',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Check if batch exists for a medicine
+// @route   GET /api/purchases/check-batch
+// @access  Private
+exports.checkBatchExists = async (req, res) => {
+  try {
+    const { medicineId, batchNumber } = req.query;
+
+    if (!medicineId || !batchNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Medicine ID and batch number are required'
+      });
+    }
+
+    // Use case-insensitive search for batch number
+    const existingBatch = await Inventory.findOne({
+      medicine: medicineId,
+      batchNumber: { $regex: new RegExp(`^${batchNumber}$`, 'i') },
+      isDeleted: false
+    });
+
+    res.status(200).json({
+      success: true,
+      exists: !!existingBatch,
+      data: existingBatch ? {
+        batchNumber: existingBatch.batchNumber,
+        expiryDate: existingBatch.expiryDate,
+        quantityAvailable: existingBatch.quantityAvailable,
+        purchasePrice: existingBatch.purchasePrice,
+        mrp: existingBatch.mrp
+      } : null
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking batch',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get all purchases
+// @route   GET /api/purchases
+// @access  Private
+exports.getPurchases = async (req, res) => {
+  try {
+    const { supplier, startDate, endDate, search, page = 1, limit = 20 } = req.query;
+
+    let query = { isDeleted: false };
+
+    // Search by supplier invoice number
+    if (search) {
+      query.supplierInvoiceNumber = { $regex: search, $options: 'i' };
+    }
+
+    if (supplier) {
+      query.supplier = supplier;
+    }
+
+    if (startDate || endDate) {
+      query.purchaseDate = {};
+      if (startDate) {
+        query.purchaseDate.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.purchaseDate.$lte = end;
+      }
+    }
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const purchases = await Purchase.find(query)
+      .populate('supplier', 'supplierName gstNumber')
+      .populate('createdBy', 'name')
+      .sort({ purchaseDate: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Purchase.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      count: purchases.length,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      data: purchases
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting purchases',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get single purchase
+// @route   GET /api/purchases/:id
+// @access  Private
+exports.getPurchase = async (req, res) => {
+  try {
+    const purchase = await Purchase.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    })
+      .populate('supplier')
+      .populate('createdBy', 'name')
+      .populate('items.medicine', 'medicineName brandName strength packSize');
+
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: 'Purchase not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: purchase
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting purchase',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Delete purchase and rollback inventory stock
+// @route   DELETE /api/purchases/:id
+// @access  Private
+exports.deletePurchase = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+
+    // Step 1: Find the purchase by id
+    const purchase = await Purchase.findOne({
+      _id: id,
+      isDeleted: false
+    }).session(session);
+
+    if (!purchase) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: 'Purchase not found'
+      });
+    }
+
+    // Step 2 & 3: For each item, find inventory and restore stock
+    for (const item of purchase.items) {
+      // Find the inventory record using medicine and batchNumber (case-insensitive)
+      const inventory = await Inventory.findOne({
+        medicine: item.medicine,
+        batchNumber: { $regex: new RegExp(`^${item.batchNumber}$`, 'i') },
+        isDeleted: false
+      }).session(session);
+
+      // If inventory batch not found, skip (no crash)
+      if (!inventory) {
+        console.warn(`Inventory batch not found for medicine: ${item.medicine}, batch: ${item.batchNumber}`);
+        continue;
+      }
+
+      // Calculate quantities to restore using unit conversion
+      const conversionFactor = item.conversionFactor || 1;
+      const purchasedQty = item.quantity * conversionFactor;
+      const freeQty = (item.freeQuantity || 0) * conversionFactor;
+
+      // Restore inventory stock
+      inventory.quantityPurchased = Math.max(0, inventory.quantityPurchased - purchasedQty);
+      inventory.freeQuantity = Math.max(0, inventory.freeQuantity - freeQty);
+      
+      // Recalculate quantityAvailable
+      inventory.quantityAvailable = inventory.quantityPurchased + inventory.freeQuantity;
+
+      // Step 4: Save inventory
+      await inventory.save({ session });
+    }
+
+    // Step 5: Soft delete purchase
+    purchase.isDeleted = true;
+    await purchase.save({ session });
+
+    // Step 6: Commit mongoose transaction
+    await session.commitTransaction();
+
+    session.endSession();
+
+    res.status(200).json({
+      success: true,
+      message: 'Purchase deleted successfully and inventory stock restored',
+      data: {
+        purchaseId: purchase._id,
+        purchaseNumber: purchase.purchaseNumber
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting purchase. Please try again.',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Add new purchase (creates Inventory entries for stock)
+// @route   POST /api/purchases
+// @access  Private
+exports.addPurchase = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      supplier,
+      purchaseDate,
+      supplierInvoiceNumber,
+      items,
+      subtotal,
+      totalGst,
+      discountPercent,
+      discountAmount,
+      grandTotal,
+      paymentMode,
+      notes
+    } = req.body;
+
+    // Validate supplier
+    const supplierDoc = await Supplier.findById(supplier);
+    if (!supplierDoc) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: 'Supplier not found'
+      });
+    }
+
+    // Validate supplier invoice number is provided
+    if (!supplierInvoiceNumber || supplierInvoiceNumber.trim() === '') {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Supplier invoice number is required'
+      });
+    }
+
+    // Generate purchase number
+    const purchaseNumber = await Purchase.generatePurchaseNumber();
+
+    // Process items and calculate totals with new formula
+    let calculatedSubtotal = 0;
+    let calculatedDiscount = 0;
+    let calculatedGst = 0;
+
+    const processedItems = await Promise.all(
+      items.map(async (item) => {
+        const medicine = await Medicine.findById(item.medicine).session(session);
+        if (!medicine) {
+          throw new Error(`Medicine not found: ${item.medicine}`);
+        }
+
+        // Validate HSN code is required for GST calculation
+        if (!item.hsnCode) {
+          throw new Error("HSN code is required for GST calculation");
+        }
+
+        // Get HSN details - GST must come from HSN collection
+        let hsnRef = null;
+        let gstPercent = 0;
+        let cgstPercent = 0;
+        let sgstPercent = 0;
+        let igstPercent = 0;
+        
+        if (item.hsnCode) {
+          hsnRef = await HSN.findOne({ hsnCode: item.hsnCode, isDeleted: false }).session(session);
+          if (hsnRef) {
+            // Use GST from HSN collection - can be overridden by item.gstPercent if explicitly provided
+            gstPercent = hsnRef.gstPercent || 0;
+            cgstPercent = hsnRef.cgstPercent || (gstPercent / 2);
+            sgstPercent = hsnRef.sgstPercent || (gstPercent / 2);
+            igstPercent = hsnRef.igstPercent || gstPercent;
+          }
+        }
+
+        // Allow manual override of GST percentage (item.gstPercent takes precedence over HSN)
+        // But if item.gstPercent is not provided, use HSN-derived value
+        if (item.gstPercent !== undefined && item.gstPercent !== null) {
+          gstPercent = item.gstPercent;
+          cgstPercent = gstPercent / 2;
+          sgstPercent = gstPercent / 2;
+        }
+
+        // Calculate item amounts with new formula
+        // subtotal = quantity × purchasePrice
+        const itemSubtotal = item.quantity * item.purchasePrice;
+        
+        // discountAmount = subtotal × discountPercent / 100
+        const itemDiscountAmount = itemSubtotal * ((item.discountPercent || 0) / 100);
+        
+        // taxableAmount = subtotal - discountAmount
+        const itemTaxableAmount = itemSubtotal - itemDiscountAmount;
+        
+        // gstAmount = taxableAmount × gstPercent / 100
+        const itemGstAmount = itemTaxableAmount * (gstPercent / 100);
+        
+        // totalAmount = taxableAmount + gstAmount
+        const itemTotalAmount = itemTaxableAmount + itemGstAmount;
+
+        calculatedSubtotal += itemSubtotal;
+        calculatedDiscount += itemDiscountAmount;
+        calculatedGst += itemGstAmount;
+
+        return {
+          medicine: item.medicine,
+          hsnCode: item.hsnCode || null,
+          hsnCodeRef: hsnRef ? hsnRef._id : null,
+          gstPercent: gstPercent,
+          // Unit conversion fields
+          unit: item.unit || medicine.sellingUnit || null,
+          baseUnit: item.baseUnit || medicine.baseUnit || null,
+          sellingUnit: item.sellingUnit || medicine.sellingUnit || null,
+          conversionFactor: item.conversionFactor || medicine.conversionFactor || 1,
+        // Batch details - normalize to uppercase and trim
+          batchNumber: item.batchNumber ? item.batchNumber.toUpperCase().trim() : '',
+          expiryDate: item.expiryDate,
+          mrp: item.mrp || 0,
+          // Prices
+          purchasePrice: item.purchasePrice,
+          // Quantity
+          quantity: item.quantity,
+          freeQuantity: item.freeQuantity || 0,
+          // Discount
+          discountPercent: item.discountPercent || 0,
+          discountAmount: itemDiscountAmount,
+          // Calculations
+          subtotal: itemSubtotal,
+          taxableAmount: itemTaxableAmount,
+          // GST breakdown
+          cgstPercent: cgstPercent,
+          sgstPercent: sgstPercent,
+          igstPercent: igstPercent,
+          gstAmount: itemGstAmount,
+          cgstAmount: itemGstAmount * (cgstPercent / gstPercent || 0.5),
+          sgstAmount: itemGstAmount * (sgstPercent / gstPercent || 0.5),
+          igstAmount: itemGstAmount * (igstPercent / gstPercent || 1),
+          totalAmount: itemTotalAmount
+        };
+      })
+    );
+
+    // Apply purchase-level discount (if any)
+    const calculatedDiscountAmount = discountPercent 
+      ? calculatedSubtotal * (discountPercent / 100) 
+      : discountAmount || 0;
+
+    const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount;
+
+    // Create purchase record with new fields
+    const purchase = new Purchase({
+      purchaseNumber,
+      supplierInvoiceNumber,
+      supplier,
+      purchaseDate: purchaseDate || new Date(),
+      items: processedItems,
+      subtotal: calculatedSubtotal,
+      totalGst: calculatedGst,
+      totalCgst: calculatedGst / 2,
+      totalSgst: calculatedGst / 2,
+      totalIgst: 0,
+      discountPercent: discountPercent || 0,
+      discountAmount: calculatedDiscountAmount,
+      grandTotal: finalGrandTotal,
+      paymentMode: paymentMode || 'CASH',
+      notes,
+      createdBy: req.user.id
+    });
+
+    await purchase.save({ session });
+
+    // Create or update Inventory entries with unit conversion
+    await Promise.all(
+      items.map(async (item, index) => {
+        // Get medicine for unit conversion
+        const medicine = await Medicine.findById(item.medicine).session(session);
+        
+        // Get the processed item to get GST from HSN (already calculated)
+        const processedItem = processedItems[index];
+        
+        // Calculate base unit quantity
+        const conversionFactor = item.conversionFactor || medicine?.conversionFactor || 1;
+        const totalQuantity = (item.quantity * conversionFactor) + ((item.freeQuantity || 0) * conversionFactor);
+
+        // Check for existing inventory batch with same medicine + batchNumber (normalized to uppercase)
+        const normalizedBatchNumber = item.batchNumber ? item.batchNumber.toUpperCase().trim() : '';
+        let existingInventory = await Inventory.findOne({
+          medicine: item.medicine,
+          batchNumber: { $regex: new RegExp(`^${normalizedBatchNumber}$`, 'i') },
+          isDeleted: false
+        }).session(session);
+
+        if (existingInventory) {
+          // Update existing inventory quantities with unit conversion
+          existingInventory.quantityPurchased += (item.quantity * conversionFactor);
+          if (item.freeQuantity) {
+            existingInventory.freeQuantity += (item.freeQuantity * conversionFactor);
+          }
+          existingInventory.quantityAvailable = existingInventory.quantityPurchased + existingInventory.freeQuantity;
+          existingInventory.purchasePrice = item.purchasePrice;
+          existingInventory.mrp = item.mrp || 0;
+          existingInventory.supplier = supplier;
+          existingInventory.hsnCodeString = item.hsnCode || null;
+          // Use GST from processed item (from HSN)
+          existingInventory.gstPercent = processedItem.gstPercent || 0;
+          // Ensure batch number is stored in uppercase
+          existingInventory.batchNumber = normalizedBatchNumber;
+          await existingInventory.save({ session });
+        } else {
+          // Create new Inventory entry with unit conversion
+          const newInventory = new Inventory({
+            medicine: item.medicine,
+            batchNumber: normalizedBatchNumber,
+            expiryDate: item.expiryDate,
+            quantityPurchased: item.quantity * conversionFactor,
+            freeQuantity: (item.freeQuantity || 0) * conversionFactor,
+            quantityAvailable: totalQuantity,
+            purchasePrice: item.purchasePrice,
+            mrp: item.mrp || 0,
+            supplier: supplier,
+            purchase: purchase._id,
+            hsnCodeString: item.hsnCode || null,
+            hsnCode: processedItem.hsnCodeRef || null,
+            // Use GST from processed item (from HSN)
+            gstPercent: processedItem.gstPercent || 0
+          });
+          await newInventory.save({ session });
+        }
+      })
+    );
+
+    await session.commitTransaction();
+
+    session.endSession();
+
+    // Populate and return
+    const populatedPurchase = await Purchase.findById(purchase._id)
+      .populate('supplier', 'supplierName gstNumber')
+      .populate('createdBy', 'name')
+      .populate('items.medicine', 'medicineName brandName strength packSize');
+
+    res.status(201).json({
+      success: true,
+      data: populatedPurchase
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding purchase',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get purchase report
+// @route   GET /api/purchases/report
+// @access  Private/Admin
+exports.getPurchaseReport = async (req, res) => {
+  try {
+    const { startDate, endDate, supplier } = req.query;
+
+    let query = { isDeleted: false };
+
+    if (supplier) {
+      query.supplier = supplier;
+    }
+
+    if (startDate || endDate) {
+      query.purchaseDate = {};
+      if (startDate) {
+        query.purchaseDate.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.purchaseDate.$lte = end;
+      }
+    }
+
+    const purchases = await Purchase.find(query)
+      .populate('supplier', 'supplierName gstNumber')
+      .populate('createdBy', 'name')
+      .sort({ purchaseDate: -1 });
+
+    const summary = purchases.reduce(
+      (acc, purchase) => {
+        acc.totalPurchases += purchase.grandTotal;
+        acc.totalGst += purchase.totalGst;
+        acc.totalItems += purchase.items.length;
+        return acc;
+      },
+      { totalPurchases: 0, totalGst: 0, totalItems: 0 }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        purchases,
+        summary
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating purchase report',
+      error: error.message
+    });
+  }
+};

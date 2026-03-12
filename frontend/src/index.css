@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  body {
+    font-size: 12px;
+  }
+  
+  .invoice-container {
+    padding: 20px;
+  }
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Table styles */
+.table-container {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Form input focus */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Button transitions */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Purchase Entry Table - Fixed Column Widths for ERP Grid - Marg ERP Style */
+.purchase-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.purchase-table .product-col { width: 25%; }
+.purchase-table .pack-col { width: 7%; }
+.purchase-table .batch-col { width: 11%; }
+.purchase-table .expiry-col { width: 9%; }
+.purchase-table .qty-col { width: 6%; }
+.purchase-table .free-col { width: 6%; }
+.purchase-table .mrp-col { width: 9%; }
+.purchase-table .rate-col { width: 9%; }
+.purchase-table .hsn-col { width: 10%; }
+.purchase-table .disc-col { width: 6%; }
+.purchase-table .amount-col { width: 9%; }
+.purchase-table .delete-col { width: 5%; }
+
+/* Numeric column alignment */
+.purchase-table .numeric-col {
+  text-align: center;
+}
+
+/* Header cell styles */
+.purchase-table th {
+  background-color: #f3f4f6;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: #4b5563;
+  padding: 12px 8px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 2px solid #d1d5db;
+}
+
+/* Body cell styles */
+.purchase-table td {
+  padding: 0;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+}
+
+.purchase-table td input {
+  width: 100%;
+  height: 100%;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+}
+
+.purchase-table td input:focus {
+  outline: none;
+  background: #eff6ff;
+  border: 2px solid #3b82f6;
+}

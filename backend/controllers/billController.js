@@ -3,6 +3,13 @@ const Bill = require('../models/Bill');
 const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const HSN = require('../models/HSN');
+const {
+  isNonNegativeNumber,
+  isPositiveInteger,
+  isValidPhone,
+  normalizeOptionalText,
+  normalizePhone
+} = require('../utils/validation');
 
 // @desc    Get all bills
 // @route   GET /api/bills
@@ -174,6 +181,122 @@ exports.createBill = async (req, res) => {
       amountPaid,
       isInterstate
     } = req.body;
+    const normalizedCustomerName = normalizeOptionalText(customerName);
+    const normalizedCustomerPhone = normalizePhone(customerPhone);
+    const normalizedCustomerState = normalizeOptionalText(customerState);
+    const normalizedCustomerAddress = normalizeOptionalText(customerAddress);
+
+    if (normalizedCustomerName && normalizedCustomerName.length < 2) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Customer name must be at least 2 characters'
+      });
+    }
+
+    if (normalizedCustomerPhone && !isValidPhone(normalizedCustomerPhone)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Customer phone must be 10 digits'
+      });
+    }
+
+    if (normalizedCustomerState && normalizedCustomerState.length < 2) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Customer state must be at least 2 characters'
+      });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'At least one bill item is required'
+      });
+    }
+
+    if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Discount percent must be between 0 and 100'
+      });
+    }
+
+    if (amountPaid !== undefined && amountPaid !== null && amountPaid !== '' && !isNonNegativeNumber(amountPaid)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Amount paid cannot be negative'
+      });
+    }
+
+    if (paymentMode && !['CASH', 'UPI', 'CARD', 'BANK'].includes(paymentMode)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment mode'
+      });
+    }
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+
+      if (!item.medicine) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `Medicine is required for item ${index + 1}`
+        });
+      }
+
+      if (!item.inventoryBatchId && !item.batchNumber) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `Batch information is required for item ${index + 1}`
+        });
+      }
+
+      if (!isPositiveInteger(item.unitQuantity) || !isPositiveInteger(item.quantity)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `Quantity must be greater than 0 for item ${index + 1}`
+        });
+      }
+
+      if (item.rate !== undefined && !isNonNegativeNumber(item.rate)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `Rate cannot be negative for item ${index + 1}`
+        });
+      }
+
+      if (item.discountPercent !== undefined && (!isNonNegativeNumber(item.discountPercent) || Number(item.discountPercent) > 100)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `Discount percent must be between 0 and 100 for item ${index + 1}`
+        });
+      }
+    }
 
     // Generate invoice number
     const invoiceNumber = await Bill.generateInvoiceNumber();
@@ -373,10 +496,10 @@ exports.createBill = async (req, res) => {
     // Create bill
     const bill = new Bill({
       invoiceNumber,
-      customerName,
-      customerPhone,
-      customerState,
-      customerAddress,
+      customerName: normalizedCustomerName,
+      customerPhone: normalizedCustomerPhone,
+      customerState: normalizedCustomerState,
+      customerAddress: normalizedCustomerAddress,
       isInterstate: interstate,
       items: processedItems,
       subtotal: calculatedSubtotal,
@@ -769,7 +892,7 @@ exports.getSalesReport = async (req, res) => {
 
     // Group by date for chart
     const salesByDate = {};
-    const paymentModeDistribution = { CASH: 0, UPI: 0, CARD: 0 };
+    const paymentModeDistribution = { CASH: 0, UPI: 0, CARD: 0, BANK: 0 };
 
     bills.forEach(bill => {
       const dateKey = bill.billDate.toISOString().split('T')[0];

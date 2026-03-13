@@ -1,4 +1,10 @@
 const Asset = require('../models/Asset');
+const {
+  isFutureDate,
+  isNonNegativeNumber,
+  normalizeOptionalText,
+  normalizeWhitespace
+} = require('../utils/validation');
 
 // @desc    Get all assets
 // @route   GET /api/assets
@@ -96,16 +102,31 @@ exports.addAsset = async (req, res) => {
       status,
       description
     } = req.body;
+    const normalizedAssetName = normalizeWhitespace(assetName);
+    const normalizedLocation = normalizeOptionalText(location);
+    const normalizedDescription = normalizeOptionalText(description);
+
+    if (normalizedAssetName.length < 2) {
+      return res.status(400).json({ success: false, message: 'Asset name must be at least 2 characters' });
+    }
+
+    if (!purchaseDate || isFutureDate(purchaseDate)) {
+      return res.status(400).json({ success: false, message: 'Purchase date cannot be in the future' });
+    }
+
+    if (!isNonNegativeNumber(cost)) {
+      return res.status(400).json({ success: false, message: 'Asset cost must be 0 or higher' });
+    }
 
     const asset = await Asset.create({
-      assetName,
+      assetName: normalizedAssetName,
       assetType,
       purchaseDate,
-      cost,
+      cost: Number(cost),
       condition: condition || 'NEW',
-      location,
+      location: normalizedLocation,
       status: status || 'IN_USE',
-      description
+      description: normalizedDescription
     });
 
     res.status(201).json({
@@ -150,14 +171,30 @@ exports.updateAsset = async (req, res) => {
       });
     }
 
-    asset.assetName = assetName || asset.assetName;
+    const nextAssetName = assetName !== undefined ? normalizeWhitespace(assetName) : asset.assetName;
+    const nextLocation = location !== undefined ? normalizeOptionalText(location) : asset.location;
+    const nextDescription = description !== undefined ? normalizeOptionalText(description) : asset.description;
+
+    if (nextAssetName.length < 2) {
+      return res.status(400).json({ success: false, message: 'Asset name must be at least 2 characters' });
+    }
+
+    if (purchaseDate !== undefined && (!purchaseDate || isFutureDate(purchaseDate))) {
+      return res.status(400).json({ success: false, message: 'Purchase date cannot be in the future' });
+    }
+
+    if (cost !== undefined && !isNonNegativeNumber(cost)) {
+      return res.status(400).json({ success: false, message: 'Asset cost must be 0 or higher' });
+    }
+
+    asset.assetName = nextAssetName;
     asset.assetType = assetType || asset.assetType;
     asset.purchaseDate = purchaseDate || asset.purchaseDate;
-    asset.cost = cost || asset.cost;
+    asset.cost = cost !== undefined ? Number(cost) : asset.cost;
     asset.condition = condition || asset.condition;
-    asset.location = location || asset.location;
+    asset.location = nextLocation;
     asset.status = status || asset.status;
-    asset.description = description || asset.description;
+    asset.description = nextDescription;
 
     await asset.save();
 

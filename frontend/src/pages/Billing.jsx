@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import BillPrintDocument from '../components/BillPrintDocument';
+import {
+  normalizePhone,
+  normalizeTextInput,
+  validateBillingForm
+} from '../utils/validation';
 
 const SHOP_INFO = {
   name: 'Medical Store',
@@ -511,32 +516,30 @@ export default function Billing() {
 
   // Save bill
   const handleSaveBill = async (shouldPrint = false) => {
-    if (billItems.length === 0) {
-      alert('Please add at least one item to the bill');
+    const validationError = validateBillingForm({
+      customerDetails,
+      discountPercent,
+      amountPaid,
+      billItems
+    });
+    if (validationError) {
+      setErrorMessage(validationError);
+      alert(validationError);
       return;
-    }
-
-    // Final validation
-    for (const item of billItems) {
-      if (item.quantity <= 0) {
-        alert('Quantity must be greater than 0');
-        return;
-      }
-      
-      // Calculate base unit quantity
-      const baseQty = item.isPack ? item.quantity * item.conversionFactor : item.quantity;
-      if (baseQty > item.availableStock) {
-        alert(`Insufficient stock for ${item.medicineName}`);
-        return;
-      }
     }
 
     setSaving(true);
     try {
+      const normalizedCustomerDetails = {
+        name: normalizeTextInput(customerDetails.name).trim(),
+        phone: normalizePhone(customerDetails.phone),
+        state: normalizeTextInput(customerDetails.state).trim()
+      };
+
       const billData = {
-        customerName: customerDetails.name,
-        customerPhone: customerDetails.phone,
-        customerState: customerDetails.state,
+        customerName: normalizedCustomerDetails.name,
+        customerPhone: normalizedCustomerDetails.phone,
+        customerState: normalizedCustomerDetails.state,
         isInterstate: totals.isInterstate,
         items: billItems.map(item => {
           // Calculate base unit quantity for inventory deduction
@@ -648,7 +651,8 @@ export default function Billing() {
                 <input
                   type="text"
                   value={customerDetails.name}
-                  onChange={(e) => setCustomerDetails({...customerDetails, name: e.target.value})}
+                  maxLength={80}
+                  onChange={(e) => setCustomerDetails({...customerDetails, name: normalizeTextInput(e.target.value)})}
                   placeholder="Enter customer name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -658,7 +662,9 @@ export default function Billing() {
                 <input
                   type="tel"
                   value={customerDetails.phone}
-                  onChange={(e) => setCustomerDetails({...customerDetails, phone: e.target.value})}
+                  inputMode="numeric"
+                  maxLength={10}
+                  onChange={(e) => setCustomerDetails({...customerDetails, phone: normalizePhone(e.target.value)})}
                   placeholder="Enter phone number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -671,7 +677,8 @@ export default function Billing() {
                 <input
                   type="text"
                   value={customerDetails.state}
-                  onChange={(e) => setCustomerDetails({...customerDetails, state: e.target.value})}
+                  maxLength={50}
+                  onChange={(e) => setCustomerDetails({...customerDetails, state: normalizeTextInput(e.target.value)})}
                   placeholder="e.g., Maharashtra, Karnataka"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -893,6 +900,8 @@ export default function Billing() {
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
                 placeholder="Leave blank for full payment"
+                min="0"
+                step="0.01"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>

@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, X, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 import api from '../services/api';
+import {
+  normalizeEmail,
+  normalizePhone,
+  normalizeTextInput,
+  normalizeUppercase,
+  validateSupplierForm
+} from '../utils/validation';
 
 export default function Suppliers() {
   const [suppliers, setSuppliers] = useState([]);
@@ -49,11 +56,29 @@ export default function Suppliers() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const validationError = validateSupplierForm(formData);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      supplierName: normalizeTextInput(formData.supplierName).trim(),
+      contactPerson: normalizeTextInput(formData.contactPerson).trim(),
+      email: normalizeEmail(formData.email),
+      phone: normalizePhone(formData.phone),
+      address: normalizeTextInput(formData.address).trim(),
+      gstNumber: normalizeUppercase(formData.gstNumber),
+      state: normalizeTextInput(formData.state).trim()
+    };
+
     try {
       if (editingSupplier) {
-        await api.put(`/suppliers/${editingSupplier._id}`, formData);
+        await api.put(`/suppliers/${editingSupplier._id}`, payload);
       } else {
-        await api.post('/suppliers', formData);
+        await api.post('/suppliers', payload);
       }
       setShowModal(false);
       setEditingSupplier(null);
@@ -317,7 +342,8 @@ export default function Suppliers() {
                     type="text"
                     required
                     value={formData.supplierName}
-                    onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
+                    maxLength={100}
+                    onChange={(e) => setFormData({ ...formData, supplierName: normalizeTextInput(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -326,7 +352,8 @@ export default function Suppliers() {
                   <input
                     type="text"
                     value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                    maxLength={60}
+                    onChange={(e) => setFormData({ ...formData, contactPerson: normalizeTextInput(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -336,7 +363,9 @@ export default function Suppliers() {
                     type="tel"
                     required
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    inputMode="numeric"
+                    maxLength={10}
+                    onChange={(e) => setFormData({ ...formData, phone: normalizePhone(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -354,7 +383,8 @@ export default function Suppliers() {
                   <input
                     type="text"
                     value={formData.gstNumber}
-                    onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
+                    maxLength={15}
+                    onChange={(e) => setFormData({ ...formData, gstNumber: normalizeUppercase(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -376,7 +406,8 @@ export default function Suppliers() {
                   <textarea
                     rows={3}
                     value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    maxLength={250}
+                    onChange={(e) => setFormData({ ...formData, address: normalizeTextInput(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>

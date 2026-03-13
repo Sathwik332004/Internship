@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, AlertTriangle, Hash, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../services/api';
+import {
+  normalizeTextInput,
+  validateHSNForm
+} from '../utils/validation';
 
 export default function HSNCodes() {
   const [hsnCodes, setHsnCodes] = useState([]);
@@ -40,11 +44,24 @@ export default function HSNCodes() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationError = validateHSNForm(formData);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      hsnCode: String(formData.hsnCode).trim(),
+      description: normalizeTextInput(formData.description).trim(),
+      gstPercent: Number(formData.gstPercent)
+    };
+
     try {
       if (editingHSN) {
-        await api.put(`/hsn/${editingHSN._id}`, formData);
+        await api.put(`/hsn/${editingHSN._id}`, payload);
       } else {
-        await api.post('/hsn', formData);
+        await api.post('/hsn', payload);
       }
       setShowModal(false);
       setEditingHSN(null);
@@ -344,7 +361,8 @@ export default function HSNCodes() {
                     type="text"
                     required
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    maxLength={150}
+                    onChange={(e) => setFormData({ ...formData, description: normalizeTextInput(e.target.value) })}
                     placeholder="e.g., Medicaments for retail sale"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />

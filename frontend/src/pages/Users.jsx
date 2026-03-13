@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, User, Shield, Phone, Mail, CheckCircle, XCircle } from 'lucide-react';
 import api from '../services/api';
+import {
+  normalizeEmail,
+  normalizePhone,
+  normalizeTextInput,
+  validateUserForm
+} from '../utils/validation';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -48,13 +54,27 @@ export default function Users() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const validationError = validateUserForm(formData, { editingUser: !!editingUser });
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      name: normalizeTextInput(formData.name).trim(),
+      email: normalizeEmail(formData.email),
+      phone: normalizePhone(formData.phone)
+    };
+
     try {
       if (editingUser) {
-        const updateData = { ...formData };
+        const updateData = { ...payload };
         if (!updateData.password) delete updateData.password;
         await api.put(`/auth/users/${editingUser._id}`, updateData);
       } else {
-        await api.post('/auth/register', formData);
+        await api.post('/auth/register', payload);
       }
       setShowModal(false);
       setEditingUser(null);
@@ -326,7 +346,8 @@ export default function Users() {
                     type="text"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    maxLength={50}
+                    onChange={(e) => setFormData({ ...formData, name: normalizeTextInput(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -348,6 +369,7 @@ export default function Users() {
                     type="password"
                     required={!editingUser}
                     value={formData.password}
+                    minLength={6}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -357,7 +379,9 @@ export default function Users() {
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    inputMode="numeric"
+                    maxLength={10}
+                    onChange={(e) => setFormData({ ...formData, phone: normalizePhone(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>

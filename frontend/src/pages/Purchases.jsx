@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, DollarSign, Package, AlertTriangle, Clock, Hash, Save, Pill, Check } from 'lucide-react';
 import api from '../services/api';
+import {
+  normalizeTextInput,
+  normalizeUppercase,
+  validatePurchaseForm
+} from '../utils/validation';
 
 // Unit options for dropdown
 const UNIT_OPTIONS = [
@@ -161,7 +166,7 @@ const PurchaseRow = React.memo(({
         <input
           type="text"
           value={item.batchNumber || ''}
-          onChange={(e) => onUpdateField(index, 'batchNumber', e.target.value)}
+          onChange={(e) => onUpdateField(index, 'batchNumber', normalizeUppercase(e.target.value))}
           onKeyDown={(e) => onKeyDown(e, index, 'batch')}
           onFocus={() => onCellFocus(index, 'batch')}
           className={getInputClass('batch')}
@@ -770,25 +775,20 @@ export default function Purchases() {
 
   // Save purchase
   const handleSavePurchase = async () => {
-    if (!selectedSupplier) {
-      alert('Please select a supplier');
-      return;
-    }
-    if (!supplierInvoiceNumber || supplierInvoiceNumber.trim() === '') {
-      alert('Please enter supplier invoice number');
-      return;
-    }
-    if (purchaseItems.length === 0) {
-      alert('Please add at least one medicine');
-      return;
-    }
-    for (let i = 0; i < purchaseItems.length; i++) {
-      const item = purchaseItems[i];
-      if (!item.batchNumber || !item.expiryDate || item.quantity <= 0) {
-        alert(`Please fill in all required fields for item ${i + 1}`);
-        setActiveCell({ row: i, col: 'batch' });
-        return;
+    const validationResult = validatePurchaseForm({
+      selectedSupplier,
+      purchaseDate,
+      supplierInvoiceNumber,
+      discountPercent,
+      purchaseItems
+    });
+
+    if (validationResult.error) {
+      alert(validationResult.error);
+      if (validationResult.rowIndex !== undefined && validationResult.field) {
+        setActiveCell({ row: validationResult.rowIndex, col: validationResult.field });
       }
+      return;
     }
 
     try {
@@ -797,16 +797,16 @@ export default function Purchases() {
         purchaseNumber,
         supplier: selectedSupplier,
         purchaseDate: purchaseDate,
-        supplierInvoiceNumber: supplierInvoiceNumber,
+        supplierInvoiceNumber: normalizeTextInput(supplierInvoiceNumber).trim(),
         items: purchaseItems.map(item => ({
           medicine: item.medicineId,
-          hsnCode: item.hsnCode,
+          hsnCode: String(item.hsnCode || '').trim(),
           gstPercent: parseFloat(item.gstPercent),
           unit: item.unit,
           baseUnit: item.baseUnit,
           sellingUnit: item.sellingUnit,
           conversionFactor: parseInt(item.conversionFactor) || 1,
-          batchNumber: item.batchNumber,
+          batchNumber: normalizeUppercase(item.batchNumber),
           expiryDate: item.expiryDate,
           mrp: parseFloat(item.mrp) || 0,
           purchasePrice: parseFloat(item.purchasePrice),
@@ -826,7 +826,7 @@ export default function Purchases() {
         discountAmount: totals.totalDiscount,
         grandTotal: totals.grandTotal,
         paymentMode: paymentMode,
-        notes: notes
+        notes: normalizeTextInput(notes).trim()
       };
 
       const response = await api.post('/purchases', purchaseData);
@@ -1138,14 +1138,15 @@ export default function Purchases() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
-                  <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" required />
+                  <input type="date" value={purchaseDate} max={new Date().toISOString().split('T')[0]} onChange={(e) => setPurchaseDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" required />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Supplier Invoice *</label>
                   <input 
                     type="text" 
                     value={supplierInvoiceNumber} 
-                    onChange={(e) => setSupplierInvoiceNumber(e.target.value)} 
+                    maxLength={50}
+                    onChange={(e) => setSupplierInvoiceNumber(normalizeTextInput(e.target.value))} 
                     placeholder="Enter supplier invoice number"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" 
                     required 
@@ -1271,7 +1272,7 @@ export default function Purchases() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                  <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <div className="bg-gray-900 text-white p-4 rounded-lg">

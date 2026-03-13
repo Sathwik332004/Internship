@@ -17,6 +17,10 @@ import {
 import { toast } from 'react-toastify';
 import { inventoryAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import {
+  normalizeNotes,
+  validateDisposeForm
+} from '../utils/validation';
 
 const initialDisposeForm = {
   quantity: '',
@@ -142,23 +146,20 @@ export default function Inventory() {
       return;
     }
 
-    const quantity = Number(disposeForm.quantity);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      toast.error('Enter a valid disposal quantity');
+    const validationError = validateDisposeForm(disposeForm, selectedItem);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
-    if (quantity > selectedItem.quantityAvailable) {
-      toast.error('Disposal quantity cannot exceed available stock');
-      return;
-    }
+    const quantity = Number(disposeForm.quantity);
 
     try {
       setDisposeSubmitting(true);
       await inventoryAPI.dispose(selectedItem._id, {
         quantity,
         reason: disposeForm.reason,
-        notes: disposeForm.notes.trim()
+        notes: normalizeNotes(disposeForm.notes)
       });
 
       toast.success('Stock disposed and recorded');

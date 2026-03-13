@@ -4,6 +4,18 @@ const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const Supplier = require('../models/Supplier');
 const HSN = require('../models/HSN');
+const {
+  isFutureDate,
+  isNonNegativeInteger,
+  isNonNegativeNumber,
+  isPastMonth,
+  isPositiveInteger,
+  isValidBatchNumber,
+  isValidHSN,
+  normalizeOptionalText,
+  normalizeUppercase,
+  normalizeWhitespace
+} = require('../utils/validation');
 
 // @desc    Get last purchase price for a medicine
 // @route   GET /api/purchases/last-price/:medicineId
@@ -321,6 +333,124 @@ exports.addPurchase = async (req, res) => {
       paymentMode,
       notes
     } = req.body;
+    const normalizedInvoiceNumber = normalizeWhitespace(supplierInvoiceNumber);
+    const normalizedNotes = normalizeOptionalText(notes);
+
+    if (!supplier) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Supplier is required'
+      });
+    }
+
+    if (!purchaseDate || isFutureDate(purchaseDate)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Purchase date cannot be in the future'
+      });
+    }
+
+    if (normalizedInvoiceNumber.length < 2) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Supplier invoice number is required'
+      });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'At least one purchase item is required'
+      });
+    }
+
+    if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Discount percent must be between 0 and 100'
+      });
+    }
+
+    if (paymentMode && !['CASH', 'UPI', 'CARD', 'CREDIT'].includes(paymentMode)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment mode'
+      });
+    }
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+
+      if (!item.medicine) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Medicine is required for item ${index + 1}`
+        });
+      }
+
+      if (!isValidHSN(item.hsnCode || '')) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Valid HSN code is required for item ${index + 1}`
+        });
+      }
+
+      if (!isValidBatchNumber(item.batchNumber || '')) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Valid batch number is required for item ${index + 1}`
+        });
+      }
+
+      if (!item.expiryDate || isPastMonth(item.expiryDate)) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Expiry month must be current or future for item ${index + 1}`
+        });
+      }
+
+      if (!isPositiveInteger(item.quantity)) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Quantity must be greater than 0 for item ${index + 1}`
+        });
+      }
+
+      if (!isNonNegativeInteger(item.freeQuantity || 0)) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Free quantity cannot be negative for item ${index + 1}`
+        });
+      }
+
+      if (!isNonNegativeNumber(item.purchasePrice) || !isNonNegativeNumber(item.mrp || 0)) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Purchase price and MRP must be 0 or higher for item ${index + 1}`
+        });
+      }
+
+      if (!isNonNegativeNumber(item.discountPercent || 0) || Number(item.discountPercent || 0) > 100) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: `Discount percent must be between 0 and 100 for item ${index + 1}`
+        });
+      }
+    }
 
     // Validate supplier
     const supplierDoc = await Supplier.findById(supplier);
@@ -333,14 +463,6 @@ exports.addPurchase = async (req, res) => {
     }
 
     // Validate supplier invoice number is provided
-    if (!supplierInvoiceNumber || supplierInvoiceNumber.trim() === '') {
-      await session.abortTransaction();
-      return res.status(400).json({
-        success: false,
-        message: 'Supplier invoice number is required'
-      });
-    }
-
     // Generate purchase number
     const purchaseNumber = await Purchase.generatePurchaseNumber();
 
@@ -418,7 +540,7 @@ exports.addPurchase = async (req, res) => {
           sellingUnit: item.sellingUnit || medicine.sellingUnit || null,
           conversionFactor: item.conversionFactor || medicine.conversionFactor || 1,
         // Batch details - normalize to uppercase and trim
-          batchNumber: item.batchNumber ? item.batchNumber.toUpperCase().trim() : '',
+          batchNumber: normalizeUppercase(item.batchNumber),
           expiryDate: item.expiryDate,
           mrp: item.mrp || 0,
           // Prices
@@ -455,7 +577,7 @@ exports.addPurchase = async (req, res) => {
     // Create purchase record with new fields
     const purchase = new Purchase({
       purchaseNumber,
-      supplierInvoiceNumber,
+      supplierInvoiceNumber: normalizedInvoiceNumber,
       supplier,
       purchaseDate: purchaseDate || new Date(),
       items: processedItems,
@@ -468,7 +590,7 @@ exports.addPurchase = async (req, res) => {
       discountAmount: calculatedDiscountAmount,
       grandTotal: finalGrandTotal,
       paymentMode: paymentMode || 'CASH',
-      notes,
+      notes: normalizedNotes,
       createdBy: req.user.id
     });
 

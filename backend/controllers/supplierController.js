@@ -1,4 +1,14 @@
 const Supplier = require('../models/Supplier');
+const {
+  isValidEmail,
+  isValidGST,
+  isValidPhone,
+  normalizeEmail,
+  normalizeOptionalText,
+  normalizePhone,
+  normalizeUppercase,
+  normalizeWhitespace
+} = require('../utils/validation');
 
 // @desc    Get all suppliers
 // @route   GET /api/suppliers
@@ -97,14 +107,42 @@ exports.addSupplier = async (req, res) => {
       isActive
     } = req.body;
 
+    const normalizedSupplierName = normalizeWhitespace(supplierName);
+    const normalizedContactPerson = normalizeOptionalText(contactPerson);
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = normalizePhone(phone);
+    const normalizedAddress = normalizeOptionalText(address);
+    const normalizedGst = normalizeUppercase(gstNumber);
+    const normalizedState = normalizeOptionalText(state);
+
+    if (normalizedSupplierName.length < 2) {
+      return res.status(400).json({ success: false, message: 'Supplier name must be at least 2 characters' });
+    }
+
+    if (!isValidPhone(normalizedPhone)) {
+      return res.status(400).json({ success: false, message: 'Phone number must be 10 digits' });
+    }
+
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email' });
+    }
+
+    if (normalizedGst && !isValidGST(normalizedGst)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid GST number' });
+    }
+
+    if (normalizedGst && !normalizedState) {
+      return res.status(400).json({ success: false, message: 'State is required when GST number is provided' });
+    }
+
     const supplier = await Supplier.create({
-      supplierName,
-      contactPerson,
-      email,
-      phone,
-      address,
-      gstNumber,
-      state,
+      supplierName: normalizedSupplierName,
+      contactPerson: normalizedContactPerson,
+      email: normalizedEmail || undefined,
+      phone: normalizedPhone,
+      address: normalizedAddress,
+      gstNumber: normalizedGst || '',
+      state: normalizedState,
       isActive: isActive !== false
     });
 
@@ -150,13 +188,41 @@ exports.updateSupplier = async (req, res) => {
       });
     }
 
-    supplier.supplierName = supplierName || supplier.supplierName;
-    supplier.contactPerson = contactPerson || supplier.contactPerson;
-    supplier.email = email || supplier.email;
-    supplier.phone = phone || supplier.phone;
-    supplier.address = address || supplier.address;
-    supplier.gstNumber = gstNumber || supplier.gstNumber;
-    supplier.state = state || supplier.state;
+    const normalizedSupplierName = supplierName !== undefined ? normalizeWhitespace(supplierName) : supplier.supplierName;
+    const normalizedContactPerson = contactPerson !== undefined ? normalizeOptionalText(contactPerson) : supplier.contactPerson;
+    const normalizedEmail = email !== undefined ? normalizeEmail(email) : supplier.email;
+    const normalizedPhone = phone !== undefined ? normalizePhone(phone) : supplier.phone;
+    const normalizedAddress = address !== undefined ? normalizeOptionalText(address) : supplier.address;
+    const normalizedGst = gstNumber !== undefined ? normalizeUppercase(gstNumber) : supplier.gstNumber;
+    const normalizedState = state !== undefined ? normalizeOptionalText(state) : supplier.state;
+
+    if (normalizedSupplierName.length < 2) {
+      return res.status(400).json({ success: false, message: 'Supplier name must be at least 2 characters' });
+    }
+
+    if (!isValidPhone(normalizedPhone)) {
+      return res.status(400).json({ success: false, message: 'Phone number must be 10 digits' });
+    }
+
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email' });
+    }
+
+    if (normalizedGst && !isValidGST(normalizedGst)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid GST number' });
+    }
+
+    if (normalizedGst && !normalizedState) {
+      return res.status(400).json({ success: false, message: 'State is required when GST number is provided' });
+    }
+
+    supplier.supplierName = normalizedSupplierName;
+    supplier.contactPerson = normalizedContactPerson;
+    supplier.email = normalizedEmail || undefined;
+    supplier.phone = normalizedPhone;
+    supplier.address = normalizedAddress;
+    supplier.gstNumber = normalizedGst || '';
+    supplier.state = normalizedState;
     if (isActive !== undefined) supplier.isActive = isActive;
 
     await supplier.save();

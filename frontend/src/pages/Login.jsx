@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { Pill, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { authAPI } from '../services/api';
+import {
+  normalizeEmail,
+  validateLoginForm,
+  validateOtp
+} from '../utils/validation';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -18,10 +24,16 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    const validationError = validateLoginForm({ email, password });
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setLoading(true);
     
     try {
-      const result = await login(email, password);
+      const result = await login(normalizeEmail(email), password);
       
       if (result.requiresOTP) {
         setOtpRequired(true);
@@ -40,6 +52,12 @@ const Login = () => {
 
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
+    const validationError = validateOtp(otp);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setLoading(true);
     
     try {
@@ -155,6 +173,7 @@ const Login = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest"
                 placeholder="000000"
                 maxLength={6}
+                inputMode="numeric"
                 required
               />
             </div>

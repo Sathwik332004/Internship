@@ -1,6 +1,14 @@
 const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const HSN = require('../models/HSN');
+const {
+  isNonNegativeInteger,
+  isNonNegativeNumber,
+  isValidBarcode,
+  isValidGTIN,
+  normalizeOptionalText,
+  normalizeWhitespace
+} = require('../utils/validation');
 
 // @desc    Get all medicines with stock info
 // @route   GET /api/medicines
@@ -398,6 +406,44 @@ exports.addMedicine = async (req, res) => {
       decimalAllowed,
       itemType
     } = req.body;
+    const normalizedMedicineName = normalizeWhitespace(medicineName);
+    const normalizedBrandName = normalizeOptionalText(brandName);
+    const normalizedStrength = normalizeOptionalText(strength);
+    const normalizedPackSize = normalizeOptionalText(packSize);
+    const normalizedManufacturer = normalizeOptionalText(manufacturer);
+    const normalizedBarcode = barcode ? String(barcode).trim() : '';
+    const normalizedGtin = gtin ? String(gtin).trim() : '';
+    const normalizedSalt = normalizeOptionalText(salt);
+    const normalizedColorType = normalizeOptionalText(colorType);
+    const normalizedPacking = normalizeOptionalText(packing);
+
+    if (normalizedMedicineName.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Medicine name must be at least 2 characters'
+      });
+    }
+
+    if (normalizedBarcode && !isValidBarcode(normalizedBarcode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Barcode must be 8 to 14 digits'
+      });
+    }
+
+    if (normalizedGtin && !isValidGTIN(normalizedGtin)) {
+      return res.status(400).json({
+        success: false,
+        message: 'GTIN must be 8 to 14 digits'
+      });
+    }
+
+    if ((baseUnit && !sellingUnit) || (!baseUnit && sellingUnit)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Base unit and selling unit must be provided together'
+      });
+    }
 
     // Validate conversionFactor (Part 8)
     if (conversionFactor !== undefined && conversionFactor !== null && conversionFactor <= 0) {
@@ -407,10 +453,24 @@ exports.addMedicine = async (req, res) => {
       });
     }
 
+    if (defaultSellingPrice !== undefined && defaultSellingPrice !== null && defaultSellingPrice !== '' && !isNonNegativeNumber(defaultSellingPrice)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Default selling price cannot be negative'
+      });
+    }
+
+    if (reorderLevel !== undefined && reorderLevel !== null && !isNonNegativeInteger(reorderLevel)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reorder level must be 0 or higher'
+      });
+    }
+
     // Check for duplicate barcode
     if (barcode) {
       const existingBarcode = await Medicine.findOne({
-        barcode,
+        barcode: normalizedBarcode,
         isDeleted: false
       });
 
@@ -425,7 +485,7 @@ exports.addMedicine = async (req, res) => {
     // Check for duplicate GTIN
     if (gtin) {
       const existingGtin = await Medicine.findOne({
-        gtin,
+        gtin: normalizedGtin,
         isDeleted: false
       });
 
@@ -453,19 +513,19 @@ exports.addMedicine = async (req, res) => {
     }
 
     const medicine = await Medicine.create({
-      medicineName,
+      medicineName: normalizedMedicineName,
       // Allow null values for optional fields (Part 1)
-      brandName: brandName || null,
-      strength: strength || null,
-      packSize: packSize || null,
-      manufacturer: manufacturer || null,
-      barcode,
-      gtin,
+      brandName: normalizedBrandName,
+      strength: normalizedStrength,
+      packSize: normalizedPackSize,
+      manufacturer: normalizedManufacturer,
+      barcode: normalizedBarcode || null,
+      gtin: normalizedGtin || null,
       hsnCode: hsnRef ? hsnRef._id : null,
       hsnCodeString: hsnCodeString || (hsnRef ? hsnRef.hsnCode : null),
       gstPercent: finalGstPercent,
-      defaultSellingPrice,
-      reorderLevel: reorderLevel || 10,
+      defaultSellingPrice: defaultSellingPrice === '' || defaultSellingPrice === undefined || defaultSellingPrice === null ? null : Number(defaultSellingPrice),
+      reorderLevel: reorderLevel === undefined || reorderLevel === null || reorderLevel === '' ? 10 : Number(reorderLevel),
       status: status || 'ACTIVE',
       // Unit Conversion fields (Part 2)
       baseUnit: baseUnit || null,
@@ -474,9 +534,9 @@ exports.addMedicine = async (req, res) => {
       allowDecimal: allowDecimal || false,
       // More Options fields (Part 4)
       askDose: askDose || false,
-      salt: salt || null,
-      colorType: colorType || null,
-      packing: packing || null,
+      salt: normalizedSalt,
+      colorType: normalizedColorType,
+      packing: normalizedPacking,
       decimalAllowed: decimalAllowed || false,
       itemType: itemType || null
     });
@@ -533,12 +593,57 @@ exports.updateMedicine = async (req, res) => {
       decimalAllowed,
       itemType
     } = req.body;
+    const normalizedMedicineName = medicineName !== undefined ? normalizeWhitespace(medicineName) : undefined;
+    const normalizedBrandName = brandName !== undefined ? normalizeOptionalText(brandName) : undefined;
+    const normalizedStrength = strength !== undefined ? normalizeOptionalText(strength) : undefined;
+    const normalizedPackSize = packSize !== undefined ? normalizeOptionalText(packSize) : undefined;
+    const normalizedManufacturer = manufacturer !== undefined ? normalizeOptionalText(manufacturer) : undefined;
+    const normalizedBarcode = barcode !== undefined ? String(barcode || '').trim() : undefined;
+    const normalizedGtin = gtin !== undefined ? String(gtin || '').trim() : undefined;
+    const normalizedSalt = salt !== undefined ? normalizeOptionalText(salt) : undefined;
+    const normalizedColorType = colorType !== undefined ? normalizeOptionalText(colorType) : undefined;
+    const normalizedPacking = packing !== undefined ? normalizeOptionalText(packing) : undefined;
+
+    if (normalizedMedicineName !== undefined && normalizedMedicineName.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Medicine name must be at least 2 characters'
+      });
+    }
+
+    if (normalizedBarcode && !isValidBarcode(normalizedBarcode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Barcode must be 8 to 14 digits'
+      });
+    }
+
+    if (normalizedGtin && !isValidGTIN(normalizedGtin)) {
+      return res.status(400).json({
+        success: false,
+        message: 'GTIN must be 8 to 14 digits'
+      });
+    }
 
     // Validate conversionFactor (Part 8)
     if (conversionFactor !== undefined && conversionFactor !== null && conversionFactor <= 0) {
       return res.status(400).json({
         success: false,
         message: 'Conversion factor must be greater than 0'
+      });
+    }
+
+    if (defaultSellingPrice !== undefined && defaultSellingPrice !== null && defaultSellingPrice !== '' && !isNonNegativeNumber(defaultSellingPrice)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Default selling price cannot be negative'
+      });
+    }
+
+    if (reorderLevel !== undefined && reorderLevel !== null && !isNonNegativeInteger(reorderLevel)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reorder level must be 0 or higher'
       });
     }
 
@@ -554,10 +659,20 @@ exports.updateMedicine = async (req, res) => {
       });
     }
 
+    const resolvedBaseUnit = baseUnit !== undefined ? baseUnit : medicine.baseUnit;
+    const resolvedSellingUnit = sellingUnit !== undefined ? sellingUnit : medicine.sellingUnit;
+
+    if ((resolvedBaseUnit && !resolvedSellingUnit) || (!resolvedBaseUnit && resolvedSellingUnit)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Base unit and selling unit must be provided together'
+      });
+    }
+
     // Check for duplicate barcode (excluding current medicine)
-    if (barcode && barcode !== medicine.barcode) {
+    if (normalizedBarcode && normalizedBarcode !== medicine.barcode) {
       const existingBarcode = await Medicine.findOne({
-        barcode,
+        barcode: normalizedBarcode,
         isDeleted: false,
         _id: { $ne: req.params.id }
       });
@@ -566,6 +681,21 @@ exports.updateMedicine = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'Medicine with this barcode already exists'
+        });
+      }
+    }
+
+    if (normalizedGtin && normalizedGtin !== medicine.gtin) {
+      const existingGtin = await Medicine.findOne({
+        gtin: normalizedGtin,
+        isDeleted: false,
+        _id: { $ne: req.params.id }
+      });
+
+      if (existingGtin) {
+        return res.status(400).json({
+          success: false,
+          message: 'Medicine with this GTIN already exists'
         });
       }
     }
@@ -583,17 +713,19 @@ exports.updateMedicine = async (req, res) => {
     }
 
     // Update fields - handle null values for optional fields (Part 1)
-    medicine.medicineName = medicineName || medicine.medicineName;
-    medicine.brandName = brandName !== undefined ? (brandName || null) : medicine.brandName;
-    medicine.strength = strength !== undefined ? (strength || null) : medicine.strength;
-    medicine.packSize = packSize !== undefined ? (packSize || null) : medicine.packSize;
-    medicine.manufacturer = manufacturer !== undefined ? (manufacturer || null) : medicine.manufacturer;
-    medicine.barcode = barcode || medicine.barcode;
-    medicine.gtin = gtin || medicine.gtin;
+    medicine.medicineName = normalizedMedicineName || medicine.medicineName;
+    medicine.brandName = normalizedBrandName !== undefined ? normalizedBrandName : medicine.brandName;
+    medicine.strength = normalizedStrength !== undefined ? normalizedStrength : medicine.strength;
+    medicine.packSize = normalizedPackSize !== undefined ? normalizedPackSize : medicine.packSize;
+    medicine.manufacturer = normalizedManufacturer !== undefined ? normalizedManufacturer : medicine.manufacturer;
+    medicine.barcode = normalizedBarcode !== undefined ? (normalizedBarcode || null) : medicine.barcode;
+    medicine.gtin = normalizedGtin !== undefined ? (normalizedGtin || null) : medicine.gtin;
     medicine.hsnCode = hsnRef ? hsnRef._id : medicine.hsnCode;
     medicine.hsnCodeString = hsnCodeString || (hsnRef ? hsnRef.hsnCode : medicine.hsnCodeString);
     medicine.gstPercent = finalGstPercent;
-    medicine.defaultSellingPrice = defaultSellingPrice || medicine.defaultSellingPrice;
+    if (defaultSellingPrice !== undefined) {
+      medicine.defaultSellingPrice = defaultSellingPrice === '' || defaultSellingPrice === null ? null : Number(defaultSellingPrice);
+    }
     medicine.reorderLevel = reorderLevel !== undefined ? reorderLevel : medicine.reorderLevel;
     medicine.status = status || medicine.status;
 
@@ -605,9 +737,9 @@ exports.updateMedicine = async (req, res) => {
 
     // More Options fields (Part 4)
     if (askDose !== undefined) medicine.askDose = askDose;
-    if (salt !== undefined) medicine.salt = salt || null;
-    if (colorType !== undefined) medicine.colorType = colorType || null;
-    if (packing !== undefined) medicine.packing = packing || null;
+    if (normalizedSalt !== undefined) medicine.salt = normalizedSalt;
+    if (normalizedColorType !== undefined) medicine.colorType = normalizedColorType;
+    if (normalizedPacking !== undefined) medicine.packing = normalizedPacking;
     if (decimalAllowed !== undefined) medicine.decimalAllowed = decimalAllowed;
     if (itemType !== undefined) medicine.itemType = itemType || null;
 

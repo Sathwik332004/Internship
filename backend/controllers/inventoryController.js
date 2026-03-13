@@ -3,6 +3,9 @@ const Inventory = require('../models/Inventory');
 const InventoryDisposal = require('../models/InventoryDisposal');
 const Medicine = require('../models/Medicine');
 const { disposeInventoryQuantity } = require('../services/inventoryDisposalService');
+const {
+  normalizeOptionalText
+} = require('../utils/validation');
 
 // @desc    Get all inventory items (batch-wise stock)
 // @route   GET /api/inventory
@@ -167,6 +170,16 @@ exports.disposeInventoryItem = async (req, res) => {
   try {
     const { quantity, reason, notes, disposedAt } = req.body;
     const normalizedReason = (reason || 'DAMAGED').toUpperCase();
+    const normalizedNotes = normalizeOptionalText(notes) || '';
+
+    if (!Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Disposal quantity must be a whole number greater than 0'
+      });
+    }
 
     if (!['DAMAGED', 'EXPIRED', 'OTHER'].includes(normalizedReason)) {
       await session.abortTransaction();
@@ -200,12 +213,21 @@ exports.disposeInventoryItem = async (req, res) => {
       });
     }
 
+    if (normalizedReason === 'OTHER' && normalizedNotes.length < 3) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide notes when disposal reason is Other'
+      });
+    }
+
     const { disposal } = await disposeInventoryQuantity({
       inventory,
       quantity,
       disposalReason: normalizedReason,
       source: 'MANUAL',
-      notes: notes || '',
+      notes: normalizedNotes,
       disposedBy: req.user?._id || req.user?.id || null,
       disposedAt: disposedAt ? new Date(disposedAt) : new Date(),
       session

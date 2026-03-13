@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Pill, ArrowLeft, Loader2 } from 'lucide-react';
 import { authAPI } from '../services/api';
+import {
+  isValidEmail,
+  normalizeEmail,
+  validateResetPasswordForm
+} from '../utils/validation';
 
 const ForgotPassword = () => {
   const [step, setStep] = useState(1); // 1: email, 2: otp, 3: new password
@@ -15,10 +20,17 @@ const ForgotPassword = () => {
 
   const handleSendOTP = async (e) => {
     e.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+
     setLoading(true);
     try {
-      await authAPI.forgotPassword({ email });
+      await authAPI.forgotPassword({ email: normalizedEmail });
       toast.success('OTP sent to your email');
+      setEmail(normalizedEmail);
       setStep(2);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to send OTP');
@@ -29,8 +41,9 @@ const ForgotPassword = () => {
 
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
+    const validationError = validateResetPasswordForm({ email, otp, password, confirmPassword });
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
     setLoading(true);
@@ -101,6 +114,7 @@ const ForgotPassword = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest"
                 placeholder="000000"
                 maxLength={6}
+                inputMode="numeric"
                 required
               />
             </div>
@@ -112,6 +126,7 @@ const ForgotPassword = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter new password"
                 required

@@ -1,4 +1,8 @@
 const HSN = require('../models/HSN');
+const {
+  isValidHSN,
+  normalizeWhitespace
+} = require('../utils/validation');
 
 // @desc    Get all HSN codes
 // @route   GET /api/hsn
@@ -157,10 +161,33 @@ exports.searchHSNCodes = async (req, res) => {
 exports.createHSNCode = async (req, res) => {
   try {
     const { hsnCode, description, gstPercent, status } = req.body;
+    const normalizedHsnCode = String(hsnCode || '').trim();
+    const normalizedDescription = normalizeWhitespace(description);
+
+    if (!isValidHSN(normalizedHsnCode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'HSN code must be 4 to 8 digits'
+      });
+    }
+
+    if (normalizedDescription.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Description must be at least 3 characters'
+      });
+    }
+
+    if (![0, 5, 12, 18, 28].includes(Number(gstPercent))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid GST percentage'
+      });
+    }
 
     // Check for duplicate HSN code
     const existingHSN = await HSN.findOne({
-      hsnCode,
+      hsnCode: normalizedHsnCode,
       isDeleted: false
     });
 
@@ -172,9 +199,9 @@ exports.createHSNCode = async (req, res) => {
     }
 
     const hsn = await HSN.create({
-      hsnCode,
-      description,
-      gstPercent,
+      hsnCode: normalizedHsnCode,
+      description: normalizedDescription,
+      gstPercent: Number(gstPercent),
       status: status || 'ACTIVE'
     });
 
@@ -213,6 +240,13 @@ exports.updateHSNCode = async (req, res) => {
 
     // Check for duplicate HSN code (excluding current)
     if (req.body.hsnCode && req.body.hsnCode !== hsn.hsnCode) {
+      if (!isValidHSN(req.body.hsnCode)) {
+        return res.status(400).json({
+          success: false,
+          message: 'HSN code must be 4 to 8 digits'
+        });
+      }
+
       const existingHSN = await HSN.findOne({
         hsnCode: req.body.hsnCode,
         isDeleted: false,
@@ -227,8 +261,27 @@ exports.updateHSNCode = async (req, res) => {
       }
     }
 
-    hsn.description = description || hsn.description;
-    hsn.gstPercent = gstPercent || hsn.gstPercent;
+    if (description !== undefined) {
+      const normalizedDescription = normalizeWhitespace(description);
+      if (normalizedDescription.length < 3) {
+        return res.status(400).json({
+          success: false,
+          message: 'Description must be at least 3 characters'
+        });
+      }
+      hsn.description = normalizedDescription;
+    }
+
+    if (gstPercent !== undefined) {
+      if (![0, 5, 12, 18, 28].includes(Number(gstPercent))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid GST percentage'
+        });
+      }
+      hsn.gstPercent = Number(gstPercent);
+    }
+
     hsn.status = status || hsn.status;
 
     await hsn.save();

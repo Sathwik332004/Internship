@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, Monitor, Car, Sofa, Wrench, Package, AlertTriangle } from 'lucide-react';
 import api from '../services/api';
+import {
+  normalizeTextInput,
+  validateAssetForm
+} from '../utils/validation';
 
 export default function Assets() {
   const [assets, setAssets] = useState([]);
@@ -66,11 +70,26 @@ export default function Assets() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationError = validateAssetForm(formData);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      assetName: normalizeTextInput(formData.assetName).trim(),
+      purchaseDate: formData.purchaseDate,
+      cost: Number(formData.cost),
+      location: normalizeTextInput(formData.location).trim(),
+      description: normalizeTextInput(formData.description).trim()
+    };
+
     try {
       if (editingAsset) {
-        await api.put(`/assets/${editingAsset._id}`, formData);
+        await api.put(`/assets/${editingAsset._id}`, payload);
       } else {
-        await api.post('/assets', formData);
+        await api.post('/assets', payload);
       }
       setShowModal(false);
       setEditingAsset(null);
@@ -407,7 +426,8 @@ export default function Assets() {
                     type="text"
                     required
                     value={formData.assetName}
-                    onChange={(e) => setFormData({ ...formData, assetName: e.target.value })}
+                    maxLength={120}
+                    onChange={(e) => setFormData({ ...formData, assetName: normalizeTextInput(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -429,6 +449,7 @@ export default function Assets() {
                   <input
                     type="date"
                     required
+                    max={new Date().toISOString().split('T')[0]}
                     value={formData.purchaseDate}
                     onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -440,6 +461,7 @@ export default function Assets() {
                     type="number"
                     required
                     min="0"
+                    step="0.01"
                     value={formData.cost}
                     onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -476,7 +498,8 @@ export default function Assets() {
                   <input
                     type="text"
                     value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    maxLength={120}
+                    onChange={(e) => setFormData({ ...formData, location: normalizeTextInput(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -485,7 +508,8 @@ export default function Assets() {
                   <textarea
                     rows={3}
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    maxLength={250}
+                    onChange={(e) => setFormData({ ...formData, description: normalizeTextInput(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>

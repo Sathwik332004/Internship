@@ -1,5 +1,13 @@
 const User = require('../models/User');
 const { sendOTPEmail, sendWelcomeEmail } = require('../utils/email');
+const {
+  isValidEmail,
+  isValidOtp,
+  isValidPhone,
+  normalizeEmail,
+  normalizePhone,
+  normalizeWhitespace
+} = require('../utils/validation');
 
 // @desc    Register new user (Admin only)
 // @route   POST /api/auth/register
@@ -7,9 +15,48 @@ const { sendOTPEmail, sendWelcomeEmail } = require('../utils/email');
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role, phone } = req.body;
+    const normalizedName = normalizeWhitespace(name);
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = normalizePhone(phone);
+    const normalizedRole = role || 'staff';
+
+    if (normalizedName.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name must be at least 2 characters'
+      });
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email'
+      });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    if (!['admin', 'staff'].includes(normalizedRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user role'
+      });
+    }
+
+    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number must be 10 digits'
+      });
+    }
 
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -19,15 +66,15 @@ exports.register = async (req, res) => {
 
     // Create user
     const user = await User.create({
-      name,
-      email,
+      name: normalizedName,
+      email: normalizedEmail,
       password,
-      role: role || 'staff',
-      phone
+      role: normalizedRole,
+      phone: normalizedPhone || ''
     });
 
     // Send welcome email
-    await sendWelcomeEmail(email, name);
+    await sendWelcomeEmail(normalizedEmail, normalizedName);
 
     sendTokenResponse(user, 201, res);
   } catch (error) {
@@ -46,17 +93,18 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     // Validate email & password
-    if (!email || !password) {
+    if (!isValidEmail(normalizedEmail) || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: 'Please provide a valid email and password'
       });
     }
 
     // Check for user
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
     if (!user) {
       return res.status(401).json({
@@ -118,6 +166,13 @@ exports.verifyLoginOTP = async (req, res) => {
   try {
     const { userId, otp } = req.body;
 
+    if (!userId || !isValidOtp(otp)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid user and OTP are required'
+      });
+    }
+
     const user = await User.findById(userId).select('+loginOTP +loginOTPExpire');
 
     if (!user) {
@@ -159,6 +214,13 @@ exports.resendLoginOTP = async (req, res) => {
   try {
     const { userId } = req.body;
 
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User is required'
+      });
+    }
+
     const user = await User.findById(userId);
 
     if (!user) {
@@ -192,8 +254,16 @@ exports.resendLoginOTP = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    const user = await User.findOne({ email });
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email'
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(404).json({
@@ -226,8 +296,30 @@ exports.forgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   try {
     const { email, otp, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    const user = await User.findOne({ email }).select('+resetOTP +resetOTPExpire');
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email'
+      });
+    }
+
+    if (!isValidOtp(otp)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid 6-digit OTP'
+      });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select('+resetOTP +resetOTPExpire');
 
     if (!user) {
       return res.status(404).json({
@@ -301,9 +393,28 @@ exports.updateDetails = async (req, res) => {
     }
 
     // ✅ Check if email already exists
-    if (req.body.email) {
+    if (req.body.name !== undefined) {
+      const normalizedName = normalizeWhitespace(req.body.name);
+      if (normalizedName.length < 2) {
+        return res.status(400).json({
+          success: false,
+          message: 'Name must be at least 2 characters'
+        });
+      }
+      user.name = normalizedName;
+    }
 
-      const existingUser = await User.findOne({ email: req.body.email });
+    if (req.body.email !== undefined) {
+
+      const normalizedEmail = normalizeEmail(req.body.email);
+      if (!isValidEmail(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email'
+        });
+      }
+
+      const existingUser = await User.findOne({ email: normalizedEmail });
 
       if (existingUser && existingUser._id.toString() !== user._id.toString()) {
         return res.status(400).json({
@@ -312,12 +423,19 @@ exports.updateDetails = async (req, res) => {
         });
       }
 
-      user.email = req.body.email;
+      user.email = normalizedEmail;
     }
 
-    // Update other fields
-    if (req.body.name) user.name = req.body.name;
-    if (req.body.phone) user.phone = req.body.phone;
+    if (req.body.phone !== undefined) {
+      const normalizedPhone = normalizePhone(req.body.phone);
+      if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number must be 10 digits'
+        });
+      }
+      user.phone = normalizedPhone;
+    }
 
     await user.save();
 
@@ -345,6 +463,26 @@ exports.updateDetails = async (req, res) => {
 // @access  Private
 exports.updatePassword = async (req, res) => {
   try {
+    if (!req.body.currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is required'
+      });
+    }
+
+    if (!req.body.newPassword || req.body.newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters'
+      });
+    }
+
+    if (req.body.newPassword === req.body.currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from current password'
+      });
+    }
 
     const user = await User.findById(req.user.id).select('+password');
 
@@ -506,10 +644,48 @@ exports.updateUser = async (req, res) => {
   try {
     const fieldsToUpdate = {};
     const { name, email, role, phone, isActive } = req.body;
-    if (name) fieldsToUpdate.name = name;
-    if (email) fieldsToUpdate.email = email;
-    if (role) fieldsToUpdate.role = role;
-    if (phone) fieldsToUpdate.phone = phone;
+
+    if (name !== undefined) {
+      const normalizedName = normalizeWhitespace(name);
+      if (normalizedName.length < 2) {
+        return res.status(400).json({ success: false, message: 'Name must be at least 2 characters' });
+      }
+      fieldsToUpdate.name = normalizedName;
+    }
+
+    if (email !== undefined) {
+      const normalizedEmail = normalizeEmail(email);
+      if (!isValidEmail(normalizedEmail)) {
+        return res.status(400).json({ success: false, message: 'Please provide a valid email' });
+      }
+
+      const existingUser = await User.findOne({
+        email: normalizedEmail,
+        _id: { $ne: req.params.id }
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'Email already in use' });
+      }
+
+      fieldsToUpdate.email = normalizedEmail;
+    }
+
+    if (role !== undefined) {
+      if (!['admin', 'staff'].includes(role)) {
+        return res.status(400).json({ success: false, message: 'Invalid user role' });
+      }
+      fieldsToUpdate.role = role;
+    }
+
+    if (phone !== undefined) {
+      const normalizedPhone = normalizePhone(phone);
+      if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+        return res.status(400).json({ success: false, message: 'Phone number must be 10 digits' });
+      }
+      fieldsToUpdate.phone = normalizedPhone;
+    }
+
     if (typeof isActive !== 'undefined') fieldsToUpdate.isActive = isActive;
 
     const user = await User.findByIdAndUpdate(req.params.id, fieldsToUpdate, {

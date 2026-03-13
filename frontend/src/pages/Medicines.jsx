@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, AlertTriangle, Package, X, ChevronLeft, ChevronRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../services/api';
+import {
+  normalizeTextInput,
+  validateMedicineForm
+} from '../utils/validation';
 
 // Unit options for dropdown
 const UNIT_OPTIONS = [
@@ -68,30 +72,36 @@ export default function Medicines() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationError = validateMedicineForm(formData, UNIT_OPTIONS);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
     try {
       // Prepare data - convert empty strings to null for optional fields
       // NOTE: GST fields are NOT sent - they will be handled in Purchase Entry
       const submitData = {
-        medicineName: formData.medicineName,
-        brandName: formData.brandName || null,
-        strength: formData.strength || null,
-        packSize: formData.packSize || null,
-        manufacturer: formData.manufacturer || null,
-        barcode: formData.barcode || null,
-        gtin: formData.gtin || null,
-        defaultSellingPrice: formData.defaultSellingPrice || null,
-        reorderLevel: formData.reorderLevel || 10,
+        medicineName: normalizeTextInput(formData.medicineName).trim(),
+        brandName: normalizeTextInput(formData.brandName).trim() || null,
+        strength: normalizeTextInput(formData.strength).trim() || null,
+        packSize: normalizeTextInput(formData.packSize).trim() || null,
+        manufacturer: normalizeTextInput(formData.manufacturer).trim() || null,
+        barcode: String(formData.barcode || '').trim() || null,
+        gtin: String(formData.gtin || '').trim() || null,
+        defaultSellingPrice: formData.defaultSellingPrice === '' ? null : Number(formData.defaultSellingPrice),
+        reorderLevel: Number(formData.reorderLevel) || 0,
         status: formData.status,
         // Unit Conversion fields
         baseUnit: formData.baseUnit || null,
         sellingUnit: formData.sellingUnit || null,
-        conversionFactor: formData.conversionFactor || 1,
+        conversionFactor: Number(formData.conversionFactor) || 1,
         allowDecimal: formData.allowDecimal || false,
         // More Options fields
         askDose: formData.askDose || false,
-        salt: formData.salt || null,
-        colorType: formData.colorType || null,
-        packing: formData.packing || null,
+        salt: normalizeTextInput(formData.salt).trim() || null,
+        colorType: normalizeTextInput(formData.colorType).trim() || null,
+        packing: normalizeTextInput(formData.packing).trim() || null,
         decimalAllowed: formData.decimalAllowed || false,
         itemType: formData.itemType || null
       };
@@ -443,7 +453,8 @@ export default function Medicines() {
                       type="text"
                       required
                       value={formData.medicineName}
-                      onChange={(e) => setFormData({ ...formData, medicineName: e.target.value })}
+                      maxLength={120}
+                      onChange={(e) => setFormData({ ...formData, medicineName: normalizeTextInput(e.target.value) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -452,7 +463,8 @@ export default function Medicines() {
                     <input
                       type="text"
                       value={formData.brandName}
-                      onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                      maxLength={80}
+                      onChange={(e) => setFormData({ ...formData, brandName: normalizeTextInput(e.target.value) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -462,7 +474,8 @@ export default function Medicines() {
                       type="text"
                       placeholder="e.g., 500mg"
                       value={formData.strength}
-                      onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
+                      maxLength={40}
+                      onChange={(e) => setFormData({ ...formData, strength: normalizeTextInput(e.target.value) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -472,7 +485,8 @@ export default function Medicines() {
                       type="text"
                       placeholder="e.g., 10 Tablets"
                       value={formData.packSize}
-                      onChange={(e) => setFormData({ ...formData, packSize: e.target.value })}
+                      maxLength={40}
+                      onChange={(e) => setFormData({ ...formData, packSize: normalizeTextInput(e.target.value) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -481,7 +495,8 @@ export default function Medicines() {
                     <input
                       type="text"
                       value={formData.manufacturer}
-                      onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+                      maxLength={80}
+                      onChange={(e) => setFormData({ ...formData, manufacturer: normalizeTextInput(e.target.value) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -490,7 +505,9 @@ export default function Medicines() {
                     <input
                       type="text"
                       value={formData.barcode}
-                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      inputMode="numeric"
+                      maxLength={14}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value.replace(/\D/g, '').slice(0, 14) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -499,7 +516,9 @@ export default function Medicines() {
                     <input
                       type="text"
                       value={formData.gtin}
-                      onChange={(e) => setFormData({ ...formData, gtin: e.target.value })}
+                      inputMode="numeric"
+                      maxLength={14}
+                      onChange={(e) => setFormData({ ...formData, gtin: e.target.value.replace(/\D/g, '').slice(0, 14) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -649,7 +668,8 @@ export default function Medicines() {
                         <input
                           type="text"
                           value={formData.salt}
-                          onChange={(e) => setFormData({ ...formData, salt: e.target.value })}
+                          maxLength={120}
+                          onChange={(e) => setFormData({ ...formData, salt: normalizeTextInput(e.target.value) })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
@@ -658,7 +678,8 @@ export default function Medicines() {
                         <input
                           type="text"
                           value={formData.colorType}
-                          onChange={(e) => setFormData({ ...formData, colorType: e.target.value })}
+                          maxLength={40}
+                          onChange={(e) => setFormData({ ...formData, colorType: normalizeTextInput(e.target.value) })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
@@ -667,7 +688,8 @@ export default function Medicines() {
                         <input
                           type="text"
                           value={formData.packing}
-                          onChange={(e) => setFormData({ ...formData, packing: e.target.value })}
+                          maxLength={40}
+                          onChange={(e) => setFormData({ ...formData, packing: normalizeTextInput(e.target.value) })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>

@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
+import {
+  normalizeEmail,
+  normalizePhone,
+  normalizeTextInput,
+  validatePasswordChangeForm,
+  validateProfileForm
+} from "../utils/validation";
 
 const AdminProfile = () => {
 
@@ -63,6 +70,18 @@ const AdminProfile = () => {
   };
 
   const updateProfile = async () => {
+    const profileToSubmit = {
+      ...profile,
+      name: normalizeTextInput(profile.name).trim(),
+      email: normalizeEmail(profile.email),
+      phone: normalizePhone(profile.phone)
+    };
+
+    const validationError = validateProfileForm(profileToSubmit);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
 
     setLoadingProfile(true);
 
@@ -70,7 +89,7 @@ const AdminProfile = () => {
 
       const res = await axios.put(
         "/api/auth/updatedetails",
-        profile,
+        profileToSubmit,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -102,13 +121,9 @@ const AdminProfile = () => {
   };
 
   const changePassword = async () => {
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      return toast.error("Passwords do not match");
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      return toast.error("Password must be at least 6 characters");
+    const validationError = validatePasswordChangeForm(passwordData);
+    if (validationError) {
+      return toast.error(validationError);
     }
 
     setLoadingPassword(true);
@@ -155,7 +170,13 @@ const AdminProfile = () => {
             type="text"
             name="name"
             value={profile.name}
-            onChange={handleProfileChange}
+            maxLength={50}
+            onChange={(e) => handleProfileChange({
+              target: {
+                name: e.target.name,
+                value: normalizeTextInput(e.target.value)
+              }
+            })}
             className="w-full border rounded p-2 mt-1"
           />
         </div>
@@ -177,7 +198,14 @@ const AdminProfile = () => {
             type="text"
             name="phone"
             value={profile.phone}
-            onChange={handleProfileChange}
+            inputMode="numeric"
+            maxLength={10}
+            onChange={(e) => handleProfileChange({
+              target: {
+                name: e.target.name,
+                value: normalizePhone(e.target.value)
+              }
+            })}
             className="w-full border rounded p-2 mt-1"
           />
         </div>

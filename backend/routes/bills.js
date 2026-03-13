@@ -13,31 +13,35 @@ const {
   getDashboardStats
 } = require('../controllers/billController');
 const { protect, adminOnly } = require('../middleware/auth');
+const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
+
+router.use(protect);
+router.use(syncExpiredInventory);
 
 router.route('/')
-  .get(protect, getBills)
-  .post(protect, createBill);
+  .get(getBills)
+  .post(createBill);
 
 router.route('/dashboard')
-  .get(protect, getDashboardStats);
+  .get(getDashboardStats);
 
 router.route('/sales/daily')
-  .get(protect, getDailySales);
+  .get(getDailySales);
 
 router.route('/sales/monthly')
-  .get(protect, getMonthlySales);
+  .get(getMonthlySales);
 
 router.route('/top-medicines')
-  .get(protect, getTopMedicines);
+  .get(getTopMedicines);
 
 router.route('/report/sales')
-  .get(protect, getSalesReport);
+  .get(getSalesReport);
 
 router.route('/report/gst')
-  .get(protect, getGstReport);
+  .get(getGstReport);
 
 router.route('/:id')
-  .get(protect, getBill)
-  .put(protect, adminOnly, updateBill);
+  .get(getBill)
+  .put(adminOnly, updateBill);
 
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+const { autoDisposeExpiredInventory } = require('./services/inventoryDisposalService');
 
 // Load env vars
 dotenv.config();
@@ -69,6 +70,22 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+const runAutoDisposal = async () => {
+  try {
+    const result = await autoDisposeExpiredInventory();
+    if (result.disposedCount > 0) {
+      console.log(`Auto-disposed ${result.disposedUnits} expired units across ${result.disposedCount} batches`);
+    }
+  } catch (error) {
+    console.error('Auto disposal failed:', error.message);
+  }
+};
+
+runAutoDisposal();
+
+const autoDisposalIntervalMinutes = parseInt(process.env.AUTO_DISPOSAL_INTERVAL_MINUTES || '60', 10);
+setInterval(runAutoDisposal, Math.max(autoDisposalIntervalMinutes, 1) * 60 * 1000);
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Inventory = require('../models/Inventory');
+const InventoryDisposal = require('../models/InventoryDisposal');
 const Medicine = require('../models/Medicine');
+const { disposeInventoryQuantity } = require('../services/inventoryDisposalService');
 
 // @desc    Get all inventory items (batch-wise stock)
 // @route   GET /api/inventory
@@ -14,10 +16,17 @@ exports.getInventory = async (req, res) => {
       sortBy = 'expiryDate',
       sortOrder = 'asc',
       lowStock,
-      expiringSoon
+      expiringSoon,
+      includeZeroStock = 'false'
     } = req.query;
 
-    let query = {};
+    let query = {
+      isDeleted: false
+    };
+
+    if (includeZeroStock !== 'true') {
+      query.quantityAvailable = { $gt: 0 };
+    }
 
     // Search by medicine name or batch number
     if (search) {
@@ -51,15 +60,14 @@ exports.getInventory = async (req, res) => {
         stockMap[item._id.toString()] = item.totalQuantity;
       });
 
-      const lowStockMeds = await Medicine.find({
+      const medicines = await Medicine.find({
         isDeleted: false,
-        status: 'ACTIVE',
-        $expr: {
-          $lte: [
-            { $ifNull: [stockMap[{$toString: '$_id'}], 0] },
-            '$reorderLevel'
-          ]
-        }
+        status: 'ACTIVE'
+      });
+
+      const lowStockMeds = medicines.filter((medicine) => {
+        const totalQuantity = stockMap[medicine._id.toString()] || 0;
+        return totalQuantity <= medicine.reorderLevel;
       });
 
       query.medicine = { $in: lowStockMeds.map(m => m._id) };
@@ -149,6 +157,85 @@ exports.getInventory = async (req, res) => {
   }
 };
 
+// @desc    Dispose inventory from a batch manually
+// @route   POST /api/inventory/:id/dispose
+// @access  Private/Admin
+exports.disposeInventoryItem = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { quantity, reason, notes, disposedAt } = req.body;
+    const normalizedReason = (reason || 'DAMAGED').toUpperCase();
+
+    if (!['DAMAGED', 'EXPIRED', 'OTHER'].includes(normalizedReason)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid disposal reason'
+      });
+    }
+
+    const inventory = await Inventory.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    }).session(session);
+
+    if (!inventory) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: 'Inventory item not found'
+      });
+    }
+
+    if (inventory.quantityAvailable <= 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'No stock available to dispose'
+      });
+    }
+
+    const { disposal } = await disposeInventoryQuantity({
+      inventory,
+      quantity,
+      disposalReason: normalizedReason,
+      source: 'MANUAL',
+      notes: notes || '',
+      disposedBy: req.user?._id || req.user?.id || null,
+      disposedAt: disposedAt ? new Date(disposedAt) : new Date(),
+      session
+    });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const populatedDisposal = await InventoryDisposal.findById(disposal._id)
+      .populate('medicine', 'medicineName brandName strength baseUnit')
+      .populate('supplier', 'supplierName')
+      .populate('disposedBy', 'name');
+
+    res.status(200).json({
+      success: true,
+      message: 'Inventory disposed successfully',
+      data: populatedDisposal
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error disposing inventory',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get single inventory item
 // @route   GET /api/inventory/:id
 // @access  Private
@@ -178,6 +265,69 @@ exports.getInventoryItem = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error getting inventory item',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get disposal history
+// @route   GET /api/inventory/disposals
+// @access  Private
+exports.getDisposals = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      reason,
+      search
+    } = req.query;
+
+    const query = {};
+
+    if (reason) {
+      query.disposalReason = reason;
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      const medicines = await Medicine.find({
+        medicineName: searchRegex,
+        isDeleted: false
+      }).select('_id');
+
+      query.$or = [
+        { batchNumber: searchRegex },
+        { medicine: { $in: medicines.map((medicine) => medicine._id) } }
+      ];
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const disposals = await InventoryDisposal.find(query)
+      .populate('medicine', 'medicineName brandName strength baseUnit')
+      .populate('supplier', 'supplierName')
+      .populate('disposedBy', 'name')
+      .sort({ disposedAt: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await InventoryDisposal.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      count: disposals.length,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
+      data: disposals
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting disposal history',
       error: error.message
     });
   }
@@ -429,6 +579,31 @@ exports.getInventoryStats = async (req, res) => {
       status: 'EXPIRED'
     });
 
+    const disposalStats = await InventoryDisposal.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalDisposedUnits: { $sum: '$quantityDisposed' },
+          totalDisposedValue: { $sum: { $multiply: ['$quantityDisposed', '$purchasePrice'] } },
+          totalDisposalEntries: { $sum: 1 },
+          damagedUnits: {
+            $sum: {
+              $cond: [{ $eq: ['$disposalReason', 'DAMAGED'] }, '$quantityDisposed', 0]
+            }
+          },
+          expiredUnits: {
+            $sum: {
+              $cond: [{ $eq: ['$disposalReason', 'EXPIRED'] }, '$quantityDisposed', 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const latestDisposal = await InventoryDisposal.findOne({})
+      .sort({ disposedAt: -1, createdAt: -1 })
+      .select('disposedAt');
+
     res.status(200).json({
       success: true,
       data: {
@@ -438,7 +613,13 @@ exports.getInventoryStats = async (req, res) => {
         uniqueMedicineCount: uniqueMedicines[0]?.uniqueMedicineCount || 0,
         lowStockCount,
         expiringCount,
-        expiredCount
+        expiredCount,
+        totalDisposedUnits: disposalStats[0]?.totalDisposedUnits || 0,
+        totalDisposedValue: disposalStats[0]?.totalDisposedValue || 0,
+        totalDisposalEntries: disposalStats[0]?.totalDisposalEntries || 0,
+        damagedDisposedUnits: disposalStats[0]?.damagedUnits || 0,
+        expiredDisposedUnits: disposalStats[0]?.expiredUnits || 0,
+        latestDisposedAt: latestDisposal?.disposedAt || null
       }
     });
   } catch (error) {

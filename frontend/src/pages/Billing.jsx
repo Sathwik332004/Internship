@@ -3,6 +3,7 @@ import {
   Search, 
   Trash2, 
   Save, 
+  Printer,
   X,
   User,
   ShoppingCart,
@@ -16,6 +17,12 @@ import {
   Pill
 } from 'lucide-react';
 import api from '../services/api';
+import BillPrintDocument from '../components/BillPrintDocument';
+
+const SHOP_INFO = {
+  name: 'Medical Store',
+  state: 'Maharashtra'
+};
 
 export default function Billing() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,8 +40,9 @@ export default function Billing() {
   
   const [billItems, setBillItems] = useState([]);
   const [paymentMode, setPaymentMode] = useState('CASH');
-  const [amountPaid, setAmountPaid] = useState(0);
+  const [amountPaid, setAmountPaid] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [lastSavedBill, setLastSavedBill] = useState(null);
   
   const [saving, setSaving] = useState(false);
   
@@ -440,6 +448,11 @@ export default function Billing() {
   };
 
   const totals = calculateTotals();
+  const parsedAmountPaid = Number.parseFloat(amountPaid);
+  const effectiveAmountPaid = Number.isFinite(parsedAmountPaid) && parsedAmountPaid > 0
+    ? parsedAmountPaid
+    : totals.grandTotal;
+  const balanceAmount = effectiveAmountPaid - totals.grandTotal;
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -453,8 +466,51 @@ export default function Billing() {
     return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
   };
 
+  const previewBill = billItems.length > 0
+    ? {
+        invoiceNumber: '',
+        billDate: new Date().toISOString(),
+        customerName: customerDetails.name,
+        customerPhone: customerDetails.phone,
+        customerState: customerDetails.state,
+        isInterstate: totals.isInterstate,
+        items: billItems.map((item) => ({
+          medicineName: item.medicineName,
+          brandName: item.brandName,
+          batchNumber: item.batchNumber,
+          expiryDate: item.expiryDate,
+          quantity: item.quantity,
+          quantityLabel: `${item.quantity} ${item.isPack ? 'pack' : item.baseUnit?.toLowerCase() || 'unit'}`,
+          rate: item.isPack ? item.packMrp : item.looseMrp,
+          gstPercent: item.gstPercent,
+          total: item.amount,
+          packQuantity: item.isPack ? item.quantity : 0,
+          looseQuantity: item.isPack ? 0 : item.quantity
+        })),
+        subtotal: totals.subtotal,
+        totalGst: totals.totalGst,
+        totalCgst: totals.totalCgst,
+        totalSgst: totals.totalSgst,
+        totalIgst: totals.totalIgst,
+        discountPercent,
+        discountAmount: totals.discountAmount,
+        grandTotal: totals.grandTotal,
+        paymentMode,
+        amountPaid: effectiveAmountPaid,
+        balance: balanceAmount
+      }
+    : lastSavedBill;
+
+  const printPreview = () => {
+    if (!previewBill) {
+      return;
+    }
+
+    window.print();
+  };
+
   // Save bill
-  const handleSaveBill = async () => {
+  const handleSaveBill = async (shouldPrint = false) => {
     if (billItems.length === 0) {
       alert('Please add at least one item to the bill');
       return;
@@ -513,19 +569,27 @@ export default function Billing() {
         discountAmount: totals.discountAmount,
         grandTotal: totals.grandTotal,
         paymentMode: paymentMode,
-        amountPaid: parseFloat(amountPaid) || totals.grandTotal,
-        balance: (parseFloat(amountPaid) || totals.grandTotal) - totals.grandTotal
+        amountPaid: effectiveAmountPaid,
+        balance: balanceAmount
       };
 
-      await api.post('/bills', billData);
+      const response = await api.post('/bills', billData);
+      const createdBill = response.data?.data || null;
+      setLastSavedBill(createdBill);
       
       // Reset form
       setBillItems([]);
       setCustomerDetails({ name: '', phone: '', state: '' });
       setDiscountPercent(0);
-      setAmountPaid(0);
+      setAmountPaid('');
       setErrorMessage('');
-      alert('Bill saved successfully!');
+      alert(shouldPrint ? 'Bill saved. Print dialog opened.' : 'Bill saved successfully!');
+
+      if (shouldPrint && createdBill) {
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      }
     } catch (error) {
       console.error('Error saving bill:', error);
       console.error('Bill save response:', error.response?.data);
@@ -544,32 +608,33 @@ export default function Billing() {
 
   return (
     <div className="p-6 min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Billing / POS</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleQRScan}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-          >
-            <QrCode size={20} />
-            Scan
-          </button>
+      <div className="no-print">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Billing / POS</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleQRScan}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              <QrCode size={20} />
+              Scan
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Error Message */}
-      {errorMessage && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-          <AlertCircle size={20} />
-          {errorMessage}
-          <button onClick={() => setErrorMessage('')} className="ml-auto text-red-500 hover:text-red-700">
-            <X size={20} />
-          </button>
-        </div>
-      )}
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+            <AlertCircle size={20} />
+            {errorMessage}
+            <button onClick={() => setErrorMessage('')} className="ml-auto text-red-500 hover:text-red-700">
+              <X size={20} />
+            </button>
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column - Search and Items */}
         <div className="lg:col-span-3 space-y-4">
           {/* Customer Details */}
@@ -656,7 +721,7 @@ export default function Billing() {
                             {loadingBatches[medicine._id] ? (
                               <span className="text-xs text-gray-400">Loading...</span>
                             ) : (
-                              <p className="text-sm font-bold text-gray-900">₹{medicine.defaultSellingPrice || 0}</p>
+                              <p className="text-sm font-bold text-gray-900">{formatCurrency(medicine.defaultSellingPrice || 0)}</p>
                             )}
                           </div>
                         </div>
@@ -761,7 +826,7 @@ export default function Billing() {
                           </p>
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="font-medium">₹{item.isPack ? item.packMrp.toFixed(2) : item.looseMrp.toFixed(2)}</span>
+                          <span className="font-medium">{formatCurrency(item.isPack ? item.packMrp : item.looseMrp)}</span>
                           {item.conversionFactor > 1 && (
                             <p className="text-xs text-gray-400">
                               ({item.isPack ? '1' : item.conversionFactor} {item.baseUnit})
@@ -769,7 +834,7 @@ export default function Billing() {
                           )}
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="font-bold text-lg">₹{item.amount.toFixed(2)}</span>
+                          <span className="font-bold text-lg">{formatCurrency(item.amount)}</span>
                         </td>
                         <td className="px-3 py-3">
                           <button
@@ -827,7 +892,7 @@ export default function Billing() {
                 type="number"
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
-                placeholder="Enter amount"
+                placeholder="Leave blank for full payment"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -898,12 +963,12 @@ export default function Billing() {
               <div className="border-t border-gray-700 pt-2 mt-2 space-y-1">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Paid:</span>
-                  <span>{formatCurrency(parseFloat(amountPaid) || 0)}</span>
+                  <span>{formatCurrency(effectiveAmountPaid)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Balance:</span>
-                  <span className={((parseFloat(amountPaid) || 0) - totals.grandTotal) >= 0 ? 'text-green-400' : 'text-red-400'}>
-                    {formatCurrency((parseFloat(amountPaid) || 0) - totals.grandTotal)}
+                  <span className="text-gray-400">{balanceAmount >= 0 ? 'Change / Balance:' : 'Amount Due:'}</span>
+                  <span className={balanceAmount >= 0 ? 'text-green-400' : 'text-red-400'}>
+                    {formatCurrency(Math.abs(balanceAmount))}
                   </span>
                 </div>
               </div>
@@ -912,17 +977,54 @@ export default function Billing() {
             {/* Action Buttons */}
             <div className="mt-6 space-y-2">
               <button
-                onClick={handleSaveBill}
+                onClick={() => handleSaveBill(false)}
                 disabled={saving || billItems.length === 0}
                 className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
               >
                 <Save size={20} />
                 {saving ? 'Saving...' : 'Save Bill'}
               </button>
+              <button
+                onClick={() => handleSaveBill(true)}
+                disabled={saving || billItems.length === 0}
+                className="w-full flex items-center justify-center gap-2 bg-white text-gray-900 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+              >
+                <Printer size={20} />
+                Save & Print
+              </button>
             </div>
           </div>
         </div>
+        </div>
       </div>
+
+      {previewBill && (
+        <div className="mt-8">
+          <div className="bill-print-controls no-print mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Invoice Preview</h2>
+              <p className="text-sm text-slate-600">
+                {billItems.length > 0
+                  ? 'This preview uses one fixed customer bill format and is ready to print after save.'
+                  : 'Last saved bill is ready for reprint in the same customer format.'}
+              </p>
+            </div>
+            <button
+              onClick={printPreview}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              <Printer size={18} />
+              {billItems.length > 0 ? 'Print Preview' : 'Reprint Bill'}
+            </button>
+          </div>
+
+          <BillPrintDocument
+            bill={previewBill}
+            shopInfo={{ ...SHOP_INFO, state: shopState }}
+            isDraft={billItems.length > 0}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -85,6 +85,14 @@ export const purchaseAPI = {
   getReport: (params) => api.get('/purchases/report', { params })
 };
 
+// Inventory API
+export const inventoryAPI = {
+  getAll: (params) => api.get('/inventory', { params }),
+  getStats: () => api.get('/inventory/stats'),
+  dispose: (id, data) => api.post(`/inventory/${id}/dispose`, data),
+  getDisposals: (params) => api.get('/inventory/disposals', { params })
+};
+
 // Bill API
 export const billAPI = {
   getAll: (params) => api.get('/bills', { params }),

@@ -10,20 +10,24 @@ const {
   checkBatchExists
 } = require('../controllers/purchaseController');
 const { protect, adminOnly } = require('../middleware/auth');
+const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
+
+router.use(protect);
+router.use(syncExpiredInventory);
 
 router.route('/')
-  .get(protect, getPurchases)
-  .post(protect, addPurchase);
+  .get(getPurchases)
+  .post(addPurchase);
 
 router.route('/report')
-  .get(protect, adminOnly, getPurchaseReport);
+  .get(adminOnly, getPurchaseReport);
 
 // New routes for purchase enhancements
-router.get('/last-price/:medicineId', protect, getLastPurchasePrice);
-router.get('/check-batch', protect, checkBatchExists);
+router.get('/last-price/:medicineId', getLastPurchasePrice);
+router.get('/check-batch', checkBatchExists);
 
 router.route('/:id')
-  .get(protect, getPurchase)
-  .delete(protect, deletePurchase);
+  .get(getPurchase)
+  .delete(deletePurchase);
 
 module.exports = router;

@@ -48,6 +48,12 @@ const inventorySchema = new mongoose.Schema({
     default: 0
   },
 
+  quantityDisposed: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+
   supplier: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Supplier',
@@ -88,7 +94,7 @@ const inventorySchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['ACTIVE', 'EXHAUSTED', 'EXPIRED'],
+    enum: ['ACTIVE', 'EXHAUSTED', 'EXPIRED', 'DISPOSED'],
     default: 'ACTIVE'
   },
 
@@ -139,12 +145,16 @@ inventorySchema.virtual('isExpiringSoon').get(function () {
 // ================= MIDDLEWARE =================
 
 inventorySchema.pre('save', function(next) {
+  const now = new Date();
 
-  if (this.quantityAvailable <= 0) {
+  if (this.quantityAvailable <= 0 && this.quantityDisposed > 0) {
+    this.status = 'DISPOSED';
+  }
+  else if (this.quantityAvailable <= 0) {
     this.status = 'EXHAUSTED';
   } 
-  else if (this.expiryDate < new Date()) {
-    this.status = 'ACTIVE';
+  else if (this.expiryDate < now) {
+    this.status = 'EXPIRED';
   } 
   else {
     this.status = 'ACTIVE';
@@ -162,7 +172,8 @@ inventorySchema.statics.getFIFOStock = async function (medicineId) {
     medicine: medicineId,
     quantityAvailable: { $gt: 0 },
     expiryDate: { $gt: new Date() },
-    status: 'ACTIVE'
+    status: { $in: ['ACTIVE', 'EXPIRED'] },
+    isDeleted: false
   }).sort({ expiryDate: 1 });
 
 };

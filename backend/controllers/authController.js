@@ -530,14 +530,20 @@ exports.getUsers = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Build search query
-    let query = {};
+    // Exclude soft-deleted users from the list
+    let query = { isDeleted: { $ne: true } };
     
     if (search) {
       query = {
-        $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { phone: { $regex: search, $options: 'i' } }
+        $and: [
+          { isDeleted: { $ne: true } },
+          {
+            $or: [
+              { name: { $regex: search, $options: 'i' } },
+              { email: { $regex: search, $options: 'i' } },
+              { phone: { $regex: search, $options: 'i' } }
+            ]
+          }
         ]
       };
     }
@@ -620,7 +626,10 @@ exports.deleteUser = async (req, res) => {
     }
 
     user.isDeleted = true;
-    user.email = `deleted_${Date.now()}_${user.email}`;
+    // Avoid repeatedly prefixing email if delete is called multiple times
+    if (!user.email.startsWith('deleted_')) {
+      user.email = `deleted_${Date.now()}_${user.email}`;
+    }
     await user.save();
 
     res.status(200).json({

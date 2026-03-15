@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, User, Phone } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, User, Phone, Printer } from 'lucide-react';
+import BillPrintDocument from '../components/BillPrintDocument';
 import api from '../services/api';
 
 export default function Bills() {
@@ -11,6 +12,13 @@ export default function Bills() {
   const [expandedBill, setExpandedBill] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [selectedBill, setSelectedBill] = useState(null);
+
+  const SHOP_INFO = {
+    name: 'Medical Store',
+    state: 'Maharashtra'
+  };
 
   const itemsPerPage = 10;
 
@@ -62,6 +70,10 @@ export default function Bills() {
 
   const calculateTotalItems = (items) => {
     return items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+  };
+
+  const printInvoice = () => {
+    window.print();
   };
 
   return (
@@ -162,24 +174,24 @@ export default function Bills() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[800px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                    <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {bills.map((bill) => (
                     <React.Fragment key={bill._id}>
                       <tr className="hover:bg-gray-50">
-                        <td className="px-4 py-4">
+                        <td className="px-2 sm:px-4 py-4">
                           <button
                             onClick={() => toggleExpand(bill._id)}
                             className="p-1 hover:bg-gray-200 rounded transition-colors"
@@ -187,24 +199,24 @@ export default function Bills() {
                             {expandedBill === bill._id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                           </button>
                         </td>
-                        <td className="px-4 py-4">
-                          <div className="font-medium text-gray-900">{bill.invoiceNumber}</div>
+                        <td className="px-2 sm:px-4 py-4">
+                          <div className="font-medium text-gray-900 text-sm">{bill.invoiceNumber}</div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-2 sm:px-4 py-4">
                           <div className="text-sm font-medium text-gray-900">{bill.customerName || 'Walk-in Customer'}</div>
                           {bill.customerPhone && (
-                            <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                              <Phone size={14} />
+                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                              <Phone size={12} />
                               {bill.customerPhone}
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="hidden sm:table-cell px-4 py-4">
                           <div className="text-sm text-gray-900">
                             {new Date(bill.billDate).toLocaleDateString()}
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="hidden md:table-cell px-4 py-4">
                           <div className="text-sm text-gray-900">
                             {calculateTotalItems(bill.items)} items
                           </div>
@@ -212,41 +224,39 @@ export default function Bills() {
                             {bill.items?.length} medicines
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-2 sm:px-4 py-4">
                           <div className="text-sm font-medium text-gray-900">
                             ₹{bill.grandTotal?.toLocaleString()}
                           </div>
                           {bill.balance > 0 && (
                             <div className="text-xs text-red-600">
-                              Balance: ₹{bill.balance?.toFixed(2)}
-                            </div>
-                          )}
-                          {bill.balance === 0 && (
-                            <div className="text-xs text-green-600">
-                              Paid
+                              Bal: ₹{bill.balance?.toFixed(2)}
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="hidden lg:table-cell px-4 py-4">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentModeColor(bill.paymentMode)}`}>
                             {bill.paymentMode}
                           </span>
                         </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
+                        <td className="px-2 sm:px-4 py-4">
+                          <div className="flex items-center gap-1">
                             <button
-                              onClick={() => toggleExpand(bill._id)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="View Details"
+                              onClick={() => {
+                                setSelectedBill(bill);
+                                setShowPrintModal(true);
+                              }}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="View Invoice & Print"
                             >
-                              <Eye size={18} />
+                              <Eye size={16} />
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(bill)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
@@ -425,6 +435,52 @@ export default function Bills() {
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Invoice Modal */}
+      {showPrintModal && selectedBill && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col">
+            {/* Controls - no-print */}
+            <div className="no-print bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-t-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Invoice Preview - {selectedBill.invoiceNumber}
+                </h2>
+                <p className="text-slate-300 text-sm mt-1">
+                  {selectedBill.customerName || 'Walk-in Customer'}
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={printInvoice}
+                  className="flex items-center justify-center gap-2 bg-white text-slate-900 px-6 py-2.5 rounded-xl font-semibold hover:bg-gray-100 shadow-lg transition-all"
+                >
+                  <Printer size={20} />
+                  Print Invoice
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPrintModal(false);
+                    setSelectedBill(null);
+                  }}
+                  className="flex items-center justify-center gap-2 bg-slate-700 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-slate-600 transition-all"
+                >
+                  <X size={20} />
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Invoice Document */}
+            <div className="flex-1 p-0">
+              <BillPrintDocument
+                bill={selectedBill}
+                shopInfo={SHOP_INFO}
+              />
             </div>
           </div>
         </div>

@@ -230,7 +230,7 @@ export default function HSNCodes() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[600px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HSN Code</th>

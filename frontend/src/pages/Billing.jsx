@@ -212,8 +212,8 @@ export default function Billing() {
     const baseUnit = medicine.baseUnit || 'TAB';
     const sellingUnit = medicine.sellingUnit || baseUnit;
     
-    // Determine default unit (prefer pack if conversionFactor > 1)
-    const defaultIsPack = conversionFactor > 1;
+    // Determine default unit (prefer pack if conversionFactor > 1, never for liquids)
+    const defaultIsPack = conversionFactor > 1 && baseUnit !== 'ml';
     
     // Check if already in bill - if so, just increment quantity
     const existingItem = billItems.find(item => item.medicineId === medicine._id);
@@ -315,7 +315,13 @@ export default function Billing() {
   // Toggle between pack and loose units
   const togglePackUnit = (medicineId) => {
     const item = billItems.find(i => i.medicineId === medicineId);
-    if (!item || item.conversionFactor <= 1) return; // No conversion for single-unit medicines
+    if (!item || item.conversionFactor <= 1 || item.baseUnit === 'ml') {
+      if (item?.baseUnit === 'ml') {
+        setErrorMessage('Liquid medicines (ml) cannot be toggled to pack/loose. Use ml/bottle quantities directly.');
+        setTimeout(() => setErrorMessage(''), 3000);
+      }
+      return;
+    }
     
     const newIsPack = !item.isPack;
     const conversionFactor = Number(item.conversionFactor) || 1;
@@ -780,7 +786,7 @@ export default function Billing() {
                           <span className="text-sm text-gray-600">{item.packSize}</span>
                         </td>
                         <td className="px-3 py-3 text-center">
-                          {item.conversionFactor > 1 ? (
+                          {item.conversionFactor > 1 && item.baseUnit !== 'ml' ? (
                             <button
                               onClick={() => togglePackUnit(item.medicineId)}
                               className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${

@@ -1,15 +1,21 @@
-# Task: Make website responsive + Bills eye icon opens invoice with print
+# Liquid Medicine Billing Fix - TODO
 
-## Plan Status
-- [x] Information gathered from files (Bills.jsx, BillPrintDocument.jsx, Layout.jsx, Billing.jsx)
-- [x] Plan created and approved by user
+## Approved Plan Implementation Steps
 
-## Implementation Steps
-- [ ] Step 1: Create TODO.md ✅
-- [ ] Step 2: Update Bills.jsx - Add print modal states and Eye button handler
-- [ ] Step 3: Add print modal JSX with BillPrintDocument and print controls
-- [ ] Step 4: Minor responsiveness improvements (max-w-7xl wrapper)
-- [ ] Step 5: Test functionality
-- [ ] Step 6: Complete task
+### 1. [x] Create TODO.md (DONE)
+### 2. [x] Edit frontend/src/pages/Billing.jsx
+   - Update `addToBill()` defaultIsPack logic  
+   - Add guard in `togglePackUnit()` for liquids  
+   - Update table render condition for Unit toggle button
+### 3. [ ] Test liquid medicine (baseUnit='ml')
+   - Verify no pack/loose toggle shown
+   - Verify direct quantity input works (ml/bottle)
+### 4. [ ] Test non-liquid medicine (e.g., tablets/strips)
+   - Verify pack/loose toggle still works
+### 5. [ ] Verify stock/inventory logic unchanged
+### 6. [ ] attempt_completion
 
-Current progress: Starting implementation...
+**Status:** Frontend changes completed successfully
+</xai:function_call >  
+<xai:function_call name="edit_file">
+<parameter name="path">frontend/src/pages/Billing.jsx

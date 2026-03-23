@@ -47,6 +47,31 @@ exports.getMedicines = async (req, res) => {
       .skip(skip)
       .limit(limitNum);
 
+    // Get latest MRP from inventory for list view
+    const medicineIds1 = medicines.map(m => m._id);
+    const latestMrps = await Inventory.aggregate([
+      {
+        $match: {
+          medicine: { $in: medicineIds1 },
+          isDeleted: false
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: '$medicine',
+          latestMrp: { $first: '$mrp' }
+        }
+      }
+    ]);
+
+    const mrpMap = {};
+    latestMrps.forEach(item => {
+      mrpMap[item._id.toString()] = item.latestMrp;
+    });
+
     const total = await Medicine.countDocuments(query);
 
     // Get stock info from Inventory for each medicine
@@ -64,7 +89,8 @@ exports.getMedicines = async (req, res) => {
           _id: '$medicine',
           totalQuantity: { $sum: '$quantityAvailable' },
           earliestExpiry: { $min: '$expiryDate' },
-          latestExpiry: { $max: '$expiryDate' }
+          latestExpiry: { $max: '$expiryDate' },
+          latestMrp: { $max: '$mrp' }
         }
       }
     ]);
@@ -75,18 +101,21 @@ exports.getMedicines = async (req, res) => {
       inventoryMap[stat._id.toString()] = {
         quantity: stat.totalQuantity,
         earliestExpiry: stat.earliestExpiry,
-        latestExpiry: stat.latestExpiry
+        latestExpiry: stat.latestExpiry,
+        latestMrp: stat.latestMrp || 0
       };
     });
 
     // Add stock info to medicines
     const medicinesWithStock = medicines.map(med => {
-      const stock = inventoryMap[med._id.toString()] || { quantity: 0, earliestExpiry: null, latestExpiry: null };
+      const stock = inventoryMap[med._id.toString()] || { quantity: 0, earliestExpiry: null, latestExpiry: null, latestMrp: 0 };
+      const latestMrp = stock.latestMrp || mrpMap[med._id.toString()] || med.defaultSellingPrice || 0;
       return {
         ...med.toObject(),
         quantity: stock.quantity,
         expiryDate: stock.earliestExpiry,
-        latestExpiry: stock.latestExpiry
+        latestExpiry: stock.latestExpiry,
+        latestInventoryMrp: latestMrp
       };
     });
 
@@ -219,7 +248,8 @@ exports.searchMedicines = async (req, res) => {
         $group: {
           _id: '$medicine',
           totalQuantity: { $sum: '$quantityAvailable' },
-          earliestExpiry: { $min: '$expiryDate' }
+          earliestExpiry: { $min: '$expiryDate' },
+          latestMrp: { $max: '$mrp' }
         }
       }
     ]);
@@ -236,10 +266,13 @@ exports.searchMedicines = async (req, res) => {
     const medicinesWithStock = medicines
       .map(med => {
         const stock = inventoryMap[med._id.toString()];
+        const latestMrp = stock?.latestMrp || med.defaultSellingPrice || med.latestInventoryMrp || 0;
         return {
           ...med.toObject(),
           quantity: stock?.quantity || 0,
-          expiryDate: stock?.expiryDate || null
+          expiryDate: stock?.earliestExpiry || null,
+          latestInventoryMrp: latestMrp,
+          defaultSellingPrice: latestMrp
         };
       })
       .filter(med => med.quantity > 0)

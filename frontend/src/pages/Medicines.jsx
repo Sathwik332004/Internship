@@ -347,7 +347,17 @@ export default function Medicines() {
                           <div className="text-xs text-gray-500">Min: {medicine.reorderLevel}</div>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="text-sm text-gray-900">₹{medicine.defaultSellingPrice?.toFixed(2) || '0.00'}</div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm font-medium text-gray-900">
+                              ₹{medicine.defaultSellingPrice?.toFixed(2) || medicine.latestInventoryMrp?.toFixed(2) || '0.00'}
+                            </span>
+                            {medicine.latestInventoryMrp && medicine.defaultSellingPrice !== medicine.latestInventoryMrp && (
+                              <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded">Inv</span>
+                            )}
+                          </div>
+                          {medicine.latestInventoryMrp && (
+                            <div className="text-xs text-gray-500 mt-0.5">Latest Inv MRP: ₹{medicine.latestInventoryMrp.toFixed(2)}</div>
+                          )}
                         </td>
                         <td className="px-4 py-4">
                           {medicine.expiryDate ? (
@@ -479,17 +489,7 @@ export default function Medicines() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Pack Size (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., 10 Tablets"
-                      value={formData.packSize}
-                      maxLength={40}
-                      onChange={(e) => setFormData({ ...formData, packSize: normalizeTextInput(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Manufacturer (Optional)</label>
                     <input

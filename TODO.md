@@ -7,6 +7,9 @@
    - Update `addToBill()` defaultIsPack logic  
    - Add guard in `togglePackUnit()` for liquids  
    - Update table render condition for Unit toggle button
+   - Fix `updateQuantity()` to allow 0 quantity (no auto-remove)
+   - Add manual qty input field in bill table
+   - Show product MRP (x1) in search results
 ### 3. [ ] Test liquid medicine (baseUnit='ml')
    - Verify no pack/loose toggle shown
    - Verify direct quantity input works (ml/bottle)

@@ -356,25 +356,16 @@ export default function Billing() {
 
   // Update quantity with stock validation
   const updateQuantity = (medicineId, newQuantity) => {
-    const normalizedQuantity = Number(newQuantity);
+    const normalizedQuantity = Math.max(0, Number(newQuantity));
 
     if (!Number.isFinite(normalizedQuantity)) {
       return;
     }
 
-    if (normalizedQuantity < 1) {
-      removeItem(medicineId);
-      return;
-    }
-  if (newQuantity < 1) {
-    removeItem(medicineId);
-    return;
-  }
-
-    // Find the item and check stock
+    // Find the item and check stock (allow 0 quantity)
     const item = billItems.find(i => i.medicineId === medicineId);
-    if (item) {
-      // Convert to base units for comparison
+    if (item && normalizedQuantity > 0) {
+      // Convert to base units for comparison (skip for qty=0)
       const baseQty = item.isPack ? normalizedQuantity * item.conversionFactor : normalizedQuantity;
       
       if (baseQty > item.availableStock) {
@@ -385,7 +376,7 @@ export default function Billing() {
     
     setErrorMessage('');
     
-    // Calculate amount based on unit
+    // Calculate amount based on unit (0 qty = 0 amount)
     setBillItems(billItems.map(item => {
       if (item.medicineId === medicineId) {
         const currentUnitMrp = item.isPack ? item.packMrp : item.looseMrp;
@@ -732,9 +723,14 @@ export default function Billing() {
                           </div>
                           <div className="text-right">
                             {loadingBatches[medicine._id] ? (
-                              <span className="text-xs text-gray-400">Loading...</span>
+                              <span className="text-xs text-gray-500 italic">Loading stock & price...</span>
                             ) : (
-                              <p className="text-sm font-bold text-gray-900">{formatCurrency(medicine.defaultSellingPrice || 0)}</p>
+                              <div className="text-right space-y-0.5">
+                                <p className="text-sm font-bold text-gray-900">
+                                  {formatCurrency(medicine.defaultSellingPrice || medicine.inventoryBatches?.[0]?.mrp || 0)}
+                                </p>
+                                <p className="text-xs text-blue-600 font-medium">Qty: 1</p>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -820,17 +816,21 @@ export default function Billing() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center justify-center gap-1">
+                            <input 
+                              type="number" 
+                              min="0"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(item.medicineId, e.target.value)}
+                              className="w-20 text-center font-medium border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              onWheel={(e) => e.preventDefault()}
+                            />
                             <button
-                              onClick={() => {
-                                updateQuantity(item.medicineId, item.quantity - 1);
-                              }}
+                              onClick={() => updateQuantity(item.medicineId, item.quantity - 1)}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                              disabled={item.quantity <= 0}
                             >-</button>
-                            <span className="w-16 text-center font-medium">{item.quantity}</span>
                             <button
-                              onClick={() => {
-                                updateQuantity(item.medicineId, item.quantity + 1);
-                              }}
+                              onClick={() => updateQuantity(item.medicineId, item.quantity + 1)}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                             >+</button>
                           </div>

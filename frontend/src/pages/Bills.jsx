@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, User, Phone, Printer } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, Phone, Printer, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import BillPrintDocument from '../components/BillPrintDocument';
+import BillEditModal from '../components/BillEditModal';
 import api from '../services/api';
 
 export default function Bills() {
+  const navigate = useNavigate();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,9 +14,10 @@ export default function Bills() {
   const [totalPages, setTotalPages] = useState(1);
   const [expandedBill, setExpandedBill] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
+  const [editingBill, setEditingBill] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const SHOP_INFO = {
     name: 'Medical Store',
@@ -29,9 +33,15 @@ export default function Bills() {
   const fetchBills = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/bills?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}`);
+      const response = await api.get('/bills', {
+        params: {
+          page: currentPage,
+          limit: itemsPerPage,
+          search: searchTerm
+        }
+      });
       setBills(response.data.data || []);
-      setTotalPages(response.data.pagination?.pages || 1);
+      setTotalPages(response.data.totalPages || 1);
     } catch (error) {
       console.error('Error fetching bills:', error);
       // Use sample data if API fails
@@ -76,6 +86,26 @@ export default function Bills() {
     window.print();
   };
 
+  const openEditModal = async (billId) => {
+    try {
+      const response = await api.get(`/bills/${billId}`);
+      setEditingBill(response.data?.data || null);
+      setShowEditModal(true);
+    } catch (error) {
+      console.error('Error loading bill for edit:', error);
+      alert(error.response?.data?.message || 'Unable to open bill editor.');
+    }
+  };
+
+  const handleBillUpdated = (updatedBill) => {
+    setShowEditModal(false);
+    setEditingBill(null);
+    if (updatedBill?._id && selectedBill?._id === updatedBill._id) {
+      setSelectedBill(updatedBill);
+    }
+    fetchBills();
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -85,7 +115,7 @@ export default function Bills() {
           <p className="text-gray-600 mt-1">Manage customer bills and invoices</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => navigate('/billing')}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus size={20} />
@@ -101,7 +131,10 @@ export default function Bills() {
             type="text"
             placeholder="Search by invoice number, customer name, or phone..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setCurrentPage(1);
+              setSearchTerm(e.target.value);
+            }}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -252,6 +285,13 @@ export default function Bills() {
                               <Eye size={16} />
                             </button>
                             <button
+                              onClick={() => openEditModal(bill._id)}
+                              className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Edit Bill"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
                               onClick={() => setDeleteConfirm(bill)}
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
@@ -366,49 +406,6 @@ export default function Bills() {
         )}
       </div>
 
-      {/* New Bill Modal - Simplified */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">New Bill</h2>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">
-                To create a new bill, please use the Billing form. This would typically include:
-              </p>
-              <ul className="list-disc list-inside text-gray-600 mb-6 space-y-2">
-                <li>Customer details (name and phone)</li>
-                <li>Adding medicines from inventory</li>
-                <li>Automatic price and GST calculation</li>
-                <li>Applying discounts per item or overall</li>
-                <li>Payment mode selection (Cash, UPI, Card)</li>
-                <li>Amount paid and balance calculation</li>
-              </ul>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> The full billing form would be implemented here with medicine search, batch selection, automatic stock deduction, and print functionality.
-                </p>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -484,6 +481,17 @@ export default function Bills() {
             </div>
           </div>
         </div>
+      )}
+
+      {showEditModal && editingBill && (
+        <BillEditModal
+          bill={editingBill}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingBill(null);
+          }}
+          onSaved={handleBillUpdated}
+        />
       )}
     </div>
   );

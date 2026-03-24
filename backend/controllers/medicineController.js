@@ -10,6 +10,8 @@ const {
   normalizeWhitespace
 } = require('../utils/validation');
 
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // @desc    Get all medicines with stock info
 // @route   GET /api/medicines
 // @access  Private
@@ -21,11 +23,12 @@ exports.getMedicines = async (req, res) => {
 
     // Search functionality
     if (search) {
+      const escapedSearch = escapeRegex(search);
       query.$or = [
-        { medicineName: { $regex: search, $options: 'i' } },
-        { brandName: { $regex: search, $options: 'i' } },
-        { barcode: { $regex: search, $options: 'i' } },
-        { hsnCodeString: { $regex: search, $options: 'i' } }
+        { medicineName: { $regex: escapedSearch, $options: 'i' } },
+        { brandName: { $regex: escapedSearch, $options: 'i' } },
+        { barcode: { $regex: escapedSearch, $options: 'i' } },
+        { hsnCodeString: { $regex: escapedSearch, $options: 'i' } }
       ];
     }
 
@@ -209,13 +212,15 @@ exports.searchMedicines = async (req, res) => {
       });
     }
 
+    const escapedQuery = escapeRegex(q);
+
     // First find medicines that match the search
     const medicines = await Medicine.find({
       isDeleted: false,
       $or: [
-        { medicineName: { $regex: q, $options: 'i' } },
-        { brandName: { $regex: q, $options: 'i' } },
-        { barcode: { $regex: q, $options: 'i' } }
+        { medicineName: { $regex: escapedQuery, $options: 'i' } },
+        { brandName: { $regex: escapedQuery, $options: 'i' } },
+        { barcode: { $regex: escapedQuery, $options: 'i' } }
       ]
     })
       .select('medicineName brandName strength packSize defaultSellingPrice barcode gstPercent gtin hsnCode hsnCodeString baseUnit sellingUnit conversionFactor allowDecimal')
@@ -306,15 +311,17 @@ exports.searchAllMedicines = async (req, res) => {
       });
     }
 
+    const escapedQuery = escapeRegex(q);
+
     // Search medicines without checking inventory - Purchase module should see ALL medicines
     const medicines = await Medicine.find({
       isDeleted: false,
       status: 'ACTIVE',
       $or: [
-        { medicineName: { $regex: q, $options: 'i' } },
-        { brandName: { $regex: q, $options: 'i' } },
-        { barcode: { $regex: q, $options: 'i' } },
-        { gtin: { $regex: q, $options: 'i' } }
+        { medicineName: { $regex: escapedQuery, $options: 'i' } },
+        { brandName: { $regex: escapedQuery, $options: 'i' } },
+        { barcode: { $regex: escapedQuery, $options: 'i' } },
+        { gtin: { $regex: escapedQuery, $options: 'i' } }
       ]
     })
       .select('medicineName brandName strength packSize manufacturer barcode baseUnit sellingUnit conversionFactor defaultSellingPrice status hsnCode hsnCodeString gstPercent')

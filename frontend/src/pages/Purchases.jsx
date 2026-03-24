@@ -328,6 +328,7 @@ export default function Purchases() {
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState('');
   const [paymentMode, setPaymentMode] = useState('CASH');
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [miscellaneousAmount, setMiscellaneousAmount] = useState(0);
   const [notes, setNotes] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([]);
   
@@ -639,9 +640,11 @@ export default function Purchases() {
     const subtotal = purchaseItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
     const totalDiscount = purchaseItems.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
     const totalGst = purchaseItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
-    const grandTotal = purchaseItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
-    return { subtotal, totalDiscount, totalGst, grandTotal };
-  }, [purchaseItems]);
+    const itemTotal = purchaseItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
+    const extraAmount = parseFloat(miscellaneousAmount) || 0;
+    const grandTotal = itemTotal + extraAmount;
+    return { subtotal, totalDiscount, totalGst, miscellaneousAmount: extraAmount, grandTotal };
+  }, [miscellaneousAmount, purchaseItems]);
 
   // Memoized totals
   const totals = useMemo(() => calculateTotals(), [calculateTotals]);
@@ -780,6 +783,7 @@ export default function Purchases() {
       purchaseDate,
       supplierInvoiceNumber,
       discountPercent,
+      miscellaneousAmount,
       purchaseItems
     });
 
@@ -824,6 +828,7 @@ export default function Purchases() {
         totalGst: totals.totalGst,
         discountPercent: parseFloat(discountPercent),
         discountAmount: totals.totalDiscount,
+        miscellaneousAmount: totals.miscellaneousAmount,
         grandTotal: totals.grandTotal,
         paymentMode: paymentMode,
         notes: normalizeTextInput(notes).trim()
@@ -852,6 +857,7 @@ export default function Purchases() {
     setSupplierInvoiceNumber('');
     setPaymentMode('CASH');
     setDiscountPercent(0);
+    setMiscellaneousAmount(0);
     setNotes('');
     setPurchaseItems([]);
     setMedicineSearch('');
@@ -1078,6 +1084,20 @@ export default function Purchases() {
                                     </tr>
                                   ))}
                                 </tbody>
+                                <tfoot className="bg-gray-50">
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">₹{(purchase.totalGst || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Miscellaneous:</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">₹{(purchase.miscellaneousAmount || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
+                                    <td className="px-4 py-2 text-sm font-bold text-gray-900">₹{(purchase.grandTotal || 0).toFixed(2)}</td>
+                                  </tr>
+                                </tfoot>
                               </table>
                             </div>
                           </td>
@@ -1270,9 +1290,23 @@ export default function Purchases() {
             {/* Footer with Summary */}
             <div className="border-t border-gray-200 bg-gray-50 p-4 flex-shrink-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                  <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Amount</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={miscellaneousAmount}
+                      onChange={(e) => setMiscellaneousAmount(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
                 <div>
                   <div className="bg-gray-900 text-white p-4 rounded-lg">
@@ -1289,6 +1323,10 @@ export default function Purchases() {
                       <div>
                         <p className="text-gray-400">Total GST</p>
                         <p className="text-xl font-bold">₹{totals.totalGst.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Miscellaneous</p>
+                        <p className="text-xl font-bold">₹{totals.miscellaneousAmount.toFixed(2)}</p>
                       </div>
                       <div>
                         <p className="text-gray-400">Grand Total</p>

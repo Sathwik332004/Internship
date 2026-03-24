@@ -177,6 +177,11 @@ const purchaseSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  miscellaneousAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   grandTotal: {
     type: Number,
     required: true,

@@ -98,6 +98,7 @@ export const billAPI = {
   getAll: (params) => api.get('/bills', { params }),
   getOne: (id) => api.get(`/bills/${id}`),
   create: (data) => api.post('/bills', data),
+  update: (id, data) => api.put(`/bills/${id}`, data),
   getDashboard: () => api.get('/bills/dashboard'),
   getDailySales: (date) => api.get('/bills/sales/daily', { params: { date } }),
   getMonthlySales: (params) => api.get('/bills/sales/monthly', { params }),

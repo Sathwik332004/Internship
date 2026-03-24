@@ -329,9 +329,10 @@ export default function Billing() {
     // Convert quantity to maintain same base amount
     const currentBaseQty = item.isPack ? item.quantity * conversionFactor : item.quantity;
     const newQty = newIsPack ? Math.ceil(currentBaseQty / conversionFactor) : currentBaseQty;
+    const nextBaseQty = newIsPack ? newQty * conversionFactor : newQty;
     
-    // Validate stock - use current base qty before toggle
-    if (currentBaseQty > item.availableStock) {
+    // Validate stock after the toggle conversion
+    if (nextBaseQty > item.availableStock) {
       setErrorMessage(`Insufficient stock. Available: ${item.availableStock} ${item.baseUnit}`);
       return;
     }
@@ -396,12 +397,12 @@ export default function Billing() {
   };
 
   // Calculate totals and GST breakdown
-  // GST is extracted from MRP: BasePrice = MRP / (1 + GST/100)
+  // Item prices already include GST, so GST is only extracted for display.
   const calculateTotals = () => {
     const isInterstate = customerDetails.state && 
       customerDetails.state.toLowerCase() !== shopState.toLowerCase();
     
-    let subtotal = 0; // Base price (without GST)
+    let subtotal = 0;
     let totalGst = 0;
     let totalCgst = 0;
     let totalSgst = 0;
@@ -420,7 +421,7 @@ export default function Billing() {
       const itemBaseAmount = basePrice * quantity;
       const itemGstValue = gstValue * quantity;
       
-      subtotal += itemBaseAmount;
+      subtotal += unitMrp * quantity;
       totalGst += itemGstValue;
 
       if (isInterstate) {
@@ -435,7 +436,7 @@ export default function Billing() {
 
     // Apply discount
     const discountAmount = (subtotal * discountPercent) / 100;
-    const grandTotal = subtotal + totalGst - discountAmount;
+    const grandTotal = subtotal - discountAmount;
     
     return {
       subtotal,
@@ -931,7 +932,7 @@ export default function Billing() {
             <h2 className="text-lg font-semibold mb-4">Bill Summary</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Subtotal (Base):</span>
+                <span className="text-gray-400">Subtotal (Incl. GST):</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
               

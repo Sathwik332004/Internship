@@ -12,7 +12,7 @@ const {
   getTopMedicines,
   getDashboardStats
 } = require('../controllers/billController');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
 
 router.use(protect);
@@ -42,6 +42,6 @@ router.route('/report/gst')
 
 router.route('/:id')
   .get(getBill)
-  .put(adminOnly, updateBill);
+  .put(updateBill);
 
 module.exports = router;

@@ -61,7 +61,15 @@ export default function BillPrintDocument({ bill, shopInfo, isDraft = false }) {
   const info = { ...defaultShopInfo, ...shopInfo };
   const customerName = bill.customerName?.trim() || 'Walk-in Customer';
   const customerState = bill.customerState?.trim();
-  const balance = Number(bill.balance) || 0;
+  const lineSubtotal = (bill.items || []).reduce((sum, item) => {
+    const lineTotal = Number(item.total ?? item.amount);
+    return sum + (Number.isFinite(lineTotal) ? lineTotal : 0);
+  }, 0);
+  const displaySubtotal = lineSubtotal > 0 ? lineSubtotal : Number(bill.subtotal) || 0;
+  const displayDiscount = Number(bill.discountAmount) || 0;
+  const displayGrandTotal = displaySubtotal - displayDiscount;
+  const displayAmountPaid = Number(bill.amountPaid) || 0;
+  const balance = displayAmountPaid - displayGrandTotal;
 
   return (
     <div className="bill-print-root">
@@ -173,14 +181,14 @@ export default function BillPrintDocument({ bill, shopInfo, isDraft = false }) {
           <div className="rounded-2xl border border-slate-200">
             <div className="space-y-3 p-5 text-sm">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">Subtotal</span>
-                <span className="font-medium text-slate-900">{formatCurrency(bill.subtotal)}</span>
+                <span className="text-slate-500">Subtotal (Incl. GST)</span>
+                <span className="font-medium text-slate-900">{formatCurrency(displaySubtotal)}</span>
               </div>
 
-              {Number(bill.discountAmount) > 0 && (
+              {displayDiscount > 0 && (
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-slate-500">Discount</span>
-                  <span className="font-medium text-emerald-700">-{formatCurrency(bill.discountAmount)}</span>
+                  <span className="font-medium text-emerald-700">-{formatCurrency(displayDiscount)}</span>
                 </div>
               )}
 
@@ -209,12 +217,12 @@ export default function BillPrintDocument({ bill, shopInfo, isDraft = false }) {
 
               <div className="flex items-center justify-between gap-4 border-t border-slate-200 pt-3 text-base">
                 <span className="font-semibold text-slate-900">Grand Total</span>
-                <span className="font-bold text-slate-900">{formatCurrency(bill.grandTotal)}</span>
+                <span className="font-bold text-slate-900">{formatCurrency(displayGrandTotal)}</span>
               </div>
 
               <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500">Amount Paid</span>
-                <span className="font-medium text-slate-900">{formatCurrency(bill.amountPaid)}</span>
+                <span className="font-medium text-slate-900">{formatCurrency(displayAmountPaid)}</span>
               </div>
 
               <div className="flex items-center justify-between gap-4">

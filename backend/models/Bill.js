@@ -18,6 +18,11 @@ const billItemSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  inventoryBatchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Inventory',
+    default: null
+  },
   expiryDate: {
     type: Date,
     required: true

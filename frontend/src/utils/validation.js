@@ -351,6 +351,7 @@ export const validatePurchaseForm = ({
   purchaseDate,
   supplierInvoiceNumber,
   discountPercent,
+  miscellaneousAmount,
   purchaseItems
 }) => {
   if (!selectedSupplier) {
@@ -371,6 +372,10 @@ export const validatePurchaseForm = ({
 
   if (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100) {
     return { error: "Purchase discount must be between 0 and 100" };
+  }
+
+  if (!isNonNegativeNumber(miscellaneousAmount || 0)) {
+    return { error: "Miscellaneous amount must be 0 or higher" };
   }
 
   if (!purchaseItems.length) {
@@ -451,7 +456,7 @@ export const validateBillingForm = ({
   }
 
   for (const item of billItems) {
-    if (!item.medicineId || !item.inventoryBatchId) {
+    if (!item.medicineId || (!item.inventoryBatchId && !item.batchNumber)) {
       return `Selected batch is missing for ${item.medicineName || "an item"}`;
     }
 

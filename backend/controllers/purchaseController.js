@@ -17,6 +17,8 @@ const {
   normalizeWhitespace
 } = require('../utils/validation');
 
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // @desc    Get last purchase price for a medicine
 // @route   GET /api/purchases/last-price/:medicineId
 // @access  Private
@@ -108,7 +110,7 @@ exports.checkBatchExists = async (req, res) => {
     // Use case-insensitive search for batch number
     const existingBatch = await Inventory.findOne({
       medicine: medicineId,
-      batchNumber: { $regex: new RegExp(`^${batchNumber}$`, 'i') },
+      batchNumber: { $regex: new RegExp(`^${escapeRegex(batchNumber)}$`, 'i') },
       isDeleted: false
     });
 
@@ -144,7 +146,7 @@ exports.getPurchases = async (req, res) => {
 
     // Search by supplier invoice number
     if (search) {
-      query.supplierInvoiceNumber = { $regex: search, $options: 'i' };
+      query.supplierInvoiceNumber = { $regex: escapeRegex(search), $options: 'i' };
     }
 
     if (supplier) {
@@ -257,7 +259,7 @@ exports.deletePurchase = async (req, res) => {
       // Find the inventory record using medicine and batchNumber (case-insensitive)
       const inventory = await Inventory.findOne({
         medicine: item.medicine,
-        batchNumber: { $regex: new RegExp(`^${item.batchNumber}$`, 'i') },
+        batchNumber: { $regex: new RegExp(`^${escapeRegex(item.batchNumber)}$`, 'i') },
         isDeleted: false
       }).session(session);
 
@@ -329,6 +331,7 @@ exports.addPurchase = async (req, res) => {
       totalGst,
       discountPercent,
       discountAmount,
+      miscellaneousAmount,
       grandTotal,
       paymentMode,
       notes
@@ -373,6 +376,14 @@ exports.addPurchase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Discount percent must be between 0 and 100'
+      });
+    }
+
+    if (miscellaneousAmount !== undefined && !isNonNegativeNumber(miscellaneousAmount)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Miscellaneous amount must be 0 or higher'
       });
     }
 
@@ -471,8 +482,8 @@ exports.addPurchase = async (req, res) => {
     let calculatedDiscount = 0;
     let calculatedGst = 0;
 
-    const processedItems = await Promise.all(
-      items.map(async (item) => {
+    const processedItems = [];
+    for (const item of items) {
         const medicine = await Medicine.findById(item.medicine).session(session);
         if (!medicine) {
           throw new Error(`Medicine not found: ${item.medicine}`);
@@ -529,7 +540,7 @@ exports.addPurchase = async (req, res) => {
         calculatedDiscount += itemDiscountAmount;
         calculatedGst += itemGstAmount;
 
-        return {
+        processedItems.push({
           medicine: item.medicine,
           hsnCode: item.hsnCode || null,
           hsnCodeRef: hsnRef ? hsnRef._id : null,
@@ -563,16 +574,16 @@ exports.addPurchase = async (req, res) => {
           sgstAmount: itemGstAmount * (sgstPercent / gstPercent || 0.5),
           igstAmount: itemGstAmount * (igstPercent / gstPercent || 1),
           totalAmount: itemTotalAmount
-        };
-      })
-    );
+        });
+    }
 
     // Apply purchase-level discount (if any)
     const calculatedDiscountAmount = discountPercent 
       ? calculatedSubtotal * (discountPercent / 100) 
       : discountAmount || 0;
+    const calculatedMiscellaneousAmount = miscellaneousAmount || 0;
 
-    const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount;
+    const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount + calculatedMiscellaneousAmount;
 
     // Create purchase record with new fields
     const purchase = new Purchase({
@@ -588,6 +599,7 @@ exports.addPurchase = async (req, res) => {
       totalIgst: 0,
       discountPercent: discountPercent || 0,
       discountAmount: calculatedDiscountAmount,
+      miscellaneousAmount: calculatedMiscellaneousAmount,
       grandTotal: finalGrandTotal,
       paymentMode: paymentMode || 'CASH',
       notes: normalizedNotes,
@@ -597,8 +609,7 @@ exports.addPurchase = async (req, res) => {
     await purchase.save({ session });
 
     // Create or update Inventory entries with unit conversion
-    await Promise.all(
-      items.map(async (item, index) => {
+    for (const [index, item] of items.entries()) {
         // Get medicine for unit conversion
         const medicine = await Medicine.findById(item.medicine).session(session);
         
@@ -610,10 +621,10 @@ exports.addPurchase = async (req, res) => {
         const totalQuantity = (item.quantity * conversionFactor) + ((item.freeQuantity || 0) * conversionFactor);
 
         // Check for existing inventory batch with same medicine + batchNumber (normalized to uppercase)
-        const normalizedBatchNumber = item.batchNumber ? item.batchNumber.toUpperCase().trim() : '';
+        const normalizedBatchNumber = normalizeUppercase(item.batchNumber);
         let existingInventory = await Inventory.findOne({
           medicine: item.medicine,
-          batchNumber: { $regex: new RegExp(`^${normalizedBatchNumber}$`, 'i') },
+          batchNumber: { $regex: new RegExp(`^${escapeRegex(normalizedBatchNumber)}$`, 'i') },
           isDeleted: false
         }).session(session);
 
@@ -653,8 +664,7 @@ exports.addPurchase = async (req, res) => {
           });
           await newInventory.save({ session });
         }
-      })
-    );
+    }
 
     await session.commitTransaction();
 

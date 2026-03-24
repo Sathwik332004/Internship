@@ -11,16 +11,345 @@ const {
   normalizePhone
 } = require('../utils/validation');
 
+// Helper function to calculate tax (extracts GST from MRP)
+// MRP = BasePrice + GST (inclusive pricing)
+const calculateTax = (mrp, gstPercent, quantity, isInterstate) => {
+  const basePrice = mrp / (1 + gstPercent / 100);
+  const gstValuePerUnit = mrp - basePrice;
+  const totalBaseAmount = basePrice * quantity;
+  const totalGst = gstValuePerUnit * quantity;
+
+  if (isInterstate) {
+    return {
+      basePrice: totalBaseAmount,
+      gstPercent,
+      cgstPercent: 0,
+      sgstPercent: 0,
+      igstPercent: gstPercent,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: totalGst,
+      totalGst,
+      finalAmount: totalBaseAmount + totalGst
+    };
+  }
+
+  const cgstAmount = totalGst / 2;
+  const sgstAmount = totalGst / 2;
+  return {
+    basePrice: totalBaseAmount,
+    gstPercent,
+    cgstPercent: gstPercent / 2,
+    sgstPercent: gstPercent / 2,
+    igstPercent: 0,
+    cgstAmount,
+    sgstAmount,
+    igstAmount: 0,
+    totalGst,
+    finalAmount: totalBaseAmount + totalGst
+  };
+};
+
+const createHttpError = (statusCode, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const getSaleQuantity = (item = {}) => {
+  const quantityCandidates = [item.quantity, item.packQuantity, item.looseQuantity];
+
+  for (const candidate of quantityCandidates) {
+    if (isPositiveInteger(candidate)) {
+      return Number(candidate);
+    }
+  }
+
+  return 0;
+};
+
+const validateBillPayload = (payload = {}) => {
+  const {
+    customerName,
+    customerPhone,
+    customerState,
+    customerAddress,
+    items,
+    discountPercent,
+    discountAmount,
+    paymentMode,
+    amountPaid,
+    isInterstate
+  } = payload;
+
+  const normalizedCustomerName = normalizeOptionalText(customerName);
+  const normalizedCustomerPhone = normalizePhone(customerPhone);
+  const normalizedCustomerState = normalizeOptionalText(customerState);
+  const normalizedCustomerAddress = normalizeOptionalText(customerAddress);
+
+  if (normalizedCustomerName && normalizedCustomerName.length < 2) {
+    throw createHttpError(400, 'Customer name must be at least 2 characters');
+  }
+
+  if (normalizedCustomerPhone && !isValidPhone(normalizedCustomerPhone)) {
+    throw createHttpError(400, 'Customer phone must be 10 digits');
+  }
+
+  if (normalizedCustomerState && normalizedCustomerState.length < 2) {
+    throw createHttpError(400, 'Customer state must be at least 2 characters');
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    throw createHttpError(400, 'At least one bill item is required');
+  }
+
+  if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
+    throw createHttpError(400, 'Discount percent must be between 0 and 100');
+  }
+
+  if (discountAmount !== undefined && discountAmount !== null && discountAmount !== '' && !isNonNegativeNumber(discountAmount)) {
+    throw createHttpError(400, 'Discount amount cannot be negative');
+  }
+
+  if (amountPaid !== undefined && amountPaid !== null && amountPaid !== '' && !isNonNegativeNumber(amountPaid)) {
+    throw createHttpError(400, 'Amount paid cannot be negative');
+  }
+
+  if (paymentMode && !['CASH', 'UPI', 'CARD', 'BANK'].includes(paymentMode)) {
+    throw createHttpError(400, 'Invalid payment mode');
+  }
+
+  items.forEach((item, index) => {
+    const saleQuantity = getSaleQuantity(item);
+
+    if (!item.medicine) {
+      throw createHttpError(400, `Medicine is required for item ${index + 1}`);
+    }
+
+    if (!item.inventoryBatchId && !item.batchNumber) {
+      throw createHttpError(400, `Batch information is required for item ${index + 1}`);
+    }
+
+    if (!isPositiveInteger(item.unitQuantity) || !isPositiveInteger(saleQuantity)) {
+      throw createHttpError(400, `Quantity must be greater than 0 for item ${index + 1}`);
+    }
+
+    if (item.rate !== undefined && !isNonNegativeNumber(item.rate)) {
+      throw createHttpError(400, `Rate cannot be negative for item ${index + 1}`);
+    }
+
+    if (item.discountPercent !== undefined && (!isNonNegativeNumber(item.discountPercent) || Number(item.discountPercent) > 100)) {
+      throw createHttpError(400, `Discount percent must be between 0 and 100 for item ${index + 1}`);
+    }
+  });
+
+  return {
+    normalizedCustomerName,
+    normalizedCustomerPhone,
+    normalizedCustomerState,
+    normalizedCustomerAddress,
+    items,
+    discountPercent: discountPercent !== undefined ? Number(discountPercent) : 0,
+    discountAmount: discountAmount !== undefined && discountAmount !== null && discountAmount !== ''
+      ? Number(discountAmount)
+      : 0,
+    paymentMode: paymentMode || 'CASH',
+    amountPaid: amountPaid !== undefined && amountPaid !== null && amountPaid !== ''
+      ? Number(amountPaid)
+      : null,
+    isInterstate: Boolean(isInterstate)
+  };
+};
+
+const processBillItems = async ({ items, interstate, session }) => {
+  let calculatedSubtotal = 0;
+  let calculatedGst = 0;
+  let calculatedCgst = 0;
+  let calculatedSgst = 0;
+  let calculatedIgst = 0;
+  const processedItems = [];
+
+  for (const item of items) {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const medicine = await Medicine.findById(item.medicine).session(session);
+
+    if (!medicine) {
+      throw createHttpError(404, `Medicine not found: ${item.medicine}`);
+    }
+
+    const quantityNeeded = Number(item.unitQuantity);
+    const saleQuantity = getSaleQuantity(item);
+
+    console.log('[BILLING DEBUG] Fetching inventory for medicine:', {
+      medicineId: item.medicine,
+      medicineName: medicine.medicineName,
+      brandName: medicine.brandName,
+      quantityNeeded,
+      saleQuantity,
+      inventoryBatchId: item.inventoryBatchId,
+      batchNumber: item.batchNumber
+    });
+
+    const inventoryQuery = {
+      medicine: item.medicine,
+      quantityAvailable: { $gt: 0 },
+      expiryDate: { $gte: startOfToday },
+      isDeleted: { $ne: true }
+    };
+
+    if (item.inventoryBatchId) {
+      inventoryQuery._id = item.inventoryBatchId;
+    } else if (item.batchNumber) {
+      inventoryQuery.batchNumber = { $regex: new RegExp(`^${String(item.batchNumber).trim()}$`, 'i') };
+    }
+
+    const availableInventory = await Inventory.find(inventoryQuery)
+      .sort({ expiryDate: 1 })
+      .session(session);
+
+    console.log('[BILLING DEBUG] Inventory query results:', {
+      medicineId: item.medicine,
+      recordsFound: availableInventory?.length || 0,
+      batches: availableInventory?.map(inv => ({
+        batchNumber: inv.batchNumber,
+        quantityAvailable: inv.quantityAvailable,
+        expiryDate: inv.expiryDate,
+        status: inv.status
+      })) || []
+    });
+
+    if (!availableInventory || availableInventory.length === 0) {
+      throw createHttpError(400, `No stock available for ${medicine.medicineName} (${medicine.brandName})`);
+    }
+
+    const totalAvailable = availableInventory.reduce((sum, inv) => sum + inv.quantityAvailable, 0);
+
+    console.log('[BILLING DEBUG] Total available stock:', {
+      medicineId: item.medicine,
+      totalAvailable,
+      quantityNeeded
+    });
+
+    if (totalAvailable < quantityNeeded) {
+      throw createHttpError(
+        400,
+        `Insufficient stock for ${medicine.medicineName} (${medicine.brandName}). Available: ${totalAvailable}, Required: ${quantityNeeded}`
+      );
+    }
+
+    const inventoryMrp = availableInventory.length > 0 ? availableInventory[0].mrp : 0;
+    const rate = item.rate || inventoryMrp || medicine.defaultSellingPrice || 0;
+    const grossAmount = saleQuantity * rate;
+    const gstPercent = item.gstPercent || medicine.gstPercent || 0;
+    const taxCalculation = calculateTax(rate, gstPercent, saleQuantity, interstate);
+    const baseAmount = taxCalculation.basePrice;
+    const itemDiscount = grossAmount * ((item.discountPercent || 0) / 100);
+
+    calculatedSubtotal += grossAmount;
+    calculatedGst += taxCalculation.totalGst;
+    calculatedCgst += taxCalculation.cgstAmount;
+    calculatedSgst += taxCalculation.sgstAmount;
+    calculatedIgst += taxCalculation.igstAmount;
+
+    let remainingQuantity = quantityNeeded;
+    let batchInfo = null;
+
+    for (const inventory of availableInventory) {
+      if (remainingQuantity <= 0) break;
+
+      const deductFromThis = Math.min(inventory.quantityAvailable, remainingQuantity);
+      inventory.quantityAvailable -= deductFromThis;
+      remainingQuantity -= deductFromThis;
+
+      if (inventory.quantityAvailable <= 0) {
+        inventory.status = 'EXHAUSTED';
+      }
+
+      await inventory.save({ session });
+
+      if (!batchInfo) {
+        batchInfo = {
+          inventoryBatchId: inventory._id,
+          batchNumber: inventory.batchNumber,
+          expiryDate: inventory.expiryDate,
+          hsnCode: inventory.hsnCodeString
+        };
+      }
+    }
+
+    const finalAmount = taxCalculation.finalAmount - itemDiscount;
+
+    processedItems.push({
+      medicine: medicine._id,
+      medicineName: medicine.medicineName,
+      brandName: medicine.brandName,
+      inventoryBatchId: item.inventoryBatchId || batchInfo?.inventoryBatchId || null,
+      batchNumber: batchInfo?.batchNumber || String(item.batchNumber || 'N/A').toUpperCase(),
+      expiryDate: batchInfo?.expiryDate || item.expiryDate || new Date(),
+      quantity: saleQuantity,
+      looseQuantity: item.looseQuantity || 0,
+      packQuantity: item.packQuantity || 0,
+      unitQuantity: quantityNeeded,
+      rate,
+      hsnCode: batchInfo?.hsnCode || medicine.hsnCodeString || '',
+      gstPercent: taxCalculation.gstPercent,
+      cgstPercent: taxCalculation.cgstPercent,
+      sgstPercent: taxCalculation.sgstPercent,
+      igstPercent: taxCalculation.igstPercent,
+      cgstAmount: taxCalculation.cgstAmount,
+      sgstAmount: taxCalculation.sgstAmount,
+      igstAmount: taxCalculation.igstAmount,
+      gstAmount: taxCalculation.totalGst,
+      discountPercent: item.discountPercent || 0,
+      discountAmount: itemDiscount,
+      baseAmount,
+      total: finalAmount
+    });
+  }
+
+  return {
+    processedItems,
+    calculatedSubtotal,
+    calculatedGst,
+    calculatedCgst,
+    calculatedSgst,
+    calculatedIgst
+  };
+};
+
+const restoreBillInventory = async ({ bill, session }) => {
+  for (const item of bill.items) {
+    const inventoryQuery = {
+      medicine: item.medicine,
+      isDeleted: { $ne: true }
+    };
+
+    if (item.inventoryBatchId) {
+      inventoryQuery._id = item.inventoryBatchId;
+    } else {
+      inventoryQuery.batchNumber = { $regex: new RegExp(`^${String(item.batchNumber).trim()}$`, 'i') };
+    }
+
+    const inventory = await Inventory.findOne(inventoryQuery).session(session);
+
+    if (inventory) {
+      inventory.quantityAvailable += Number(item.unitQuantity || 0);
+      await inventory.save({ session });
+    }
+  }
+};
+
 // @desc    Get all bills
 // @route   GET /api/bills
 // @access  Private
 exports.getBills = async (req, res) => {
   try {
-    const { startDate, endDate, paymentMode, createdBy, page = 1, limit = 20 } = req.query;
+    const { startDate, endDate, paymentMode, createdBy, search, page = 1, limit = 20 } = req.query;
 
     let query = { isDeleted: false };
 
-    // Staff can only see their own bills
     if (req.user.role === 'staff') {
       query.createdBy = req.user.id;
     } else if (createdBy) {
@@ -43,8 +372,17 @@ exports.getBills = async (req, res) => {
       query.paymentMode = paymentMode;
     }
 
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    if (search) {
+      const searchRegex = new RegExp(String(search).trim(), 'i');
+      query.$or = [
+        { invoiceNumber: searchRegex },
+        { customerName: searchRegex },
+        { customerPhone: searchRegex }
+      ];
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
     const bills = await Bill.find(query)
@@ -92,7 +430,6 @@ exports.getBill = async (req, res) => {
       });
     }
 
-    // Check if staff can access
     if (req.user.role === 'staff' && bill.createdBy._id.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
@@ -114,53 +451,6 @@ exports.getBill = async (req, res) => {
   }
 };
 
-// Helper function to calculate tax (extracts GST from MRP)
-// This is the main tax calculation function used in bill creation
-// MRP = BasePrice + GST (inclusive pricing)
-const calculateTax = (mrp, gstPercent, quantity, isInterstate) => {
-  // Extract base price from MRP: BasePrice = MRP / (1 + GST/100)
-  const basePrice = mrp / (1 + gstPercent / 100);
-  
-  // GST value per unit = MRP - BasePrice
-  const gstValuePerUnit = mrp - basePrice;
-  
-  // Total amounts for the quantity
-  const totalBaseAmount = basePrice * quantity;
-  const totalGst = gstValuePerUnit * quantity;
-  
-  if (isInterstate) {
-    // IGST for interstate
-    return {
-      basePrice: totalBaseAmount,
-      gstPercent,
-      cgstPercent: 0,
-      sgstPercent: 0,
-      igstPercent: gstPercent,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: totalGst,
-      totalGst: totalGst,
-      finalAmount: totalBaseAmount + totalGst
-    };
-  } else {
-    // CGST + SGST for intrastate (split equally)
-    const cgstAmount = totalGst / 2;
-    const sgstAmount = totalGst / 2;
-    return {
-      basePrice: totalBaseAmount,
-      gstPercent,
-      cgstPercent: gstPercent / 2,
-      sgstPercent: gstPercent / 2,
-      igstPercent: 0,
-      cgstAmount,
-      sgstAmount,
-      igstAmount: 0,
-      totalGst: totalGst,
-      finalAmount: totalBaseAmount + totalGst
-    };
-  }
-};
-
 // @desc    Create new bill
 // @route   POST /api/bills
 // @access  Private
@@ -170,330 +460,37 @@ exports.createBill = async (req, res) => {
 
   try {
     const {
-      customerName,
-      customerPhone,
-      customerState,
-      customerAddress,
+      normalizedCustomerName,
+      normalizedCustomerPhone,
+      normalizedCustomerState,
+      normalizedCustomerAddress,
       items,
       discountPercent,
       discountAmount,
       paymentMode,
       amountPaid,
       isInterstate
-    } = req.body;
-    const normalizedCustomerName = normalizeOptionalText(customerName);
-    const normalizedCustomerPhone = normalizePhone(customerPhone);
-    const normalizedCustomerState = normalizeOptionalText(customerState);
-    const normalizedCustomerAddress = normalizeOptionalText(customerAddress);
+    } = validateBillPayload(req.body);
 
-    if (normalizedCustomerName && normalizedCustomerName.length < 2) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'Customer name must be at least 2 characters'
-      });
-    }
-
-    if (normalizedCustomerPhone && !isValidPhone(normalizedCustomerPhone)) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'Customer phone must be 10 digits'
-      });
-    }
-
-    if (normalizedCustomerState && normalizedCustomerState.length < 2) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'Customer state must be at least 2 characters'
-      });
-    }
-
-    if (!Array.isArray(items) || items.length === 0) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'At least one bill item is required'
-      });
-    }
-
-    if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'Discount percent must be between 0 and 100'
-      });
-    }
-
-    if (amountPaid !== undefined && amountPaid !== null && amountPaid !== '' && !isNonNegativeNumber(amountPaid)) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'Amount paid cannot be negative'
-      });
-    }
-
-    if (paymentMode && !['CASH', 'UPI', 'CARD', 'BANK'].includes(paymentMode)) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid payment mode'
-      });
-    }
-
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-
-      if (!item.medicine) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Medicine is required for item ${index + 1}`
-        });
-      }
-
-      if (!item.inventoryBatchId && !item.batchNumber) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Batch information is required for item ${index + 1}`
-        });
-      }
-
-      if (!isPositiveInteger(item.unitQuantity) || !isPositiveInteger(item.quantity)) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Quantity must be greater than 0 for item ${index + 1}`
-        });
-      }
-
-      if (item.rate !== undefined && !isNonNegativeNumber(item.rate)) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Rate cannot be negative for item ${index + 1}`
-        });
-      }
-
-      if (item.discountPercent !== undefined && (!isNonNegativeNumber(item.discountPercent) || Number(item.discountPercent) > 100)) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Discount percent must be between 0 and 100 for item ${index + 1}`
-        });
-      }
-    }
-
-    // Generate invoice number
     const invoiceNumber = await Bill.generateInvoiceNumber();
+    const interstate = isInterstate;
+    const {
+      processedItems,
+      calculatedSubtotal,
+      calculatedGst,
+      calculatedCgst,
+      calculatedSgst,
+      calculatedIgst
+    } = await processBillItems({ items, interstate, session });
 
-    // Determine if interstate (different state = IGST)
-    const interstate = isInterstate || false;
-
-    // Process items and validate stock from Inventory
-    let calculatedSubtotal = 0;
-    let calculatedGst = 0;
-    let calculatedCgst = 0;
-    let calculatedSgst = 0;
-    let calculatedIgst = 0;
-    const processedItems = [];
-
-    for (const item of items) {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
-      // Get medicine details from Medicine model
-      const medicine = await Medicine.findById(item.medicine).session(session);
-
-      if (!medicine) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(404).json({
-          success: false,
-          message: `Medicine not found: ${item.medicine}`
-        });
-      }
-
-      // Get available stock from Inventory using FIFO
-      let quantityNeeded = item.unitQuantity;
-      
-      // DEBUG: Log inventory query parameters
-      console.log('[BILLING DEBUG] Fetching inventory for medicine:', {
-        medicineId: item.medicine,
-        medicineName: medicine.medicineName,
-        brandName: medicine.brandName,
-        quantityNeeded,
-        inventoryBatchId: item.inventoryBatchId,
-        batchNumber: item.batchNumber
-      });
-
-      const inventoryQuery = {
-        medicine: item.medicine,
-        quantityAvailable: { $gt: 0 },
-        expiryDate: { $gte: startOfToday },
-        isDeleted: { $ne: true }
-      };
-
-      if (item.inventoryBatchId) {
-        inventoryQuery._id = item.inventoryBatchId;
-      } else if (item.batchNumber) {
-        inventoryQuery.batchNumber = { $regex: new RegExp(`^${String(item.batchNumber).trim()}$`, 'i') };
-      }
-
-      const availableInventory = await Inventory.find(inventoryQuery)
-        .sort({ expiryDate: 1 })
-        .session(session);
-
-      // DEBUG: Log inventory query results
-      console.log('[BILLING DEBUG] Inventory query results:', {
-        medicineId: item.medicine,
-        recordsFound: availableInventory?.length || 0,
-        batches: availableInventory?.map(inv => ({
-          batchNumber: inv.batchNumber,
-          quantityAvailable: inv.quantityAvailable,
-          expiryDate: inv.expiryDate,
-          status: inv.status
-        })) || []
-      });
-
-      if (!availableInventory || availableInventory.length === 0) {
-        await session.abortTransaction();
-        session.endSession();
-        
-        // DEBUG: Log the error with more details
-        console.error('[BILLING DEBUG] No stock available for medicine:', {
-          medicineId: item.medicine,
-          medicineName: medicine.medicineName,
-          brandName: medicine.brandName
-        });
-        
-        return res.status(400).json({
-          success: false,
-          message: `No stock available for ${medicine.medicineName} (${medicine.brandName})`
-        });
-      }
-
-      // Check total available quantity
-      const totalAvailable = availableInventory.reduce((sum, inv) => sum + inv.quantityAvailable, 0);
-      
-      // DEBUG: Log total available
-      console.log('[BILLING DEBUG] Total available stock:', {
-        medicineId: item.medicine,
-        totalAvailable,
-        quantityNeeded
-      });
-      
-      if (totalAvailable < quantityNeeded) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${medicine.medicineName} (${medicine.brandName}). Available: ${totalAvailable}, Required: ${quantityNeeded}`
-        });
-      }
-
-      // Calculate item totals using the formula: baseAmount = quantity × rate
-      // Use MRP from inventory as the selling price (first batch in FIFO)
-      const inventoryMrp = availableInventory.length > 0 ? availableInventory[0].mrp : 0;
-      const rate = item.rate || inventoryMrp || medicine.defaultSellingPrice || 0;
-      const baseAmount = item.unitQuantity * rate;
-      
-      // Get GST percent from item or medicine
-      const gstPercent = item.gstPercent || medicine.gstPercent || 0;
-      
-      // Calculate tax using the formula: gstAmount = baseAmount × gstPercentage / 100
-      const taxCalculation = calculateTax(rate, gstPercent, item.unitQuantity, interstate);
-      
-      const itemDiscount = baseAmount * ((item.discountPercent || 0) / 100);
-
-      calculatedSubtotal += baseAmount;
-      calculatedGst += taxCalculation.totalGst;
-      calculatedCgst += taxCalculation.cgstAmount;
-      calculatedSgst += taxCalculation.sgstAmount;
-      calculatedIgst += taxCalculation.igstAmount;
-
-      // Deduct stock from inventory using FIFO
-      let remainingQuantity = quantityNeeded;
-      let batchInfo = null;
-
-      for (const inventory of availableInventory) {
-        if (remainingQuantity <= 0) break;
-
-        const deductFromThis = Math.min(inventory.quantityAvailable, remainingQuantity);
-        inventory.quantityAvailable -= deductFromThis;
-        remainingQuantity -= deductFromThis;
-
-        // Update inventory status based on quantity
-        if (inventory.quantityAvailable <= 0) {
-          inventory.status = 'EXHAUSTED';
-        }
-
-        await inventory.save({ session });
-
-        // Capture batch info from first batch used
-        if (!batchInfo) {
-          batchInfo = {
-            batchNumber: inventory.batchNumber,
-            expiryDate: inventory.expiryDate,
-            hsnCode: inventory.hsnCodeString,
-            gstPercent: inventory.gstPercent
-          };
-        }
-      }
-
-      // finalAmount = baseAmount + gstAmount - discount
-      const finalAmount = taxCalculation.finalAmount - itemDiscount;
-
-      processedItems.push({
-        medicine: medicine._id,
-        medicineName: medicine.medicineName,
-        brandName: medicine.brandName,
-        batchNumber: batchInfo?.batchNumber || 'N/A',
-        expiryDate: batchInfo?.expiryDate || new Date(),
-        quantity: item.quantity || 1,
-        looseQuantity: item.looseQuantity || 0,
-        packQuantity: item.packQuantity || 0,
-        unitQuantity: item.unitQuantity,
-        rate: rate,
-        hsnCode: batchInfo?.hsnCode || medicine.hsnCodeString || '',
-        gstPercent: taxCalculation.gstPercent,
-        cgstPercent: taxCalculation.cgstPercent,
-        sgstPercent: taxCalculation.sgstPercent,
-        igstPercent: taxCalculation.igstPercent,
-        cgstAmount: taxCalculation.cgstAmount,
-        sgstAmount: taxCalculation.sgstAmount,
-        igstAmount: taxCalculation.igstAmount,
-        gstAmount: taxCalculation.totalGst,
-        discountPercent: item.discountPercent || 0,
-        discountAmount: itemDiscount,
-        baseAmount: baseAmount,
-        total: finalAmount
-      });
-    }
-
-    // Apply discount
     const calculatedDiscountAmount = discountPercent
       ? calculatedSubtotal * (discountPercent / 100)
-      : discountAmount || 0;
+      : discountAmount;
 
-    const grandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount;
-    const balance = amountPaid ? amountPaid - grandTotal : 0;
+    const grandTotal = calculatedSubtotal - calculatedDiscountAmount;
+    const finalAmountPaid = amountPaid ?? grandTotal;
+    const balance = finalAmountPaid - grandTotal;
 
-    // Create bill
     const bill = new Bill({
       invoiceNumber,
       customerName: normalizedCustomerName,
@@ -507,21 +504,19 @@ exports.createBill = async (req, res) => {
       totalCgst: calculatedCgst,
       totalSgst: calculatedSgst,
       totalIgst: calculatedIgst,
-      discountPercent: discountPercent || 0,
+      discountPercent,
       discountAmount: calculatedDiscountAmount,
       grandTotal,
-      paymentMode: paymentMode || 'CASH',
-      amountPaid: amountPaid || grandTotal,
+      paymentMode,
+      amountPaid: finalAmountPaid,
       balance,
       createdBy: req.user.id
     });
 
     await bill.save({ session });
-
     await session.commitTransaction();
     session.endSession();
 
-    // Populate and return
     const populatedBill = await Bill.findById(bill._id)
       .populate('createdBy', 'name')
       .populate('items.medicine', 'medicineName brandName');
@@ -534,9 +529,9 @@ exports.createBill = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error(error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Error creating bill',
+      message: error.statusCode ? error.message : 'Error creating bill',
       error: error.message
     });
   }
@@ -564,238 +559,52 @@ exports.updateBill = async (req, res) => {
       });
     }
 
-    // First, restore the inventory for the original bill items
-    for (const item of bill.items) {
-      const inventory = await Inventory.findOne({
-        medicine: item.medicine,
-        batchNumber: item.batchNumber,
-        isDeleted: false
-      }).session(session);
-
-      if (inventory) {
-        inventory.quantityAvailable += item.unitQuantity;
-        if (inventory.status === 'EXHAUSTED') {
-          inventory.status = 'ACTIVE';
-        }
-        await inventory.save({ session });
-      }
+    if (req.user.role === 'staff' && bill.createdBy.toString() !== req.user.id) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this bill'
+      });
     }
 
-    // Now process the updated bill with new items
     const {
-      customerName,
-      customerPhone,
-      customerState,
-      customerAddress,
+      normalizedCustomerName,
+      normalizedCustomerPhone,
+      normalizedCustomerState,
+      normalizedCustomerAddress,
       items,
       discountPercent,
       discountAmount,
       paymentMode,
       amountPaid,
       isInterstate
-    } = req.body;
+    } = validateBillPayload(req.body);
 
-    const interstate = isInterstate || false;
+    await restoreBillInventory({ bill, session });
 
-    let calculatedSubtotal = 0;
-    let calculatedGst = 0;
-    let calculatedCgst = 0;
-    let calculatedSgst = 0;
-    let calculatedIgst = 0;
-    const processedItems = [];
-
-    for (const item of items) {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
-      const medicine = await Medicine.findById(item.medicine).session(session);
-
-      if (!medicine) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(404).json({
-          success: false,
-          message: `Medicine not found: ${item.medicine}`
-        });
-      }
-
-      // Get available stock from Inventory using FIFO
-      let quantityNeeded = item.unitQuantity;
-      
-      // DEBUG: Log inventory query parameters for updateBill
-      console.log('[BILLING DEBUG UPDATE] Fetching inventory for medicine:', {
-        medicineId: item.medicine,
-        medicineName: medicine.medicineName,
-        brandName: medicine.brandName,
-        quantityNeeded,
-        inventoryBatchId: item.inventoryBatchId,
-        batchNumber: item.batchNumber
-      });
-
-      const inventoryQuery = {
-        medicine: item.medicine,
-        quantityAvailable: { $gt: 0 },
-        expiryDate: { $gte: startOfToday },
-        isDeleted: { $ne: true }
-      };
-
-      if (item.inventoryBatchId) {
-        inventoryQuery._id = item.inventoryBatchId;
-      } else if (item.batchNumber) {
-        inventoryQuery.batchNumber = { $regex: new RegExp(`^${String(item.batchNumber).trim()}$`, 'i') };
-      }
-
-      const availableInventory = await Inventory.find(inventoryQuery)
-        .sort({ expiryDate: 1 })
-        .session(session);
-
-      // DEBUG: Log inventory query results for updateBill
-      console.log('[BILLING DEBUG UPDATE] Inventory query results:', {
-        medicineId: item.medicine,
-        recordsFound: availableInventory?.length || 0,
-        batches: availableInventory?.map(inv => ({
-          batchNumber: inv.batchNumber,
-          quantityAvailable: inv.quantityAvailable,
-          expiryDate: inv.expiryDate,
-          status: inv.status
-        })) || []
-      });
-
-      if (!availableInventory || availableInventory.length === 0) {
-        await session.abortTransaction();
-        session.endSession();
-        
-        // DEBUG: Log the error for updateBill
-        console.error('[BILLING DEBUG UPDATE] No stock available for medicine:', {
-          medicineId: item.medicine,
-          medicineName: medicine.medicineName,
-          brandName: medicine.brandName
-        });
-        
-        return res.status(400).json({
-          success: false,
-          message: `No stock available for ${medicine.medicineName} (${medicine.brandName})`
-        });
-      }
-
-      const totalAvailable = availableInventory.reduce((sum, inv) => sum + inv.quantityAvailable, 0);
-      
-      // DEBUG: Log total available for updateBill
-      console.log('[BILLING DEBUG UPDATE] Total available stock:', {
-        medicineId: item.medicine,
-        totalAvailable,
-        quantityNeeded
-      });
-      
-      if (totalAvailable < quantityNeeded) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${medicine.medicineName}. Available: ${totalAvailable}, Required: ${quantityNeeded}`
-        });
-      }
-
-      // Calculate tax
-      // Use MRP from inventory as the selling price (first batch in FIFO)
-    const inventoryMrp = availableInventory.length > 0 ? availableInventory[0].mrp : 0;
-const rate = item.rate || inventoryMrp || medicine.defaultSellingPrice || 0;
-
-// conversion factor (example: 1 pack = 10 tablets)
-const conversionFactor = medicine.conversionFactor || 1;
-
-// convert pack price to unit price
-let ratePerUnit;
-
-if (item.packQuantity && item.packQuantity > 0) {
-  ratePerUnit = rate / conversionFactor;
-} else {
-  ratePerUnit = rate;
-}
-
-// calculate base amount using base units
-const baseAmount = item.unitQuantity * ratePerUnit;
-
-const gstPercent = item.gstPercent || medicine.gstPercent || 0;
-
-// GST calculation
-const taxCalculation = calculateTax(ratePerUnit, gstPercent, item.unitQuantity, interstate);
-      const itemDiscount = baseAmount * ((item.discountPercent || 0) / 100);
-
-      calculatedSubtotal += baseAmount;
-      calculatedGst += taxCalculation.totalGst;
-      calculatedCgst += taxCalculation.cgstAmount;
-      calculatedSgst += taxCalculation.sgstAmount;
-      calculatedIgst += taxCalculation.igstAmount;
-
-      // Deduct stock from inventory using FIFO
-      let remainingQuantity = quantityNeeded;
-      let batchInfo = null;
-
-      for (const inventory of availableInventory) {
-        if (remainingQuantity <= 0) break;
-
-        const deductFromThis = Math.min(inventory.quantityAvailable, remainingQuantity);
-        inventory.quantityAvailable -= deductFromThis;
-        remainingQuantity -= deductFromThis;
-
-        if (inventory.quantityAvailable <= 0) {
-          inventory.status = 'EXHAUSTED';
-        }
-
-        await inventory.save({ session });
-
-        if (!batchInfo) {
-          batchInfo = {
-            batchNumber: inventory.batchNumber,
-            expiryDate: inventory.expiryDate,
-            hsnCode: inventory.hsnCodeString,
-            gstPercent: inventory.gstPercent
-          };
-        }
-      }
-
-      const finalAmount = taxCalculation.finalAmount - itemDiscount;
-
-      processedItems.push({
-        medicine: medicine._id,
-        medicineName: medicine.medicineName,
-        brandName: medicine.brandName,
-        batchNumber: batchInfo?.batchNumber || 'N/A',
-        expiryDate: batchInfo?.expiryDate || new Date(),
-        quantity: item.quantity || 1,
-        looseQuantity: item.looseQuantity || 0,
-        packQuantity: item.packQuantity || 0,
-        unitQuantity: item.unitQuantity,
-        rate: ratePerUnit,
-        hsnCode: batchInfo?.hsnCode || medicine.hsnCodeString || '',
-        gstPercent: taxCalculation.gstPercent,
-        cgstPercent: taxCalculation.cgstPercent,
-        sgstPercent: taxCalculation.sgstPercent,
-        igstPercent: taxCalculation.igstPercent,
-        cgstAmount: taxCalculation.cgstAmount,
-        sgstAmount: taxCalculation.sgstAmount,
-        igstAmount: taxCalculation.igstAmount,
-        gstAmount: taxCalculation.totalGst,
-        discountPercent: item.discountPercent || 0,
-        discountAmount: itemDiscount,
-        baseAmount: baseAmount,
-        total: finalAmount
-      });
-    }
+    const interstate = isInterstate;
+    const {
+      processedItems,
+      calculatedSubtotal,
+      calculatedGst,
+      calculatedCgst,
+      calculatedSgst,
+      calculatedIgst
+    } = await processBillItems({ items, interstate, session });
 
     const calculatedDiscountAmount = discountPercent
       ? calculatedSubtotal * (discountPercent / 100)
-      : discountAmount || 0;
+      : discountAmount;
 
-    const grandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount;
-    const balance = amountPaid ? amountPaid - grandTotal : 0;
+    const grandTotal = calculatedSubtotal - calculatedDiscountAmount;
+    const finalAmountPaid = amountPaid ?? grandTotal;
+    const balance = finalAmountPaid - grandTotal;
 
-    // Update bill
-    bill.customerName = customerName || bill.customerName;
-    bill.customerPhone = customerPhone || bill.customerPhone;
-    bill.customerState = customerState || bill.customerState;
-    bill.customerAddress = customerAddress || bill.customerAddress;
+    bill.customerName = normalizedCustomerName;
+    bill.customerPhone = normalizedCustomerPhone;
+    bill.customerState = normalizedCustomerState;
+    bill.customerAddress = normalizedCustomerAddress;
     bill.isInterstate = interstate;
     bill.items = processedItems;
     bill.subtotal = calculatedSubtotal;
@@ -803,15 +612,14 @@ const taxCalculation = calculateTax(ratePerUnit, gstPercent, item.unitQuantity, 
     bill.totalCgst = calculatedCgst;
     bill.totalSgst = calculatedSgst;
     bill.totalIgst = calculatedIgst;
-    bill.discountPercent = discountPercent || bill.discountPercent;
+    bill.discountPercent = discountPercent;
     bill.discountAmount = calculatedDiscountAmount;
     bill.grandTotal = grandTotal;
-    bill.paymentMode = paymentMode || bill.paymentMode;
-    bill.amountPaid = amountPaid || bill.amountPaid;
+    bill.paymentMode = paymentMode;
+    bill.amountPaid = finalAmountPaid;
     bill.balance = balance;
 
     await bill.save({ session });
-
     await session.commitTransaction();
     session.endSession();
 
@@ -827,9 +635,9 @@ const taxCalculation = calculateTax(ratePerUnit, gstPercent, item.unitQuantity, 
     await session.abortTransaction();
     session.endSession();
     console.error(error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Error updating bill',
+      message: error.statusCode ? error.message : 'Error updating bill',
       error: error.message
     });
   }
@@ -890,11 +698,10 @@ exports.getSalesReport = async (req, res) => {
       .populate('createdBy', 'name')
       .sort({ billDate: -1 });
 
-    // Group by date for chart
     const salesByDate = {};
     const paymentModeDistribution = { CASH: 0, UPI: 0, CARD: 0, BANK: 0 };
 
-    bills.forEach(bill => {
+    bills.forEach((bill) => {
       const dateKey = bill.billDate.toISOString().split('T')[0];
       if (!salesByDate[dateKey]) {
         salesByDate[dateKey] = { total: 0, gst: 0, bills: 0, cgst: 0, sgst: 0, igst: 0 };
@@ -1002,13 +809,13 @@ exports.getGstReport = async (req, res) => {
 exports.getMonthlySales = async (req, res) => {
   try {
     const { year, month } = req.query;
-    const currentYear = parseInt(year) || new Date().getFullYear();
-    const currentMonth = parseInt(month) || new Date().getMonth() + 1;
+    const currentYear = parseInt(year, 10) || new Date().getFullYear();
+    const currentMonth = parseInt(month, 10) || new Date().getMonth() + 1;
 
     const startDate = new Date(currentYear, currentMonth - 1, 1);
     const endDate = new Date(currentYear, currentMonth, 0, 23, 59, 59);
 
-    let query = {
+    const query = {
       isDeleted: false,
       billDate: { $gte: startDate, $lte: endDate }
     };
@@ -1057,7 +864,7 @@ exports.getTopMedicines = async (req, res) => {
   try {
     const { startDate, endDate, limit = 10 } = req.query;
 
-    let query = { isDeleted: false };
+    const query = { isDeleted: false };
 
     if (startDate || endDate) {
       query.billDate = {};
@@ -1073,10 +880,9 @@ exports.getTopMedicines = async (req, res) => {
 
     const bills = await Bill.find(query);
 
-    // Aggregate top medicines
     const medicineStats = {};
-    bills.forEach(bill => {
-      bill.items.forEach(item => {
+    bills.forEach((bill) => {
+      bill.items.forEach((item) => {
         const key = item.medicine.toString();
         if (!medicineStats[key]) {
           medicineStats[key] = {
@@ -1094,7 +900,7 @@ exports.getTopMedicines = async (req, res) => {
     const topMedicines = Object.entries(medicineStats)
       .map(([key, value]) => ({ ...value, _id: key }))
       .sort((a, b) => b.totalQuantity - a.totalQuantity)
-      .slice(0, parseInt(limit));
+      .slice(0, parseInt(limit, 10));
 
     res.status(200).json({
       success: true,
@@ -1121,7 +927,6 @@ exports.getDashboardStats = async (req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Today's sales
     const todayQuery = {
       isDeleted: false,
       billDate: { $gte: today, $lt: tomorrow }
@@ -1146,7 +951,6 @@ exports.getDashboardStats = async (req, res) => {
       }
     ]);
 
-    // Monthly sales
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const monthlyQuery = {
       isDeleted: false,
@@ -1172,7 +976,6 @@ exports.getDashboardStats = async (req, res) => {
       }
     ]);
 
-    // Payment mode distribution for today
     const paymentModeData = await Bill.aggregate([
       { $match: todayQuery },
       {
@@ -1183,9 +986,8 @@ exports.getDashboardStats = async (req, res) => {
       }
     ]);
 
-    // Last 7 days sales
     const last7Days = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 6; i >= 0; i -= 1) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dayStart = new Date(date);

@@ -69,6 +69,21 @@ export const isPastMonth = (value) => {
   return inputMonth < currentMonth;
 };
 
+export const isMonthBeforeDate = (value, referenceDate) => {
+  if (!value) return false;
+
+  const [year, month] = String(value).split("-").map(Number);
+  if (!year || !month) return true;
+
+  const reference = new Date(referenceDate);
+  if (Number.isNaN(reference.getTime())) return true;
+
+  const inputMonth = new Date(year, month - 1, 1);
+  const referenceMonth = new Date(reference.getFullYear(), reference.getMonth(), 1);
+
+  return inputMonth < referenceMonth;
+};
+
 export const validateLoginForm = ({ email, password }) => {
   if (!isValidEmail(email)) {
     return "Enter a valid email address";
@@ -393,8 +408,8 @@ export const validatePurchaseForm = ({
       return { error: `Enter a valid batch number for item ${index + 1}`, rowIndex: index, field: "batch" };
     }
 
-    if (!item.expiryDate || isPastMonth(item.expiryDate)) {
-      return { error: `Enter a valid non-expired batch month for item ${index + 1}`, rowIndex: index, field: "expiry" };
+    if (!item.expiryDate || isMonthBeforeDate(item.expiryDate, purchaseDate)) {
+      return { error: `Expiry month cannot be earlier than purchase date for item ${index + 1}`, rowIndex: index, field: "expiry" };
     }
 
     if (!isPositiveInteger(item.quantity)) {

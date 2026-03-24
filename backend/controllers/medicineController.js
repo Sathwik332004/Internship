@@ -303,15 +303,16 @@ exports.searchMedicines = async (req, res) => {
 exports.searchAllMedicines = async (req, res) => {
   try {
     const { q, limit = 10 } = req.query;
+    const normalizedQuery = String(q || '').trim();
 
-    if (!q || q.length < 1) {
+    if (normalizedQuery.length < 2) {
       return res.status(200).json({
         success: true,
         data: []
       });
     }
 
-    const escapedQuery = escapeRegex(q);
+    const escapedQuery = escapeRegex(normalizedQuery);
 
     // Search medicines without checking inventory - Purchase module should see ALL medicines
     const medicines = await Medicine.find({

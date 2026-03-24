@@ -8,7 +8,6 @@ const {
   isFutureDate,
   isNonNegativeInteger,
   isNonNegativeNumber,
-  isPastMonth,
   isPositiveInteger,
   isValidBatchNumber,
   isValidHSN,
@@ -18,6 +17,55 @@ const {
 } = require('../utils/validation');
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const isExpiryBeforePurchaseMonth = (expiryDate, purchaseDate) => {
+  if (!expiryDate) {
+    return false;
+  }
+
+  const [year, month] = String(expiryDate).split('-').map(Number);
+  if (!year || !month) {
+    return true;
+  }
+
+  const purchaseMonthDate = new Date(purchaseDate);
+  if (Number.isNaN(purchaseMonthDate.getTime())) {
+    return true;
+  }
+
+  const expiryMonth = new Date(year, month - 1, 1);
+  const purchaseMonth = new Date(
+    purchaseMonthDate.getFullYear(),
+    purchaseMonthDate.getMonth(),
+    1
+  );
+
+  return expiryMonth < purchaseMonth;
+};
+
+const restorePurchaseInventory = async (purchase, session) => {
+  for (const item of purchase.items) {
+    const inventory = await Inventory.findOne({
+      medicine: item.medicine,
+      batchNumber: { $regex: new RegExp(`^${escapeRegex(item.batchNumber)}$`, 'i') },
+      isDeleted: false
+    }).session(session);
+
+    if (!inventory) {
+      continue;
+    }
+
+    const conversionFactor = item.conversionFactor || 1;
+    const purchasedQty = item.quantity * conversionFactor;
+    const freeQty = (item.freeQuantity || 0) * conversionFactor;
+
+    inventory.quantityPurchased = Math.max(0, inventory.quantityPurchased - purchasedQty);
+    inventory.freeQuantity = Math.max(0, inventory.freeQuantity - freeQty);
+    inventory.quantityAvailable = inventory.quantityPurchased + inventory.freeQuantity;
+
+    await inventory.save({ session });
+  }
+};
 
 // @desc    Get last purchase price for a medicine
 // @route   GET /api/purchases/last-price/:medicineId
@@ -254,36 +302,8 @@ exports.deletePurchase = async (req, res) => {
       });
     }
 
-    // Step 2 & 3: For each item, find inventory and restore stock
-    for (const item of purchase.items) {
-      // Find the inventory record using medicine and batchNumber (case-insensitive)
-      const inventory = await Inventory.findOne({
-        medicine: item.medicine,
-        batchNumber: { $regex: new RegExp(`^${escapeRegex(item.batchNumber)}$`, 'i') },
-        isDeleted: false
-      }).session(session);
-
-      // If inventory batch not found, skip (no crash)
-      if (!inventory) {
-        console.warn(`Inventory batch not found for medicine: ${item.medicine}, batch: ${item.batchNumber}`);
-        continue;
-      }
-
-      // Calculate quantities to restore using unit conversion
-      const conversionFactor = item.conversionFactor || 1;
-      const purchasedQty = item.quantity * conversionFactor;
-      const freeQty = (item.freeQuantity || 0) * conversionFactor;
-
-      // Restore inventory stock
-      inventory.quantityPurchased = Math.max(0, inventory.quantityPurchased - purchasedQty);
-      inventory.freeQuantity = Math.max(0, inventory.freeQuantity - freeQty);
-      
-      // Recalculate quantityAvailable
-      inventory.quantityAvailable = inventory.quantityPurchased + inventory.freeQuantity;
-
-      // Step 4: Save inventory
-      await inventory.save({ session });
-    }
+    // Step 2 & 3: Restore stock from this purchase
+    await restorePurchaseInventory(purchase, session);
 
     // Step 5: Soft delete purchase
     purchase.isDeleted = true;
@@ -422,11 +442,11 @@ exports.addPurchase = async (req, res) => {
         });
       }
 
-      if (!item.expiryDate || isPastMonth(item.expiryDate)) {
+      if (!item.expiryDate || isExpiryBeforePurchaseMonth(item.expiryDate, purchaseDate)) {
         await session.abortTransaction();
         return res.status(400).json({
           success: false,
-          message: `Expiry month must be current or future for item ${index + 1}`
+          message: `Expiry month cannot be earlier than purchase date for item ${index + 1}`
         });
       }
 
@@ -687,6 +707,284 @@ exports.addPurchase = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error adding purchase',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update purchase and sync inventory
+// @route   PUT /api/purchases/:id
+// @access  Private
+exports.updatePurchase = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const purchase = await Purchase.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    }).session(session);
+
+    if (!purchase) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: 'Purchase not found'
+      });
+    }
+
+    const {
+      supplier,
+      purchaseDate,
+      supplierInvoiceNumber,
+      items,
+      discountPercent,
+      discountAmount,
+      miscellaneousAmount,
+      paymentMode,
+      notes
+    } = req.body;
+    const normalizedInvoiceNumber = normalizeWhitespace(supplierInvoiceNumber);
+    const normalizedNotes = normalizeOptionalText(notes);
+
+    if (!supplier) {
+      throw new Error('Supplier is required');
+    }
+
+    if (!purchaseDate || isFutureDate(purchaseDate)) {
+      throw new Error('Purchase date cannot be in the future');
+    }
+
+    if (normalizedInvoiceNumber.length < 2) {
+      throw new Error('Supplier invoice number is required');
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('At least one purchase item is required');
+    }
+
+    if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
+      throw new Error('Discount percent must be between 0 and 100');
+    }
+
+    if (miscellaneousAmount !== undefined && !isNonNegativeNumber(miscellaneousAmount)) {
+      throw new Error('Miscellaneous amount must be 0 or higher');
+    }
+
+    if (paymentMode && !['CASH', 'UPI', 'CARD', 'CREDIT'].includes(paymentMode)) {
+      throw new Error('Invalid payment mode');
+    }
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+
+      if (!item.medicine) {
+        throw new Error(`Medicine is required for item ${index + 1}`);
+      }
+
+      if (!isValidHSN(item.hsnCode || '')) {
+        throw new Error(`Valid HSN code is required for item ${index + 1}`);
+      }
+
+      if (!isValidBatchNumber(item.batchNumber || '')) {
+        throw new Error(`Valid batch number is required for item ${index + 1}`);
+      }
+
+      if (!item.expiryDate || isExpiryBeforePurchaseMonth(item.expiryDate, purchaseDate)) {
+        throw new Error(`Expiry month cannot be earlier than purchase date for item ${index + 1}`);
+      }
+
+      if (!isPositiveInteger(item.quantity)) {
+        throw new Error(`Quantity must be greater than 0 for item ${index + 1}`);
+      }
+
+      if (!isNonNegativeInteger(item.freeQuantity || 0)) {
+        throw new Error(`Free quantity cannot be negative for item ${index + 1}`);
+      }
+
+      if (!isNonNegativeNumber(item.purchasePrice) || !isNonNegativeNumber(item.mrp || 0)) {
+        throw new Error(`Purchase price and MRP must be 0 or higher for item ${index + 1}`);
+      }
+
+      if (!isNonNegativeNumber(item.discountPercent || 0) || Number(item.discountPercent || 0) > 100) {
+        throw new Error(`Discount percent must be between 0 and 100 for item ${index + 1}`);
+      }
+    }
+
+    const supplierDoc = await Supplier.findById(supplier).session(session);
+    if (!supplierDoc) {
+      throw new Error('Supplier not found');
+    }
+
+    await restorePurchaseInventory(purchase, session);
+
+    let calculatedSubtotal = 0;
+    let calculatedGst = 0;
+    const processedItems = [];
+
+    for (const item of items) {
+      const medicine = await Medicine.findById(item.medicine).session(session);
+      if (!medicine) {
+        throw new Error(`Medicine not found: ${item.medicine}`);
+      }
+
+      if (!item.hsnCode) {
+        throw new Error('HSN code is required for GST calculation');
+      }
+
+      let hsnRef = null;
+      let gstPercent = 0;
+      let cgstPercent = 0;
+      let sgstPercent = 0;
+      let igstPercent = 0;
+
+      if (item.hsnCode) {
+        hsnRef = await HSN.findOne({ hsnCode: item.hsnCode, isDeleted: false }).session(session);
+        if (hsnRef) {
+          gstPercent = hsnRef.gstPercent || 0;
+          cgstPercent = hsnRef.cgstPercent || (gstPercent / 2);
+          sgstPercent = hsnRef.sgstPercent || (gstPercent / 2);
+          igstPercent = hsnRef.igstPercent || gstPercent;
+        }
+      }
+
+      if (item.gstPercent !== undefined && item.gstPercent !== null) {
+        gstPercent = item.gstPercent;
+        cgstPercent = gstPercent / 2;
+        sgstPercent = gstPercent / 2;
+      }
+
+      const itemSubtotal = item.quantity * item.purchasePrice;
+      const itemDiscountAmount = itemSubtotal * ((item.discountPercent || 0) / 100);
+      const itemTaxableAmount = itemSubtotal - itemDiscountAmount;
+      const itemGstAmount = itemTaxableAmount * (gstPercent / 100);
+      const itemTotalAmount = itemTaxableAmount + itemGstAmount;
+
+      calculatedSubtotal += itemSubtotal;
+      calculatedGst += itemGstAmount;
+
+      processedItems.push({
+        medicine: item.medicine,
+        hsnCode: item.hsnCode || null,
+        hsnCodeRef: hsnRef ? hsnRef._id : null,
+        gstPercent,
+        unit: item.unit || medicine.sellingUnit || null,
+        baseUnit: item.baseUnit || medicine.baseUnit || null,
+        sellingUnit: item.sellingUnit || medicine.sellingUnit || null,
+        conversionFactor: item.conversionFactor || medicine.conversionFactor || 1,
+        batchNumber: normalizeUppercase(item.batchNumber),
+        expiryDate: item.expiryDate,
+        mrp: item.mrp || 0,
+        purchasePrice: item.purchasePrice,
+        quantity: item.quantity,
+        freeQuantity: item.freeQuantity || 0,
+        discountPercent: item.discountPercent || 0,
+        discountAmount: itemDiscountAmount,
+        subtotal: itemSubtotal,
+        taxableAmount: itemTaxableAmount,
+        cgstPercent,
+        sgstPercent,
+        igstPercent,
+        gstAmount: itemGstAmount,
+        cgstAmount: itemGstAmount * (cgstPercent / gstPercent || 0.5),
+        sgstAmount: itemGstAmount * (sgstPercent / gstPercent || 0.5),
+        igstAmount: itemGstAmount * (igstPercent / gstPercent || 1),
+        totalAmount: itemTotalAmount
+      });
+    }
+
+    const calculatedDiscountAmount = discountPercent
+      ? calculatedSubtotal * (discountPercent / 100)
+      : discountAmount || 0;
+    const calculatedMiscellaneousAmount = miscellaneousAmount || 0;
+    const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount + calculatedMiscellaneousAmount;
+
+    purchase.supplierInvoiceNumber = normalizedInvoiceNumber;
+    purchase.supplier = supplier;
+    purchase.purchaseDate = purchaseDate || new Date();
+    purchase.items = processedItems;
+    purchase.subtotal = calculatedSubtotal;
+    purchase.totalGst = calculatedGst;
+    purchase.totalCgst = calculatedGst / 2;
+    purchase.totalSgst = calculatedGst / 2;
+    purchase.totalIgst = 0;
+    purchase.discountPercent = discountPercent || 0;
+    purchase.discountAmount = calculatedDiscountAmount;
+    purchase.miscellaneousAmount = calculatedMiscellaneousAmount;
+    purchase.grandTotal = finalGrandTotal;
+    purchase.paymentMode = paymentMode || 'CASH';
+    purchase.notes = normalizedNotes;
+
+    await purchase.save({ session });
+
+    for (const [index, item] of items.entries()) {
+      const medicine = await Medicine.findById(item.medicine).session(session);
+      const processedItem = processedItems[index];
+      const conversionFactor = item.conversionFactor || medicine?.conversionFactor || 1;
+      const totalQuantity = (item.quantity * conversionFactor) + ((item.freeQuantity || 0) * conversionFactor);
+      const normalizedBatchNumber = normalizeUppercase(item.batchNumber);
+
+      let existingInventory = await Inventory.findOne({
+        medicine: item.medicine,
+        batchNumber: { $regex: new RegExp(`^${escapeRegex(normalizedBatchNumber)}$`, 'i') },
+        isDeleted: false
+      }).session(session);
+
+      if (existingInventory) {
+        existingInventory.quantityPurchased += (item.quantity * conversionFactor);
+        if (item.freeQuantity) {
+          existingInventory.freeQuantity += (item.freeQuantity * conversionFactor);
+        }
+        existingInventory.quantityAvailable = existingInventory.quantityPurchased + existingInventory.freeQuantity;
+        existingInventory.purchasePrice = item.purchasePrice;
+        existingInventory.mrp = item.mrp || 0;
+        existingInventory.supplier = supplier;
+        existingInventory.purchase = purchase._id;
+        existingInventory.hsnCodeString = item.hsnCode || null;
+        existingInventory.gstPercent = processedItem.gstPercent || 0;
+        existingInventory.batchNumber = normalizedBatchNumber;
+        existingInventory.expiryDate = item.expiryDate;
+        await existingInventory.save({ session });
+      } else {
+        const newInventory = new Inventory({
+          medicine: item.medicine,
+          batchNumber: normalizedBatchNumber,
+          expiryDate: item.expiryDate,
+          quantityPurchased: item.quantity * conversionFactor,
+          freeQuantity: (item.freeQuantity || 0) * conversionFactor,
+          quantityAvailable: totalQuantity,
+          purchasePrice: item.purchasePrice,
+          mrp: item.mrp || 0,
+          supplier,
+          purchase: purchase._id,
+          hsnCodeString: item.hsnCode || null,
+          hsnCode: processedItem.hsnCodeRef || null,
+          gstPercent: processedItem.gstPercent || 0
+        });
+        await newInventory.save({ session });
+      }
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const populatedPurchase = await Purchase.findById(purchase._id)
+      .populate('supplier', 'supplierName gstNumber')
+      .populate('createdBy', 'name')
+      .populate('items.medicine', 'medicineName brandName strength packSize');
+
+    res.status(200).json({
+      success: true,
+      data: populatedPurchase
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error updating purchase',
       error: error.message
     });
   }

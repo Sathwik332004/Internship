@@ -4,6 +4,7 @@ const {
   getPurchases,
   getPurchase,
   addPurchase,
+  updatePurchase,
   deletePurchase,
   getPurchaseReport,
   getLastPurchasePrice,
@@ -28,6 +29,7 @@ router.get('/check-batch', checkBatchExists);
 
 router.route('/:id')
   .get(getPurchase)
+  .put(updatePurchase)
   .delete(deletePurchase);
 
 module.exports = router;

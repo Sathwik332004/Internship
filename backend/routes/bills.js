@@ -10,7 +10,8 @@ const {
   getGstReport,
   getMonthlySales,
   getTopMedicines,
-  getDashboardStats
+  getDashboardStats,
+  getPendingCustomers
 } = require('../controllers/billController');
 const { protect } = require('../middleware/auth');
 const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
@@ -39,6 +40,9 @@ router.route('/report/sales')
 
 router.route('/report/gst')
   .get(getGstReport);
+
+router.route('/pending-customers')
+  .get(getPendingCustomers);
 
 router.route('/:id')
   .get(getBill)

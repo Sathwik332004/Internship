@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, DollarSign, Package, AlertTriangle, Clock, Hash, Save, Pill, Check } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, DollarSign, Package, AlertTriangle, Clock, Hash, Save, Pill, Check, Pencil } from 'lucide-react';
 import api from '../services/api';
 import {
   normalizeTextInput,
@@ -12,6 +12,27 @@ const UNIT_OPTIONS = [
   'tablet', 'capsule', 'piece', 'ml', 'bottle', 
   'vial', 'ampoule', 'gram', 'tube', 'strip', 'box', 'carton'
 ];
+
+const EXPIRY_MONTH_OPTIONS = [
+  { value: '01', label: 'Jan' },
+  { value: '02', label: 'Feb' },
+  { value: '03', label: 'Mar' },
+  { value: '04', label: 'Apr' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'Jun' },
+  { value: '07', label: 'Jul' },
+  { value: '08', label: 'Aug' },
+  { value: '09', label: 'Sep' },
+  { value: '10', label: 'Oct' },
+  { value: '11', label: 'Nov' },
+  { value: '12', label: 'Dec' }
+];
+
+const EXPIRY_MONTH_LOOKUP = EXPIRY_MONTH_OPTIONS.reduce((acc, option) => {
+  acc[option.label.toLowerCase()] = option.value;
+  acc[option.label.toLowerCase().slice(0, 3)] = option.value;
+  return acc;
+}, {});
 
 // Column configuration for grid - ERP Style with fixed column widths
 const GRID_COLUMNS = [
@@ -29,10 +50,99 @@ const GRID_COLUMNS = [
   { key: 'actions', label: '', className: 'delete-col', editable: false }
 ];
 
+const normalizeExpiryInput = (value = '') => {
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const yearMonthMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})$/);
+  if (yearMonthMatch) {
+    const [, year, month] = yearMonthMatch;
+    const monthNum = Number(month);
+    if (monthNum >= 1 && monthNum <= 12) {
+      return `${year}-${String(monthNum).padStart(2, '0')}`;
+    }
+  }
+
+  const monthYearMatch = trimmed.match(/^(\d{1,2})[-/](\d{2}|\d{4})$/);
+  if (monthYearMatch) {
+    const [, month, yearPart] = monthYearMatch;
+    const monthNum = Number(month);
+    if (monthNum >= 1 && monthNum <= 12) {
+      const year = yearPart.length === 2 ? `20${yearPart}` : yearPart;
+      return `${year}-${String(monthNum).padStart(2, '0')}`;
+    }
+  }
+
+  const digitsOnlyMatch = trimmed.replace(/\D/g, '').match(/^(\d{2})(\d{2}|\d{4})$/);
+  if (digitsOnlyMatch) {
+    const [, month, yearPart] = digitsOnlyMatch;
+    const monthNum = Number(month);
+    if (monthNum >= 1 && monthNum <= 12) {
+      const year = yearPart.length === 2 ? `20${yearPart}` : yearPart;
+      return `${year}-${String(monthNum).padStart(2, '0')}`;
+    }
+  }
+
+  const textMonthMatch = trimmed.match(/^([a-zA-Z]+)\s+(\d{2}|\d{4})$/);
+  if (textMonthMatch) {
+    const [, monthText, yearPart] = textMonthMatch;
+    const month = EXPIRY_MONTH_LOOKUP[monthText.toLowerCase()];
+    if (month) {
+      const year = yearPart.length === 2 ? `20${yearPart}` : yearPart;
+      return `${year}-${month}`;
+    }
+  }
+
+  return '';
+};
+
+const formatExpiryDisplay = (value = '') => {
+  const normalized = normalizeExpiryInput(value) || String(value).trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return String(value || '');
+  }
+
+  const [, year, month] = match;
+  const monthLabel = EXPIRY_MONTH_OPTIONS.find((option) => option.value === month)?.label || month;
+  return `${monthLabel} ${year}`;
+};
+
+const getExpiryParts = (value = '') => {
+  const normalized = normalizeExpiryInput(value);
+  if (!normalized) {
+    return { year: '', month: '' };
+  }
+
+  const [year, month] = normalized.split('-');
+  return { year, month };
+};
+
+const normalizeExpiryMonthInput = (value = '') => {
+  const month = value.replace(/\D/g, '').slice(0, 2);
+  if (!month) {
+    return '';
+  }
+
+  if (month.length === 1) {
+    return month;
+  }
+
+  const monthNumber = Number(month);
+  if (monthNumber < 1 || monthNumber > 12) {
+    return month;
+  }
+
+  return String(monthNumber).padStart(2, '0');
+};
+
 // Memoized row component for performance
 const PurchaseRow = React.memo(({ 
   item, 
   index, 
+  purchaseDate,
   activeCell, 
   rowRef,
   onUpdateField, 
@@ -47,6 +157,11 @@ const PurchaseRow = React.memo(({
   isFirstRow,
   onSearchChange,
   onSetSearchRowIndex,
+  searchResults,
+  showSearchResults,
+  searchRowIndex,
+  onAddMedicine,
+  onCloseSearch,
   hsnCodes,
   onHSNChange
 }) => {
@@ -96,8 +211,110 @@ const PurchaseRow = React.memo(({
     return base;
   };
 
+  const purchaseMonthDate = purchaseDate ? new Date(purchaseDate) : new Date();
+  const suggestionStartYear = Number.isNaN(purchaseMonthDate.getTime())
+    ? new Date().getFullYear()
+    : purchaseMonthDate.getFullYear();
+  const purchaseMonthNumber = Number.isNaN(purchaseMonthDate.getTime())
+    ? 1
+    : purchaseMonthDate.getMonth() + 1;
+  const expiryYearValue = getExpiryParts(item.expiryDate).year;
+  const initialPickerYear = expiryYearValue || String(suggestionStartYear);
   // Check if this row needs a search input (empty row or first row)
   const needsSearchInput = !item.medicineId || isFirstRow;
+  const [expiryParts, setExpiryParts] = useState(() => getExpiryParts(item.expiryDate));
+  const [isExpiryPickerOpen, setIsExpiryPickerOpen] = useState(false);
+  const [expiryPickerYear, setExpiryPickerYear] = useState(initialPickerYear);
+  const expiryPickerRef = useRef(null);
+  const productSearchContainerRef = useRef(null);
+  const visibleYears = Array.from({ length: 12 }, (_, yearOffset) => String(Number(expiryPickerYear) + yearOffset));
+  const availableMonthOptions = EXPIRY_MONTH_OPTIONS.filter((option) => {
+    if (!expiryParts.year) {
+      return true;
+    }
+
+    if (!expiryPickerYear || Number(expiryPickerYear) > suggestionStartYear) {
+      return true;
+    }
+
+    return Number(option.value) >= purchaseMonthNumber;
+  });
+
+  useEffect(() => {
+    setExpiryParts(getExpiryParts(item.expiryDate));
+    setExpiryPickerYear(getExpiryParts(item.expiryDate).year || String(suggestionStartYear));
+  }, [item.expiryDate, suggestionStartYear]);
+
+  useEffect(() => {
+    if (!isExpiryPickerOpen) {
+      return undefined;
+    }
+
+    const handleClickOutside = (event) => {
+      if (expiryPickerRef.current && !expiryPickerRef.current.contains(event.target)) {
+        setIsExpiryPickerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isExpiryPickerOpen]);
+
+  useEffect(() => {
+    if (!(showSearchResults && searchRowIndex === index)) {
+      return undefined;
+    }
+
+    const handleClickOutside = (event) => {
+      if (productSearchContainerRef.current && !productSearchContainerRef.current.contains(event.target)) {
+        onCloseSearch();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [index, onCloseSearch, searchRowIndex, showSearchResults]);
+
+  const updateExpiry = (nextParts) => {
+    setExpiryParts(nextParts);
+    if (nextParts.year.length === 4 && nextParts.month) {
+      onUpdateField(index, 'expiryDate', `${nextParts.year}-${nextParts.month}`);
+    }
+  };
+
+  const handleExpiryYearInput = (value) => {
+    const year = value.replace(/\D/g, '').slice(0, 4);
+    const nextParts = { ...expiryParts, year };
+
+    if (
+      nextParts.month &&
+      year === String(suggestionStartYear) &&
+      Number(nextParts.month) < purchaseMonthNumber
+    ) {
+      nextParts.month = '';
+    }
+
+    setExpiryPickerYear(year || String(suggestionStartYear));
+    updateExpiry(nextParts);
+  };
+
+  const handleExpiryMonthInput = (value) => {
+    const month = normalizeExpiryMonthInput(value);
+    const nextParts = { ...expiryParts, month };
+
+    if (
+      month.length === 2 &&
+      Number(month) >= 1 &&
+      Number(month) <= 12 &&
+      nextParts.year &&
+      !(nextParts.year === String(suggestionStartYear) && Number(month) < purchaseMonthNumber)
+    ) {
+      updateExpiry(nextParts);
+      return;
+    }
+
+    setExpiryParts(nextParts);
+  };
 
   return (
     <tr 
@@ -108,19 +325,42 @@ const PurchaseRow = React.memo(({
       {/* Product Column - Wide Search Input */}
       <td className={`${getCellClass('product')} relative`}>
         {needsSearchInput ? (
-          <input
-            ref={(el) => (inputRefs.current[`product-${index}`] = el)}
-            type="text"
-            value={item.medicineName || ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              onUpdateField(index, "medicineName", value);
-              onSetSearchRowIndex(index);
-              onSearchChange(value, index);
-            }}
-            placeholder="Search medicine name, brand or barcode..."
-            className="w-full h-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white"
-          />
+          <div className="relative" ref={productSearchContainerRef}>
+            <input
+              ref={(el) => (inputRefs.current[`product-${index}`] = el)}
+              type="text"
+              value={item.medicineName || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                onUpdateField(index, "medicineName", value);
+                onSetSearchRowIndex(index);
+                onSearchChange(value, index);
+              }}
+              placeholder="Search medicine name, brand or barcode..."
+              className="w-full h-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white"
+            />
+            {showSearchResults && searchRowIndex === index && searchResults.length > 0 && (
+              <div className="absolute left-0 top-full z-30 mt-2 w-full min-w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                {searchResults.map((medicine) => {
+                  const strength = medicine.strength || medicine.medicineStrength || '';
+                  const pack = medicine.sellingUnit || medicine.packSize || medicine.baseUnit || '';
+                  const displayText = `${medicine.medicineName}${strength ? ` - ${strength}` : ''}${pack ? ` - ${pack}` : ''}`;
+
+                  return (
+                    <button
+                      key={medicine._id}
+                      type="button"
+                      onClick={() => onAddMedicine(medicine)}
+                      className="w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-blue-50"
+                    >
+                      <p className="font-medium text-slate-900">{displayText}</p>
+                      <p className="mt-1 text-sm text-slate-500">{medicine.brandName || 'Generic'}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="flex items-center h-full px-3 py-2">
             <button
@@ -176,15 +416,111 @@ const PurchaseRow = React.memo(({
 
       {/* Expiry Column */}
       <td className={getCellClass('expiry')}>
-        <input
-          type="month"
-          value={item.expiryDate || ''}
-          onChange={(e) => onUpdateField(index, 'expiryDate', e.target.value)}
-          onKeyDown={(e) => onKeyDown(e, index, 'expiry')}
-          onFocus={() => onCellFocus(index, 'expiry')}
-          className={`${getInputClass('expiry')} text-xs`}
-          placeholder="MM/YY"
-        />
+        <div className="relative" ref={expiryPickerRef}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCellFocus(index, 'expiry');
+              setIsExpiryPickerOpen((current) => !current);
+            }}
+            onKeyDown={(e) => onKeyDown(e, index, 'expiry')}
+            className="flex w-full items-center justify-between rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            title="Select expiry year and month"
+          >
+            <span>{formatExpiryDisplay(item.expiryDate) || 'Select expiry'}</span>
+            <ChevronDown size={14} className={`transition-transform ${isExpiryPickerOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {isExpiryPickerOpen && (
+            <div
+              className="absolute left-0 top-full z-30 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setExpiryPickerYear(String(Math.max(suggestionStartYear, Number(expiryPickerYear) - 12)))}
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Prev
+                </button>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Select Year
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setExpiryPickerYear(String(Number(expiryPickerYear) + 12))}
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Enter Manually
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={expiryParts.month}
+                    onChange={(e) => handleExpiryMonthInput(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                    placeholder="MM"
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={expiryParts.year}
+                    onChange={(e) => handleExpiryYearInput(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    placeholder="YYYY"
+                  />
+                </div>
+              </div>
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                {visibleYears.map((year) => (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => {
+                      handleExpiryYearInput(year);
+                    }}
+                    className={`rounded-lg px-2 py-2 text-xs font-medium transition ${
+                      expiryParts.year === year
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'border border-slate-200 text-slate-700 hover:border-blue-200 hover:bg-blue-50'
+                    }`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Select Month
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {availableMonthOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      updateExpiry({ year: expiryParts.year || '', month: option.value });
+                      setIsExpiryPickerOpen(false);
+                    }}
+                    className={`rounded-lg px-2 py-2 text-xs font-medium transition ${
+                      expiryParts.month === option.value
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'border border-slate-200 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </td>
 
       {/* Qty Column */}
@@ -320,6 +656,7 @@ export default function Purchases() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingPurchaseId, setEditingPurchaseId] = useState(null);
 
   // Form state
   const [purchaseNumber, setPurchaseNumber] = useState('');
@@ -450,29 +787,39 @@ export default function Purchases() {
 
   // Search medicines for autocomplete (minimum 2 characters)
   const searchMedicines = async (query, rowIndex) => {
+    const normalizedQuery = String(query || '').trim();
+
     // Only search when query length >= 2
-    if (!query || query.trim().length < 2) {
+    if (normalizedQuery.length < 2) {
       setSearchResults([]);
+      setShowSearchResults(false);
       if (rowIndex !== undefined) {
         setSearchRowIndex(rowIndex);
       }
       return;
     }
 
-    try {
-      const response = await api.get('/medicines/search-all', {
-        params: { q: query, limit: 15 }
-      });
+    const lowerQuery = normalizedQuery.toLowerCase();
+    const results = medicines
+      .filter((medicine) => {
+        const medicineName = String(medicine.medicineName || '').toLowerCase();
+        const brandName = String(medicine.brandName || '').toLowerCase();
+        const barcode = String(medicine.barcode || '').toLowerCase();
+        const gtin = String(medicine.gtin || '').toLowerCase();
 
-      const results = response?.data?.data || [];
-      setSearchResults(results);
-      setShowSearchResults(true);
-      if (rowIndex !== undefined) {
-        setSearchRowIndex(rowIndex);
-      }
-    } catch (error) {
-      console.error("Medicine search error:", error);
-      setSearchResults([]);
+        return (
+          medicineName.includes(lowerQuery) ||
+          brandName.includes(lowerQuery) ||
+          barcode.includes(lowerQuery) ||
+          gtin.includes(lowerQuery)
+        );
+      })
+      .slice(0, 15);
+
+    setSearchResults(results);
+    setShowSearchResults(results.length > 0);
+    if (rowIndex !== undefined) {
+      setSearchRowIndex(rowIndex);
     }
   };
 
@@ -598,11 +945,15 @@ export default function Purchases() {
     const purchasePrice = parseFloat(item.purchasePrice) || 0;
     const discountPercent = parseFloat(item.discountPercent) || 0;
     const gstPercent = parseFloat(item.gstPercent) || 0;
+    const cgstPercent = gstPercent / 2;
+    const sgstPercent = gstPercent / 2;
 
     item.subtotal = quantity * purchasePrice;
     item.discountAmount = item.subtotal * (discountPercent / 100);
     item.taxableAmount = item.subtotal - item.discountAmount;
     item.gstAmount = item.taxableAmount * (gstPercent / 100);
+    item.cgstAmount = item.taxableAmount * (cgstPercent / 100);
+    item.sgstAmount = item.taxableAmount * (sgstPercent / 100);
     item.totalAmount = item.taxableAmount + item.gstAmount;
 
     return item;
@@ -640,10 +991,12 @@ export default function Purchases() {
     const subtotal = purchaseItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
     const totalDiscount = purchaseItems.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
     const totalGst = purchaseItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
+    const totalCgst = purchaseItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
+    const totalSgst = purchaseItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
     const itemTotal = purchaseItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
     const extraAmount = parseFloat(miscellaneousAmount) || 0;
     const grandTotal = itemTotal + extraAmount;
-    return { subtotal, totalDiscount, totalGst, miscellaneousAmount: extraAmount, grandTotal };
+    return { subtotal, totalDiscount, totalGst, totalCgst, totalSgst, miscellaneousAmount: extraAmount, grandTotal };
   }, [miscellaneousAmount, purchaseItems]);
 
   // Memoized totals
@@ -834,16 +1187,18 @@ export default function Purchases() {
         notes: normalizeTextInput(notes).trim()
       };
 
-      const response = await api.post('/purchases', purchaseData);
+      const response = editingPurchaseId
+        ? await api.put(`/purchases/${editingPurchaseId}`, purchaseData)
+        : await api.post('/purchases', purchaseData);
       if (response.data.success) {
-        alert('Purchase created successfully!');
+        alert(editingPurchaseId ? 'Purchase updated successfully!' : 'Purchase created successfully!');
         setShowAddModal(false);
         resetForm();
         fetchPurchases();
       }
     } catch (error) {
       console.error('Error saving purchase:', error);
-      alert(error.response?.data?.message || 'Error creating purchase. Please try again.');
+      alert(error.response?.data?.message || (editingPurchaseId ? 'Error updating purchase. Please try again.' : 'Error creating purchase. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -851,6 +1206,7 @@ export default function Purchases() {
 
   // Reset form
   const resetForm = () => {
+    setEditingPurchaseId(null);
     setPurchaseNumber('');
     setSelectedSupplier('');
     setPurchaseDate(new Date().toISOString().split('T')[0]);
@@ -864,6 +1220,70 @@ export default function Purchases() {
     setBatchWarnings({});
     setActiveCell(null);
     setSearchRowIndex(-1);
+  };
+
+  const handleEditPurchase = async (purchaseId) => {
+    try {
+      const response = await api.get(`/purchases/${purchaseId}`);
+      const purchase = response.data?.data;
+
+      if (!purchase) {
+        alert('Unable to load purchase details.');
+        return;
+      }
+
+      setEditingPurchaseId(purchase._id);
+      setPurchaseNumber(purchase.purchaseNumber || '');
+      setSelectedSupplier(purchase.supplier?._id || '');
+      setPurchaseDate(purchase.purchaseDate ? new Date(purchase.purchaseDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+      setSupplierInvoiceNumber(purchase.supplierInvoiceNumber || '');
+      setPaymentMode(purchase.paymentMode || 'CASH');
+      setDiscountPercent(purchase.discountPercent || 0);
+      setMiscellaneousAmount(purchase.miscellaneousAmount || 0);
+      setNotes(purchase.notes || '');
+      setPurchaseItems(
+        (purchase.items || []).map((item) => {
+          const mappedItem = {
+            medicineId: item.medicine?._id || item.medicine || null,
+            medicineName: item.medicine?.medicineName || '',
+            brandName: item.medicine?.brandName || '',
+            hsnCode: item.hsnCode || '',
+            gstPercent: item.gstPercent || 0,
+            unit: item.unit || '',
+            baseUnit: item.baseUnit || '',
+            sellingUnit: item.sellingUnit || '',
+            conversionFactor: item.conversionFactor || 1,
+            batchNumber: item.batchNumber || '',
+            expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString().slice(0, 7) : '',
+            mrp: item.mrp || 0,
+            purchasePrice: item.purchasePrice || 0,
+            sellingPrice: item.sellingPrice || 0,
+            quantity: item.quantity || 1,
+            freeQuantity: item.freeQuantity || 0,
+            discountPercent: item.discountPercent || 0,
+            discountAmount: item.discountAmount || 0,
+            subtotal: item.subtotal || 0,
+            taxableAmount: item.taxableAmount || 0,
+            gstAmount: item.gstAmount || 0,
+            cgstAmount: item.cgstAmount || 0,
+            sgstAmount: item.sgstAmount || 0,
+            totalAmount: item.totalAmount || 0
+          };
+
+          return calculateItemTotals(mappedItem);
+        })
+      );
+      setMedicineSearch('');
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setBatchWarnings({});
+      setActiveCell(null);
+      setSearchRowIndex(-1);
+      setShowAddModal(true);
+    } catch (error) {
+      console.error('Error loading purchase for edit:', error);
+      alert(error.response?.data?.message || 'Unable to load purchase for editing.');
+    }
   };
 
   // Delete purchase
@@ -916,77 +1336,85 @@ export default function Purchases() {
     }
   };
 
+  const closeMedicineSearch = useCallback(() => {
+    setShowSearchResults(false);
+    setSearchRowIndex(-1);
+  }, []);
+
   return (
-    <div className="p-6">
+    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.10),_transparent_30%),linear-gradient(180deg,_#f8fbff_0%,_#f4f7fb_100%)] p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Purchases</h1>
-          <p className="text-gray-600 mt-1">Track and manage medicine purchases with batch-wise inventory</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Purchases</h1>
+          <p className="mt-1 text-slate-600">Track and manage medicine purchases with batch-wise inventory control.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+        <button onClick={() => {
+          resetForm();
+          setShowAddModal(true);
+        }} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md">
           <Plus size={20} />
           New Purchase
         </button>
       </div>
 
       {/* Search */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+      <div className="mb-6 rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm backdrop-blur">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input
             type="text"
             placeholder="Search by invoice number or supplier..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
+            <div className="rounded-xl bg-blue-100 p-3">
               <Package className="text-blue-600" size={24} />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Purchases</p>
-              <p className="text-2xl font-bold text-gray-900">{purchases.length}</p>
+              <p className="text-sm text-slate-500">Total Purchases</p>
+              <p className="text-2xl font-bold text-slate-900">{purchases.length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-green-100 rounded-lg">
+            <div className="rounded-xl bg-emerald-100 p-3">
               <DollarSign className="text-green-600" size={24} />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Amount</p>
-              <p className="text-2xl font-bold text-gray-900">₹{purchases.reduce((sum, p) => sum + (p.grandTotal || 0), 0).toLocaleString()}</p>
+              <p className="text-sm text-slate-500">Total Amount</p>
+              <p className="text-2xl font-bold text-slate-900">₹{purchases.reduce((sum, p) => sum + (p.grandTotal || 0), 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-100 rounded-lg">
+            <div className="rounded-xl bg-amber-100 p-3">
               <Package className="text-orange-600" size={24} />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Credit Purchases</p>
-              <p className="text-2xl font-bold text-gray-900">{purchases.filter(p => p.paymentMode === 'CREDIT').length}</p>
+              <p className="text-sm text-slate-500">Credit Purchases</p>
+              <p className="text-2xl font-bold text-slate-900">{purchases.filter(p => p.paymentMode === 'CREDIT').length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-100 rounded-lg">
+            <div className="rounded-xl bg-violet-100 p-3">
               <Calendar className="text-purple-600" size={24} />
             </div>
             <div>
-              <p className="text-sm text-gray-600">This Month</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-slate-500">This Month</p>
+              <p className="text-2xl font-bold text-slate-900">
                 {purchases.filter(p => {
                   const date = new Date(p.purchaseDate);
                   const now = new Date();
@@ -999,7 +1427,7 @@ export default function Purchases() {
       </div>
 
       {/* Purchases Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-white/70 bg-white/95 shadow-sm backdrop-blur">
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -1008,8 +1436,8 @@ export default function Purchases() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+              <table className="w-full min-w-[980px]">
+                <thead className="border-b border-gray-200 bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Purchase #</th>
@@ -1025,9 +1453,9 @@ export default function Purchases() {
                 <tbody className="divide-y divide-gray-200">
                   {purchases.map((purchase) => (
                     <React.Fragment key={purchase._id}>
-                      <tr className="hover:bg-gray-50">
+                      <tr className="transition-colors hover:bg-slate-50">
                         <td className="px-4 py-4">
-                          <button onClick={() => toggleExpand(purchase._id)} className="p-1 hover:bg-gray-200 rounded">
+                          <button onClick={() => toggleExpand(purchase._id)} className="rounded-lg p-1 transition-colors hover:bg-slate-200">
                             {expandedPurchase === purchase._id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                           </button>
                         </td>
@@ -1044,10 +1472,13 @@ export default function Purchases() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
-                            <button onClick={() => toggleExpand(purchase._id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                            <button onClick={() => toggleExpand(purchase._id)} className="rounded-xl p-2 text-blue-600 transition-colors hover:bg-blue-50">
                               <Eye size={18} />
                             </button>
-                            <button onClick={() => setDeleteConfirm(purchase)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                            <button onClick={() => handleEditPurchase(purchase._id)} className="rounded-xl p-2 text-amber-600 transition-colors hover:bg-amber-50" title="Edit Purchase">
+                              <Pencil size={18} />
+                            </button>
+                            <button onClick={() => setDeleteConfirm(purchase)} className="rounded-xl p-2 text-red-600 transition-colors hover:bg-red-50">
                               <Trash2 size={18} />
                             </button>
                           </div>
@@ -1055,8 +1486,8 @@ export default function Purchases() {
                       </tr>
                       {expandedPurchase === purchase._id && (
                         <tr>
-                          <td colSpan="9" className="px-4 py-4 bg-gray-50">
-                            <div className="border rounded-lg overflow-hidden">
+                          <td colSpan="9" className="bg-slate-50 px-4 py-4">
+                            <div className="overflow-hidden rounded-xl border border-slate-200">
                               <table className="w-full">
                                 <thead className="bg-gray-100">
                                   <tr>
@@ -1076,7 +1507,7 @@ export default function Purchases() {
                                       <td className="px-4 py-2 text-sm text-gray-900">{item.medicine?.medicineName}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.hsnCode || '-'}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.batchNumber}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-500">{new Date(item.expiryDate).toLocaleDateString()}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-500">{formatExpiryDisplay(item.expiryDate)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">₹{item.purchasePrice?.toFixed(2)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.gstPercent}%</td>
@@ -1108,14 +1539,14 @@ export default function Purchases() {
                 </tbody>
               </table>
             </div>
-            <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-sm text-gray-500">Showing {purchases.length} results</div>
+            <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3">
+              <div className="text-sm text-slate-500">Showing {purchases.length} results</div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg border border-gray-300 disabled:opacity-50">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="rounded-xl border border-gray-300 p-2 transition-colors disabled:opacity-50 hover:bg-slate-50">
                   <ChevronLeft size={20} />
                 </button>
-                <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
-                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-lg border border-gray-300 disabled:opacity-50">
+                <span className="text-sm text-slate-600">Page {currentPage} of {totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="rounded-xl border border-gray-300 p-2 transition-colors disabled:opacity-50 hover:bg-slate-50">
                   <ChevronRight size={20} />
                 </button>
               </div>
@@ -1126,22 +1557,26 @@ export default function Purchases() {
 
       {/* Add Purchase Modal - ERP Grid Style */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 md:p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm md:p-4">
+          <div className="flex min-h-full items-start justify-center md:items-center">
+            <div className="flex min-h-[92vh] w-full max-w-7xl flex-col overflow-y-auto overflow-x-hidden rounded-[28px] border border-white/60 bg-white shadow-2xl md:min-h-0 md:max-h-[95vh]">
             {/* Header */}
-            <div className="p-4 md:p-6 border-b border-gray-200 flex justify-between items-center bg-blue-600 text-white flex-shrink-0">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-blue-400/20 bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 p-4 text-white md:p-6">
               <div>
-                <h2 className="text-xl font-bold">New Purchase Order</h2>
+                <h2 className="text-xl font-bold">{editingPurchaseId ? 'Edit Purchase Order' : 'New Purchase Order'}</h2>
                 <p className="text-blue-100 text-sm">ERP Mode - Tab/Enter to navigate • Enter in Amount adds new row</p>
               </div>
-              <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-blue-700 rounded-lg">
+              <button onClick={() => {
+                setShowAddModal(false);
+                resetForm();
+              }} className="rounded-xl p-2 transition-colors hover:bg-white/10">
                 <X size={24} />
               </button>
             </div>
             
             {/* Header Form */}
-            <div className="p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+            <div className="flex-shrink-0 border-b border-gray-200 bg-slate-50 p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 md:gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Purchase Number</label>
                   <div className="flex items-center gap-2 bg-white px-3 py-2 rounded border border-gray-300">
@@ -1151,14 +1586,14 @@ export default function Purchases() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Supplier *</label>
-                  <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" required>
+                  <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
                     <option value="">Select</option>
                     {suppliers.map(s => (<option key={s._id} value={s._id}>{s.supplierName}</option>))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
-                  <input type="date" value={purchaseDate} max={new Date().toISOString().split('T')[0]} onChange={(e) => setPurchaseDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" required />
+                  <input type="date" value={purchaseDate} max={new Date().toISOString().split('T')[0]} onChange={(e) => setPurchaseDate(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Supplier Invoice *</label>
@@ -1168,13 +1603,13 @@ export default function Purchases() {
                     maxLength={50}
                     onChange={(e) => setSupplierInvoiceNumber(normalizeTextInput(e.target.value))} 
                     placeholder="Enter supplier invoice number"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" 
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" 
                     required 
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Payment Mode</label>
-                  <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                  <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="CASH">Cash</option>
                     <option value="UPI">UPI</option>
                     <option value="CARD">Card</option>
@@ -1185,9 +1620,23 @@ export default function Purchases() {
             </div>
 
             {/* Grid Layout - ERP Style */}
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex min-h-[360px] flex-1 flex-col overflow-visible md:overflow-hidden">
+              <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Purchase Items</p>
+                  <p className="text-xs text-slate-500">Add medicines and continue entry row by row.</p>
+                </div>
+                <button
+                  onClick={addEmptyRow}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                >
+                  <Plus size={18} />
+                  Add Item
+                </button>
+              </div>
+
               {/* Table Header - Sticky */}
-              <div className="overflow-x-auto flex-shrink-0">
+              <div className="overflow-x-auto flex-shrink-0 border-b border-gray-200 bg-slate-100/80">
                 <table className="purchase-table w-full">
                   <thead className="sticky top-0 bg-gray-100 z-10">
                     <tr>
@@ -1202,7 +1651,7 @@ export default function Purchases() {
               </div>
 
               {/* Table Body - Scrollable */}
-              <div className="flex-1 overflow-auto" ref={tableBodyRef}>
+              <div className="min-h-[220px] flex-1 overflow-auto" ref={tableBodyRef}>
                 {purchaseItems.length > 0 ? (
                   <table className="purchase-table w-full">
                     <tbody className="divide-y divide-gray-200">
@@ -1219,6 +1668,7 @@ export default function Purchases() {
                           <PurchaseRow
                             item={item}
                             index={index}
+                            purchaseDate={purchaseDate}
                             activeCell={activeCell}
                             rowRef={(el) => (inputRefs.current[index] = el)}
                             onUpdateField={updateItemField}
@@ -1233,6 +1683,11 @@ export default function Purchases() {
                             isFirstRow={index === 0}
                             onSearchChange={searchMedicines}
                             onSetSearchRowIndex={setSearchRowIndex}
+                            searchResults={searchResults}
+                            showSearchResults={showSearchResults}
+                            searchRowIndex={searchRowIndex}
+                            onAddMedicine={addMedicineToPurchase}
+                            onCloseSearch={closeMedicineSearch}
                             hsnCodes={hsnCodes}
                             onHSNChange={handleHSNChange}
                           />
@@ -1241,17 +1696,25 @@ export default function Purchases() {
                     </tbody>
                   </table>
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="flex min-h-[220px] flex-col items-center justify-center py-12 text-center text-gray-500">
                     <Pill size={48} className="mx-auto mb-4 text-gray-300" />
-                    <p className="text-lg">No items added. Press Enter or click below to add first item.</p>
+                    <p className="text-lg font-medium text-slate-700">No items added yet</p>
+                    <p className="mt-2 max-w-md text-sm text-slate-500">Start by adding your first purchase item. You can search the medicine and then continue filling the row.</p>
+                    <button
+                      onClick={addEmptyRow}
+                      className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+                    >
+                      <Plus size={18} />
+                      Add First Item
+                    </button>
                   </div>
                 )}
 
                 {/* Add Row Button */}
-                <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="sticky bottom-0 border-t border-gray-200 bg-slate-50/95 p-4 backdrop-blur">
                   <button
                     onClick={addEmptyRow}
-                    className="flex items-center gap-2 px-4 py-2 text-blue-600 border-2 border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-blue-300 bg-white px-4 py-3 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-50"
                   >
                     <Plus size={20} />
                     Add Item (or press Enter in last Amount field)
@@ -1260,7 +1723,7 @@ export default function Purchases() {
               </div>
 
               {/* Search Dropdown - Shows when searching - ERP Style Format */}
-              {showSearchResults && searchResults.length > 0 && (
+              {false && showSearchResults && searchResults.length > 0 && (
                 <div className="absolute z-50 mt-12 ml-4 w-[500px] bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-auto">
                   {searchResults.map((medicine) => {
                     // Format: Medicine Name – Strength – Pack (e.g., Paracetamol 500mg – Tablet – Strip10)
@@ -1288,12 +1751,12 @@ export default function Purchases() {
             </div>
 
             {/* Footer with Summary */}
-            <div className="border-t border-gray-200 bg-gray-50 p-4 flex-shrink-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex-shrink-0 border-t border-gray-200 bg-slate-50 p-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                    <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Amount</label>
@@ -1304,46 +1767,127 @@ export default function Purchases() {
                       value={miscellaneousAmount}
                       onChange={(e) => setMiscellaneousAmount(parseFloat(e.target.value) || 0)}
                       placeholder="0.00"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+                  <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-4 shadow-[0_14px_40px_rgba(148,163,184,0.18)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-700">Purchase Insights</p>
+                        <h3 className="mt-2 text-lg font-semibold text-slate-900">Entry Snapshot</h3>
+                        <p className="mt-1 text-sm text-slate-500">A quick look at the purchase before saving.</p>
+                      </div>
+                      <div className="rounded-2xl bg-slate-900 px-3 py-2 text-right text-white shadow-sm">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300">Items</p>
+                        <p className="mt-1 text-2xl font-bold">{purchaseItems.length}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Payment Mode</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">{paymentMode || 'CASH'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-violet-100 bg-violet-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Purchase Date</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">{purchaseDate || 'Not set'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount Saved</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.totalDiscount.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600">Extra Charges</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.miscellaneousAmount.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.totalCgst.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-600">SGST</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.totalSgst.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/80 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Notes Preview</p>
+                      <p className="mt-2 text-sm text-slate-600">{notes.trim() || 'Add a short note to remember supplier terms, batch info, or delivery details.'}</p>
+                    </div>
                   </div>
                 </div>
                 <div>
-                  <div className="bg-gray-900 text-white p-4 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-3">Purchase Summary</h3>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
+                    <div className="mb-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 px-4 py-4 text-white">
                       <div>
-                        <p className="text-gray-400">Subtotal</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-blue-200">Live Totals</p>
+                        <h3 className="mt-2 text-xl font-semibold">Purchase Summary</h3>
+                        <p className="mt-1 text-sm text-slate-300">Review the purchase value as you update items.</p>
+                      </div>
+                      <div className="hidden rounded-2xl bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-100">Grand Total</p>
+                        <p className="mt-1 text-2xl font-bold text-emerald-300">â‚¹{totals.grandTotal.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Subtotal</p>
                         <p className="text-xl font-bold">₹{totals.subtotal.toFixed(2)}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Discount</p>
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount</p>
                         <p className="text-xl font-bold text-green-400">-₹{totals.totalDiscount.toFixed(2)}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Total GST</p>
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Total GST</p>
                         <p className="text-xl font-bold">₹{totals.totalGst.toFixed(2)}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Miscellaneous</p>
+                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Miscellaneous</p>
                         <p className="text-xl font-bold">₹{totals.miscellaneousAmount.toFixed(2)}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Grand Total</p>
+                      <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
+                        <p className="text-xl font-bold">₹{totals.totalCgst.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">SGST</p>
+                        <p className="text-xl font-bold">₹{totals.totalSgst.toFixed(2)}</p>
+                      </div>
+                      <div className="hidden rounded-2xl border border-slate-200 bg-slate-950 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Grand Total</p>
                         <p className="text-2xl font-bold text-green-400">₹{totals.grandTotal.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_35%),linear-gradient(135deg,_#020617_0%,_#0f172a_45%,_#052e2b_100%)] shadow-[0_24px_70px_rgba(2,6,23,0.28)]">
+                      <div className="flex items-center justify-between gap-4 px-5 py-6">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-emerald-200/80">Grand Total</p>
+                          <p className="mt-2 text-sm text-slate-300">Final payable amount including GST and extras</p>
+                          <div className="mt-3 h-px w-24 bg-gradient-to-r from-emerald-300/80 to-transparent" />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100/70">Amount Payable</p>
+                          <p className="mt-2 text-4xl font-black tracking-tight text-white drop-shadow-[0_8px_24px_rgba(52,211,153,0.18)]">₹{totals.grandTotal.toFixed(2)}</p>
+                          <div className="mt-3 inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-medium text-emerald-100 backdrop-blur-sm">
+                            Updated live
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-4">
-                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button onClick={() => {
+                  setShowAddModal(false);
+                  resetForm();
+                }} className="rounded-xl border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50">Cancel</button>
+                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2 text-white transition-colors hover:bg-blue-700 disabled:opacity-50">
                   <Save size={20} />
-                  {saving ? 'Saving...' : 'Save Purchase'}
+                  {saving ? 'Saving...' : editingPurchaseId ? 'Update Purchase' : 'Save Purchase'}
                 </button>
               </div>
+            </div>
             </div>
           </div>
         </div>

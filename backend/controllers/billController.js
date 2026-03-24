@@ -346,7 +346,7 @@ const restoreBillInventory = async ({ bill, session }) => {
 // @access  Private
 exports.getBills = async (req, res) => {
   try {
-    const { startDate, endDate, paymentMode, createdBy, search, page = 1, limit = 20 } = req.query;
+    const { startDate, endDate, paymentMode, paymentStatus, createdBy, search, page = 1, limit = 20 } = req.query;
 
     let query = { isDeleted: false };
 
@@ -370,6 +370,12 @@ exports.getBills = async (req, res) => {
 
     if (paymentMode) {
       query.paymentMode = paymentMode;
+    }
+
+    if (paymentStatus === 'PENDING') {
+      query.balance = { $lt: 0 };
+    } else if (paymentStatus === 'PAID') {
+      query.balance = { $gte: 0 };
     }
 
     if (search) {
@@ -753,7 +759,7 @@ exports.getSalesReport = async (req, res) => {
 // @access  Private
 exports.getGstReport = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, search } = req.query;
 
     let query = { isDeleted: false };
 
@@ -911,6 +917,91 @@ exports.getTopMedicines = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error getting top medicines',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get pending customers with outstanding amount due
+// @route   GET /api/bills/pending-customers
+// @access  Private
+exports.getPendingCustomers = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    let matchStage = {
+      balance: { $lt: 0 },
+      isDeleted: false 
+    };
+
+    // Apply date filter if provided
+    if (startDate || endDate) {
+      matchStage.billDate = {};
+      if (startDate) matchStage.billDate.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        matchStage.billDate.$lte = end;
+      }
+    }
+
+    // Staff role filter
+    if (req.user.role === 'staff') {
+      matchStage.createdBy = req.user.id;
+    }
+
+    if (search && String(search).trim()) {
+      const searchRegex = new RegExp(String(search).trim(), 'i');
+      matchStage.$or = [
+        { customerName: searchRegex },
+        { customerPhone: searchRegex }
+      ];
+    }
+
+    const pendingCustomers = await Bill.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: {
+            customerName: { $ifNull: ['$customerName', 'Unknown Customer'] },
+            customerPhone: { $ifNull: ['$customerPhone', 'No Phone'] }
+          },
+          totalPending: { $sum: { $multiply: ['$balance', -1] } },
+          billCount: { $sum: 1 },
+          recentInvoice: { 
+            $last: {
+              invoiceNumber: '$invoiceNumber',
+              billDate: '$billDate'
+            }
+          }
+        }
+      },
+      {
+        $sort: { 'totalPending': -1 }
+      },
+      {
+        $project: {
+          customerName: '$_id.customerName',
+          customerPhone: '$_id.customerPhone',
+          totalPending: { $round: ['$totalPending', 2] },
+          billCount: 1,
+          recentInvoiceNumber: '$recentInvoice.invoiceNumber',
+          recentBillDate: '$recentInvoice.billDate',
+          _id: 0
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: pendingCustomers.length,
+      data: pendingCustomers
+    });
+  } catch (error) {
+    console.error('Error getting pending customers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching pending customers',
       error: error.message
     });
   }

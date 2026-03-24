@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, Phone, Printer, Pencil } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, Phone, Printer, Pencil, Users, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BillPrintDocument from '../components/BillPrintDocument';
 import BillEditModal from '../components/BillEditModal';
@@ -18,6 +18,12 @@ export default function Bills() {
   const [selectedBill, setSelectedBill] = useState(null);
   const [editingBill, setEditingBill] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPendingTab, setShowPendingTab] = useState(false);
+  const [pendingCustomers, setPendingCustomers] = useState([]);
+  const [pendingSummaryCustomers, setPendingSummaryCustomers] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('ALL');
 
   const SHOP_INFO = {
     name: 'Medical Store',
@@ -28,7 +34,17 @@ export default function Bills() {
 
   useEffect(() => {
     fetchBills();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, showPendingTab, paymentFilter]);
+
+  useEffect(() => {
+    fetchPendingSummary();
+  }, []);
+
+  useEffect(() => {
+    if (showPendingTab) {
+      fetchPendingCustomers();
+    }
+  }, [showPendingTab, pendingSearch]);
 
   const fetchBills = async () => {
     try {
@@ -37,7 +53,8 @@ export default function Bills() {
         params: {
           page: currentPage,
           limit: itemsPerPage,
-          search: searchTerm
+          search: searchTerm,
+          paymentStatus: showPendingTab ? undefined : paymentFilter
         }
       });
       setBills(response.data.data || []);
@@ -54,11 +71,40 @@ export default function Bills() {
     }
   };
 
+  const fetchPendingCustomers = async () => {
+    try {
+      setPendingLoading(true);
+      const response = await api.get('/bills/pending-customers', {
+        params: { search: pendingSearch }
+      });
+      setPendingCustomers(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching pending customers:', error);
+      setPendingCustomers([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const fetchPendingSummary = async () => {
+    try {
+      const response = await api.get('/bills/pending-customers');
+      setPendingSummaryCustomers(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching pending summary:', error);
+      setPendingSummaryCustomers([]);
+    }
+  };
+
   const handleDelete = async (id) => {
     try {
       await api.delete(`/bills/${id}`);
       setDeleteConfirm(null);
       fetchBills();
+      fetchPendingSummary();
+      if (showPendingTab) {
+        fetchPendingCustomers();
+      }
     } catch (error) {
       console.error('Error deleting bill:', error);
       alert('Error deleting bill. Please try again.');
@@ -82,6 +128,34 @@ export default function Bills() {
     return items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
   };
 
+  const getPendingAmount = (bill) => {
+    const grandTotal = Number(bill?.grandTotal) || 0;
+    const amountPaid = Number(bill?.amountPaid) || 0;
+    return Math.max(grandTotal - amountPaid, 0);
+  };
+
+  const isBillPaid = (bill) => getPendingAmount(bill) <= 0;
+
+  const formatAmount = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
+
+  const filteredBills = bills.filter((bill) => {
+    if (paymentFilter === 'PAID') {
+      return isBillPaid(bill);
+    }
+
+    if (paymentFilter === 'PENDING') {
+      return !isBillPaid(bill);
+    }
+
+    return true;
+  });
+
+  const visiblePendingCustomers = pendingCustomers;
+  const pendingBalanceTotal = pendingSummaryCustomers.reduce((sum, customer) => sum + (customer.totalPending || 0), 0);
+
   const printInvoice = () => {
     window.print();
   };
@@ -104,6 +178,10 @@ export default function Bills() {
       setSelectedBill(updatedBill);
     }
     fetchBills();
+    fetchPendingSummary();
+    if (showPendingTab) {
+      fetchPendingCustomers();
+    }
   };
 
   return (
@@ -123,22 +201,75 @@ export default function Bills() {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+        <button
+          onClick={() => setShowPendingTab(false)}
+          className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+            !showPendingTab 
+              ? 'border-blue-500 text-blue-600 bg-blue-50' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          All Bills
+        </button>
+        <button
+          onClick={() => setShowPendingTab(true)}
+          className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+            showPendingTab 
+              ? 'border-orange-500 text-orange-600 bg-orange-50' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Pending Customers <AlertCircle className="ml-1 w-4 h-4 inline" />
+        </button>
+      </div>
+
       {/* Search */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Search by invoice number, customer name, or phone..."
-            value={searchTerm}
+            placeholder={showPendingTab ? "Search pending customers..." : "Search by invoice number, customer name, or phone..."}
+            value={showPendingTab ? pendingSearch : searchTerm}
             onChange={(e) => {
-              setCurrentPage(1);
-              setSearchTerm(e.target.value);
+              if (showPendingTab) {
+                setPendingSearch(e.target.value);
+              } else {
+                setCurrentPage(1);
+                setSearchTerm(e.target.value);
+              }
             }}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
+
+      {!showPendingTab && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {[
+            { key: 'ALL', label: 'All' },
+            { key: 'PAID', label: 'Paid' },
+            { key: 'PENDING', label: 'Pending' }
+          ].map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => {
+                setCurrentPage(1);
+                setPaymentFilter(filter.key);
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                paymentFilter === filter.key
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
@@ -190,38 +321,123 @@ export default function Bills() {
             <div>
               <p className="text-sm text-gray-600">Pending Balance</p>
               <p className="text-2xl font-bold text-gray-900">
-                ₹{bills.reduce((sum, b) => sum + (b.balance || 0), 0).toLocaleString()}
+                {formatAmount(pendingBalanceTotal)}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bills Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading bills...</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
+      {showPendingTab ? (
+        // Pending Customers Table
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {pendingLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading pending customers...</p>
+            </div>
+          ) : visiblePendingCustomers.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-medium mb-2">No pending payments</h3>
+              <p className="text-sm">All customers have cleared their dues.</p>
+            </div>
+          ) : (
+            <>
+              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-red-50">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-orange-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {visiblePendingCustomers.length} Customers with Pending Payments
+                  </h2>
+                  <span className="ml-auto text-2xl font-bold text-orange-600">
+                    {formatAmount(visiblePendingCustomers.reduce((sum, c) => sum + (c.totalPending || 0), 0))}
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                      <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Pending</th>
+                      <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Bills</th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recent</th>
+                      <th className="w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {visiblePendingCustomers.map((customer) => (
+                        <tr key={`${customer.customerName}-${customer.customerPhone}`} className="hover:bg-orange-50">
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-900">{customer.customerName}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900">{customer.customerPhone}</div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="text-lg font-bold text-red-600">
+                              {formatAmount(customer.totalPending)}
+                            </div>
+                            <div className="text-xs text-gray-500">Pending amount</div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="text-sm font-medium text-gray-900">{customer.billCount}</div>
+                          </td>
+                          <td className="px-6 py-4 text-left">
+                            <div className="text-sm text-gray-900">{customer.recentInvoiceNumber}</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(customer.recentBillDate).toLocaleDateString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => {
+                                setSearchTerm(customer.customerName || customer.customerPhone || '');
+                                setPaymentFilter('PENDING');
+                                setShowPendingTab(false);
+                                setCurrentPage(1);
+                              }}
+                              className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                            >
+                              View Bills
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        // Bills Table
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading bills...</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
+                      <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                      <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                      <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                      <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                      <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                      <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {bills.map((bill) => (
+                  {filteredBills.map((bill) => (
                     <React.Fragment key={bill._id}>
                       <tr className="hover:bg-gray-50">
                         <td className="px-2 sm:px-4 py-4">
@@ -261,9 +477,9 @@ export default function Bills() {
                           <div className="text-sm font-medium text-gray-900">
                             ₹{bill.grandTotal?.toLocaleString()}
                           </div>
-                          {bill.balance > 0 && (
+                          {getPendingAmount(bill) > 0 && (
                             <div className="text-xs text-red-600">
-                              Bal: ₹{bill.balance?.toFixed(2)}
+                              Pending: {formatAmount(getPendingAmount(bill))}
                             </div>
                           )}
                         </td>
@@ -359,10 +575,10 @@ export default function Bills() {
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Amount Paid:</td>
                                     <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">₹{bill.amountPaid?.toFixed(2)}</td>
                                   </tr>
-                                  {bill.balance > 0 && (
+                                  {getPendingAmount(bill) > 0 && (
                                     <tr>
-                                      <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Balance:</td>
-                                      <td colSpan="2" className="px-4 py-2 text-sm font-medium text-red-600">₹{bill.balance?.toFixed(2)}</td>
+                                      <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Pending Amount:</td>
+                                      <td colSpan="2" className="px-4 py-2 text-sm font-medium text-red-600">{formatAmount(getPendingAmount(bill))}</td>
                                     </tr>
                                   )}
                                 </tfoot>
@@ -377,10 +593,16 @@ export default function Bills() {
               </table>
             </div>
 
+            {filteredBills.length === 0 && (
+              <div className="px-4 py-10 text-center text-gray-500 border-t border-gray-200">
+                No bills found for the selected filter.
+              </div>
+            )}
+
             {/* Pagination */}
             <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-500">
-                Showing {bills.length} results
+                Showing {filteredBills.length} results
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -405,6 +627,7 @@ export default function Bills() {
           </>
         )}
       </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (

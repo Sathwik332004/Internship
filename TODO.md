@@ -1,24 +1,19 @@
-# Liquid Medicine Billing Fix - TODO
+# Pending Customer Amounts Feature - Implementation Steps
 
-## Approved Plan Implementation Steps
+**Status: In Progress**
 
-### 1. [x] Create TODO.md (DONE)
-### 2. [x] Edit frontend/src/pages/Billing.jsx
-   - Update `addToBill()` defaultIsPack logic  
-   - Add guard in `togglePackUnit()` for liquids  
-   - Update table render condition for Unit toggle button
-   - Fix `updateQuantity()` to allow 0 quantity (no auto-remove)
-   - Add manual qty input field in bill table
-   - Show product MRP (x1) in search results
-### 3. [ ] Test liquid medicine (baseUnit='ml')
-   - Verify no pack/loose toggle shown
-   - Verify direct quantity input works (ml/bottle)
-### 4. [ ] Test non-liquid medicine (e.g., tablets/strips)
-   - Verify pack/loose toggle still works
-### 5. [ ] Verify stock/inventory logic unchanged
-### 6. [ ] attempt_completion
+## Approved Plan:
+1. Backend: Add `getPendingCustomers()` endpoint in billController.js
+2. Backend: Add route GET /api/bills/pending-customers in bills.js  
+3. Frontend: Add pending customers table/tab in Bills.jsx
+4. Test endpoints and UI
+5. Complete ✅
 
-**Status:** Frontend changes completed successfully
-</xai:function_call >  
-<xai:function_call name="edit_file">
-<parameter name="path">frontend/src/pages/Billing.jsx
+## Steps:
+- [x] Step 1: Add backend controller function
+- [x] Step 2: Add backend route
+- [x] Step 3: Update frontend Bills.jsx with pending customers tab/table
+- [x] Step 4: Test implementation
+
+**Completed:** Backend /api/bills/pending-customers endpoint groups bills by customer with total pending balance. Frontend "Pending Customers" tab shows the list. Ready to use.
+

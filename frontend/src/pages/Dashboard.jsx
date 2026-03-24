@@ -8,12 +8,31 @@ import {
   ShoppingCart,
   Calendar,
   ArrowUp,
-  ArrowDown,
   Clock
 } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+const PAYMENT_MODE_COLORS = ['#2563eb', '#14b8a6', '#f97316', '#8b5cf6', '#64748b'];
+
+const getResponseData = (result, fallback) => (
+  result.status === 'fulfilled' ? (result.value?.data?.data ?? fallback) : fallback
+);
 
 export default function Dashboard() {
+  const { isAdmin } = useAuth();
   const [stats, setStats] = useState({
     totalMedicines: 0,
     lowStockCount: 0,
@@ -32,47 +51,43 @@ export default function Dashboard() {
   const [lowStockMedicines, setLowStockMedicines] = useState([]);
   const [expiringItems, setExpiringItems] = useState([]);
   const [last7Days, setLast7Days] = useState([]);
+  const [paymentModeData, setPaymentModeData] = useState([]);
+  const [dashboardError, setDashboardError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [isAdmin]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch dashboard summary from medicines
-      const summaryRes = await api.get('/medicines/dashboard/summary');
-      const summary = summaryRes.data.data || {};
-      
-      // Fetch low stock medicines
-      const lowStockRes = await api.get('/medicines/alerts/low-stock');
-      const lowStock = lowStockRes.data.data || [];
-      
-      // Fetch expiring medicines (within 90 days)
-      const expiringRes = await api.get('/medicines/alerts/expiring?days=90');
-      const expiring = expiringRes.data.data || [];
-      
-      // Fetch expired medicines
-      const expiredRes = await api.get('/medicines/alerts/expired');
-      const expired = expiredRes.data.data || [];
-      
-      // Fetch bills dashboard stats
-      const billsRes = await api.get('/bills/dashboard');
-      const billsStats = billsRes.data.data || {};
-      
-      // Fetch recent bills
-      const recentBillsRes = await api.get('/bills?limit=5');
-      const recentBills = recentBillsRes.data.data || [];
-      
-      // Fetch suppliers
-      const suppliersRes = await api.get('/suppliers');
-      const suppliers = suppliersRes.data.data || [];
-      
-      // Fetch assets
-      const assetsRes = await api.get('/assets');
-      const assets = assetsRes.data.data || [];
+      setDashboardError('');
+
+      const results = await Promise.allSettled([
+        api.get('/medicines/dashboard/summary'),
+        api.get('/medicines/alerts/low-stock'),
+        api.get('/medicines/alerts/expiring?days=90'),
+        api.get('/medicines/alerts/expired'),
+        api.get('/bills/dashboard'),
+        api.get('/bills?limit=5'),
+        api.get('/suppliers'),
+        isAdmin ? api.get('/assets') : Promise.resolve({ data: { data: [] } })
+      ]);
+
+      const summary = getResponseData(results[0], {});
+      const lowStock = getResponseData(results[1], []);
+      const expiring = getResponseData(results[2], []);
+      const expired = getResponseData(results[3], []);
+      const billsStats = getResponseData(results[4], {});
+      const recentBills = getResponseData(results[5], []);
+      const suppliers = getResponseData(results[6], []);
+      const assets = getResponseData(results[7], []);
+
+      const failedRequests = results.filter(result => result.status === 'rejected');
+      if (failedRequests.length > 0) {
+        setDashboardError('Some dashboard sections could not be loaded, but the rest of the data is still available.');
+      }
 
       setStats({
         totalMedicines: summary.totalMedicines || 0,
@@ -93,8 +108,17 @@ export default function Dashboard() {
       setExpiringItems(expiring.slice(0, 5));
       setRecentBills(recentBills);
       setLast7Days(billsStats.last7Days || []);
+      setPaymentModeData(
+        (billsStats.paymentModeData || [])
+          .filter(item => item?._id)
+          .map(item => ({
+            name: item._id,
+            value: Number(item.total || 0)
+          }))
+      );
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setDashboardError('Dashboard data could not be loaded right now.');
     } finally {
       setLoading(false);
     }
@@ -107,6 +131,10 @@ export default function Dashboard() {
       minimumFractionDigits: 2
     }).format(amount);
   };
+
+  const chartSalesMax = Math.max(...last7Days.map(day => Number(day.sales) || 0), 0);
+  const hasSalesChartData = last7Days.some(day => Number(day.sales) > 0);
+  const hasPaymentModeData = paymentModeData.some(item => Number(item.value) > 0);
 
   if (loading) {
     return (
@@ -125,6 +153,12 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-1">Welcome back! Here's what's happening in your store.</p>
       </div>
+
+      {dashboardError ? (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {dashboardError}
+        </div>
+      ) : null}
 
       {/* Stats Grid - Today's Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -272,7 +306,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Assets</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalAssets}</p>
+              <p className="text-xl font-bold text-gray-900">{isAdmin ? stats.totalAssets : 'Restricted'}</p>
             </div>
           </div>
         </div>
@@ -334,7 +368,7 @@ export default function Dashboard() {
                       <p className="font-medium text-gray-900">{item.medicine?.medicineName}</p>
                       <p className="text-sm text-gray-600">Batch: {item.batchNumber}</p>
                       <p className="text-xs text-gray-500">
-                        Qty: {item.quantityAvailable} | MRP: {item.sellingPrice}
+                        Qty: {item.quantityAvailable} | MRP: {formatCurrency(item.mrp || 0)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -353,24 +387,103 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Last 7 Days Sales Chart */}
-      <div className="mt-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="xl:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Last 7 Days Sales</h2>
-          <div className="flex items-end justify-between h-48 gap-2">
-            {last7Days.map((day, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center">
-                <div 
-                  className="w-full bg-blue-500 rounded-t"
-                  style={{ 
-                    height: `${Math.max(5, (day.sales / (Math.max(...last7Days.map(d => d.sales)) || 1)) * 100)}%`,
-                    minHeight: '4px'
-                  }}
-                />
-                <p className="text-xs text-gray-500 mt-2">{day.day}</p>
-                <p className="text-xs font-medium text-gray-700">{formatCurrency(day.sales)}</p>
+          {hasSalesChartData ? (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={last7Days}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="day" />
+                  <YAxis tickFormatter={(value) => `Rs ${value}`} domain={[0, chartSalesMax || 1]} />
+                  <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                  <Bar dataKey="sales" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-72 items-center justify-center rounded-lg bg-gray-50 text-sm text-gray-500">
+              No sales recorded in the last 7 days.
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Today by Payment Mode</h2>
+          {hasPaymentModeData ? (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={paymentModeData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={58}
+                    outerRadius={90}
+                    paddingAngle={3}
+                  >
+                    {paymentModeData.map((entry, index) => (
+                      <Cell
+                        key={entry.name}
+                        fill={PAYMENT_MODE_COLORS[index % PAYMENT_MODE_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-72 items-center justify-center rounded-lg bg-gray-50 text-sm text-gray-500">
+              No payment data available for today.
+            </div>
+          )}
+
+          {hasPaymentModeData ? (
+            <div className="mt-4 space-y-2">
+              {paymentModeData.map((entry, index) => (
+                <div key={entry.name} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: PAYMENT_MODE_COLORS[index % PAYMENT_MODE_COLORS.length] }}
+                    />
+                    <span>{entry.name}</span>
+                  </div>
+                  <span className="font-medium text-gray-900">{formatCurrency(entry.value)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-bold text-gray-900">Low Stock Medicines</h2>
+            <p className="text-sm text-gray-600 mt-1">Items closest to reorder level</p>
+          </div>
+          <div className="p-6">
+            {lowStockMedicines.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No low stock items</p>
+            ) : (
+              <div className="space-y-4">
+                {lowStockMedicines.map((item) => (
+                  <div key={item._id} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
+                    <div>
+                      <p className="font-medium text-gray-900">{item.medicineName}</p>
+                      <p className="text-sm text-gray-600">{item.brandName || 'No brand'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-red-600">{item.quantity || item.stock || 0}</p>
+                      <p className="text-xs text-gray-500">Reorder at {item.reorderLevel || 0}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   TrendingUp, 
-  TrendingDown, 
   DollarSign, 
   Package, 
   ShoppingCart, 
-  Calendar,
-  Download,
-  Filter,
   BarChart3,
-  PieChart,
   AlertTriangle,
   FileText
 } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Reports() {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('sales');
   const [dateRange, setDateRange] = useState('today');
   const [startDate, setStartDate] = useState('');
@@ -59,6 +56,12 @@ export default function Reports() {
   useEffect(() => {
     fetchReportData();
   }, [activeTab, dateRange, startDate, endDate]);
+
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'purchase' || activeTab === 'inventory')) {
+      setActiveTab('sales');
+    }
+  }, [activeTab, isAdmin]);
 
   const fetchReportData = async () => {
     try {
@@ -132,11 +135,14 @@ export default function Reports() {
 
   const tabs = [
     { id: 'sales', label: 'Sales Report', icon: DollarSign },
-    { id: 'purchase', label: 'Purchase Report', icon: ShoppingCart },
     { id: 'gst', label: 'GST Report', icon: BarChart3 },
-    { id: 'inventory', label: 'Inventory Report', icon: Package },
     { id: 'expiry', label: 'Expiry Report', icon: AlertTriangle }
   ];
+
+  if (isAdmin) {
+    tabs.splice(1, 0, { id: 'purchase', label: 'Purchase Report', icon: ShoppingCart });
+    tabs.splice(3, 0, { id: 'inventory', label: 'Inventory Report', icon: Package });
+  }
 
   return (
     <div className="p-6">
@@ -391,7 +397,7 @@ export default function Reports() {
                     <tbody className="divide-y divide-gray-100">
                       {purchaseData.purchases?.slice(0, 10).map((purchase) => (
                         <tr key={purchase._id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-900">{purchase.invoiceNumber}</td>
+                          <td className="px-4 py-3 font-medium text-gray-900">{purchase.purchaseNumber}</td>
                           <td className="px-4 py-3 text-gray-600">{formatDate(purchase.purchaseDate)}</td>
                           <td className="px-4 py-3 text-gray-600">{purchase.supplier?.supplierName || 'N/A'}</td>
                           <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(purchase.subtotal)}</td>

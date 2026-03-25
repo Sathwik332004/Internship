@@ -3,6 +3,7 @@ const Bill = require('../models/Bill');
 const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const HSN = require('../models/HSN');
+const SalesReturn = require('../models/SalesReturn');
 const {
   isNonNegativeNumber,
   isPositiveInteger,
@@ -54,6 +55,86 @@ const createHttpError = (statusCode, message) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+};
+
+const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+const getReturnSummaryMap = async (billIds = []) => {
+  if (!billIds.length) {
+    return new Map();
+  }
+
+  const normalizedIds = billIds.map((billId) => new mongoose.Types.ObjectId(billId));
+  const summaries = await SalesReturn.aggregate([
+    {
+      $match: {
+        bill: { $in: normalizedIds }
+      }
+    },
+    {
+      $group: {
+        _id: '$bill',
+        returnTotal: { $sum: '$grandTotal' },
+        salesReturnCount: { $sum: 1 }
+      }
+    }
+  ]);
+
+  return summaries.reduce((acc, summary) => {
+    acc.set(String(summary._id), {
+      returnTotal: roundCurrency(summary.returnTotal),
+      salesReturnCount: Number(summary.salesReturnCount || 0)
+    });
+    return acc;
+  }, new Map());
+};
+
+const enrichBillWithReturnSummary = (bill, returnSummaryMap = new Map()) => {
+  const billObject = typeof bill.toObject === 'function' ? bill.toObject() : { ...bill };
+  const returnSummary = returnSummaryMap.get(String(billObject._id)) || {
+    returnTotal: 0,
+    salesReturnCount: 0
+  };
+  const grandTotal = Number(billObject.grandTotal || 0);
+  const amountPaid = Number(billObject.amountPaid || 0);
+  const netGrandTotal = roundCurrency(Math.max(grandTotal - Number(returnSummary.returnTotal || 0), 0));
+  const pendingAmount = roundCurrency(Math.max(netGrandTotal - amountPaid, 0));
+  const effectiveBalance = roundCurrency(amountPaid - netGrandTotal);
+
+  return {
+    ...billObject,
+    returnTotal: roundCurrency(returnSummary.returnTotal),
+    salesReturnCount: returnSummary.salesReturnCount,
+    netGrandTotal,
+    pendingAmount,
+    effectiveBalance
+  };
+};
+
+const getSalesReturnAggregate = async (match) => {
+  const results = await SalesReturn.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: null,
+        totalReturns: { $sum: '$grandTotal' },
+        totalGst: { $sum: '$totalGst' },
+        totalCgst: { $sum: '$totalCgst' },
+        totalSgst: { $sum: '$totalSgst' },
+        totalIgst: { $sum: '$totalIgst' },
+        totalSalesReturns: { $sum: 1 }
+      }
+    }
+  ]);
+
+  return results[0] || {
+    totalReturns: 0,
+    totalGst: 0,
+    totalCgst: 0,
+    totalSgst: 0,
+    totalIgst: 0,
+    totalSalesReturns: 0
+  };
 };
 
 const getSaleQuantity = (item = {}) => {
@@ -397,15 +478,17 @@ exports.getBills = async (req, res) => {
       .skip(skip)
       .limit(limitNum);
 
+    const returnSummaryMap = await getReturnSummaryMap(bills.map((bill) => bill._id));
+    const enrichedBills = bills.map((bill) => enrichBillWithReturnSummary(bill, returnSummaryMap));
     const total = await Bill.countDocuments(query);
 
     res.status(200).json({
       success: true,
-      count: bills.length,
+      count: enrichedBills.length,
       total,
       totalPages: Math.ceil(total / limitNum),
       currentPage: pageNum,
-      data: bills
+      data: enrichedBills
     });
   } catch (error) {
     console.error(error);
@@ -443,9 +526,12 @@ exports.getBill = async (req, res) => {
       });
     }
 
+    const returnSummaryMap = await getReturnSummaryMap([bill._id]);
+    const enrichedBill = enrichBillWithReturnSummary(bill, returnSummaryMap);
+
     res.status(200).json({
       success: true,
-      data: bill
+      data: enrichedBill
     });
   } catch (error) {
     console.error(error);
@@ -1041,6 +1127,10 @@ exports.getDashboardStats = async (req, res) => {
         }
       }
     ]);
+    const todayReturns = await getSalesReturnAggregate({
+      returnDate: { $gte: today, $lt: tomorrow },
+      ...(req.user.role === 'staff' ? { createdBy: new mongoose.Types.ObjectId(req.user.id) } : {})
+    });
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const monthlyQuery = {
@@ -1066,6 +1156,10 @@ exports.getDashboardStats = async (req, res) => {
         }
       }
     ]);
+    const monthlyReturns = await getSalesReturnAggregate({
+      returnDate: { $gte: startOfMonth },
+      ...(req.user.role === 'staff' ? { createdBy: new mongoose.Types.ObjectId(req.user.id) } : {})
+    });
 
     const paymentModeData = await Bill.aggregate([
       { $match: todayQuery },
@@ -1077,46 +1171,111 @@ exports.getDashboardStats = async (req, res) => {
       }
     ]);
 
+    const last7DaysRangeStart = new Date(today);
+    last7DaysRangeStart.setDate(last7DaysRangeStart.getDate() - 6);
+    const last7DaysRangeEnd = new Date(tomorrow);
+
+    const billDailySales = await Bill.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+          billDate: { $gte: last7DaysRangeStart, $lt: last7DaysRangeEnd },
+          ...(req.user.role === 'staff' ? { createdBy: new mongoose.Types.ObjectId(req.user.id) } : {})
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$billDate' }
+          },
+          total: { $sum: '$grandTotal' }
+        }
+      }
+    ]);
+
+    const returnDailySales = await SalesReturn.aggregate([
+      {
+        $match: {
+          returnDate: { $gte: last7DaysRangeStart, $lt: last7DaysRangeEnd },
+          ...(req.user.role === 'staff' ? { createdBy: new mongoose.Types.ObjectId(req.user.id) } : {})
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$returnDate' }
+          },
+          total: { $sum: '$grandTotal' }
+        }
+      }
+    ]);
+
+    const billDailySalesMap = billDailySales.reduce((acc, item) => {
+      acc[item._id] = Number(item.total || 0);
+      return acc;
+    }, {});
+
+    const returnDailySalesMap = returnDailySales.reduce((acc, item) => {
+      acc[item._id] = Number(item.total || 0);
+      return acc;
+    }, {});
+
     const last7Days = [];
     for (let i = 6; i >= 0; i -= 1) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const dayStart = new Date(date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date);
-      dayEnd.setHours(23, 59, 59, 999);
-
-      const dayQuery = {
-        isDeleted: false,
-        billDate: { $gte: dayStart, $lte: dayEnd }
-      };
-
-      if (req.user.role === 'staff') {
-        dayQuery.createdBy = req.user.id;
-      }
-
-      const daySales = await Bill.aggregate([
-        { $match: dayQuery },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: '$grandTotal' }
-          }
-        }
-      ]);
+      const dateKey = date.toISOString().split('T')[0];
 
       last7Days.push({
-        date: date.toISOString().split('T')[0],
+        date: dateKey,
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-        sales: daySales[0]?.total || 0
+        sales: roundCurrency(
+          Math.max((billDailySalesMap[dateKey] || 0) - (returnDailySalesMap[dateKey] || 0), 0)
+        )
       });
     }
+
+    const todaySummary = todaySales[0] || {
+      totalSales: 0,
+      totalGst: 0,
+      totalCgst: 0,
+      totalSgst: 0,
+      totalIgst: 0,
+      totalBills: 0
+    };
+
+    const monthlySummary = monthlySales[0] || {
+      totalSales: 0,
+      totalGst: 0,
+      totalCgst: 0,
+      totalSgst: 0,
+      totalIgst: 0,
+      totalBills: 0
+    };
 
     res.status(200).json({
       success: true,
       data: {
-        today: todaySales[0] || { totalSales: 0, totalGst: 0, totalCgst: 0, totalSgst: 0, totalIgst: 0, totalBills: 0 },
-        monthly: monthlySales[0] || { totalSales: 0, totalGst: 0, totalCgst: 0, totalSgst: 0, totalIgst: 0, totalBills: 0 },
+        today: {
+          ...todaySummary,
+          totalReturns: roundCurrency(todayReturns.totalReturns),
+          totalSalesReturns: todayReturns.totalSalesReturns,
+          totalSales: roundCurrency(Math.max(Number(todaySummary.totalSales || 0) - Number(todayReturns.totalReturns || 0), 0)),
+          totalGst: roundCurrency(Math.max(Number(todaySummary.totalGst || 0) - Number(todayReturns.totalGst || 0), 0)),
+          totalCgst: roundCurrency(Math.max(Number(todaySummary.totalCgst || 0) - Number(todayReturns.totalCgst || 0), 0)),
+          totalSgst: roundCurrency(Math.max(Number(todaySummary.totalSgst || 0) - Number(todayReturns.totalSgst || 0), 0)),
+          totalIgst: roundCurrency(Math.max(Number(todaySummary.totalIgst || 0) - Number(todayReturns.totalIgst || 0), 0))
+        },
+        monthly: {
+          ...monthlySummary,
+          totalReturns: roundCurrency(monthlyReturns.totalReturns),
+          totalSalesReturns: monthlyReturns.totalSalesReturns,
+          totalSales: roundCurrency(Math.max(Number(monthlySummary.totalSales || 0) - Number(monthlyReturns.totalReturns || 0), 0)),
+          totalGst: roundCurrency(Math.max(Number(monthlySummary.totalGst || 0) - Number(monthlyReturns.totalGst || 0), 0)),
+          totalCgst: roundCurrency(Math.max(Number(monthlySummary.totalCgst || 0) - Number(monthlyReturns.totalCgst || 0), 0)),
+          totalSgst: roundCurrency(Math.max(Number(monthlySummary.totalSgst || 0) - Number(monthlyReturns.totalSgst || 0), 0)),
+          totalIgst: roundCurrency(Math.max(Number(monthlySummary.totalIgst || 0) - Number(monthlyReturns.totalIgst || 0), 0))
+        },
         paymentModeData,
         last7Days
       }

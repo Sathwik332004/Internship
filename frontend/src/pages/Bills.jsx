@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, Phone, Printer, Pencil, Users, AlertCircle } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, Phone, Printer, RotateCcw, Users, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BillPrintDocument from '../components/BillPrintDocument';
-import BillEditModal from '../components/BillEditModal';
 import api from '../services/api';
 
 export default function Bills() {
@@ -16,8 +15,6 @@ export default function Bills() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
-  const [editingBill, setEditingBill] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showPendingTab, setShowPendingTab] = useState(false);
   const [pendingCustomers, setPendingCustomers] = useState([]);
   const [pendingSummaryCustomers, setPendingSummaryCustomers] = useState([]);
@@ -129,7 +126,7 @@ export default function Bills() {
   };
 
   const getPendingAmount = (bill) => {
-    const grandTotal = Number(bill?.grandTotal) || 0;
+    const grandTotal = Number(bill?.netGrandTotal ?? bill?.grandTotal) || 0;
     const amountPaid = Number(bill?.amountPaid) || 0;
     return Math.max(grandTotal - amountPaid, 0);
   };
@@ -158,30 +155,6 @@ export default function Bills() {
 
   const printInvoice = () => {
     window.print();
-  };
-
-  const openEditModal = async (billId) => {
-    try {
-      const response = await api.get(`/bills/${billId}`);
-      setEditingBill(response.data?.data || null);
-      setShowEditModal(true);
-    } catch (error) {
-      console.error('Error loading bill for edit:', error);
-      alert(error.response?.data?.message || 'Unable to open bill editor.');
-    }
-  };
-
-  const handleBillUpdated = (updatedBill) => {
-    setShowEditModal(false);
-    setEditingBill(null);
-    if (updatedBill?._id && selectedBill?._id === updatedBill._id) {
-      setSelectedBill(updatedBill);
-    }
-    fetchBills();
-    fetchPendingSummary();
-    if (showPendingTab) {
-      fetchPendingCustomers();
-    }
   };
 
   return (
@@ -292,7 +265,7 @@ export default function Bills() {
             <div>
               <p className="text-sm text-gray-600">Total Sales</p>
               <p className="text-2xl font-bold text-gray-900">
-                ₹{bills.reduce((sum, b) => sum + (b.grandTotal || 0), 0).toLocaleString()}
+                ₹{bills.reduce((sum, b) => sum + (b.netGrandTotal ?? b.grandTotal ?? 0), 0).toLocaleString()}
               </p>
             </div>
           </div>
@@ -475,8 +448,13 @@ export default function Bills() {
                         </td>
                         <td className="px-2 sm:px-4 py-4">
                           <div className="text-sm font-medium text-gray-900">
-                            ₹{bill.grandTotal?.toLocaleString()}
+                            ₹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toLocaleString()}
                           </div>
+                          {Number(bill.returnTotal || 0) > 0 && (
+                            <div className="text-xs text-amber-600">
+                              Return: {formatAmount(bill.returnTotal)}
+                            </div>
+                          )}
                           {getPendingAmount(bill) > 0 && (
                             <div className="text-xs text-red-600">
                               Pending: {formatAmount(getPendingAmount(bill))}
@@ -501,11 +479,11 @@ export default function Bills() {
                               <Eye size={16} />
                             </button>
                             <button
-                              onClick={() => openEditModal(bill._id)}
+                              onClick={() => navigate('/sales-returns', { state: { billId: bill._id } })}
                               className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Edit Bill"
+                              title="Sales Return"
                             >
-                              <Pencil size={16} />
+                              <RotateCcw size={16} />
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(bill)}
@@ -571,6 +549,18 @@ export default function Bills() {
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
                                     <td colSpan="2" className="px-4 py-2 text-sm font-bold text-blue-900">₹{bill.grandTotal?.toFixed(2)}</td>
                                   </tr>
+                                  {Number(bill.returnTotal || 0) > 0 && (
+                                    <>
+                                      <tr>
+                                        <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Sales Return:</td>
+                                        <td colSpan="2" className="px-4 py-2 text-sm font-medium text-amber-600">-₹{Number(bill.returnTotal || 0).toFixed(2)}</td>
+                                      </tr>
+                                      <tr className="bg-emerald-50">
+                                        <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Net Sales:</td>
+                                        <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-700">₹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toFixed(2)}</td>
+                                      </tr>
+                                    </>
+                                  )}
                                   <tr>
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Amount Paid:</td>
                                     <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">₹{bill.amountPaid?.toFixed(2)}</td>
@@ -706,16 +696,6 @@ export default function Bills() {
         </div>
       )}
 
-      {showEditModal && editingBill && (
-        <BillEditModal
-          bill={editingBill}
-          onClose={() => {
-            setShowEditModal(false);
-            setEditingBill(null);
-          }}
-          onSaved={handleBillUpdated}
-        />
-      )}
     </div>
   );
 }

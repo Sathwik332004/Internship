@@ -15,6 +15,7 @@ import Suppliers from './pages/Suppliers';
 import Purchases from './pages/Purchases';
 import Inventory from './pages/Inventory';
 import Bills from './pages/Bills';
+import SalesReturns from './pages/SalesReturns';
 import Reports from './pages/Reports';
 import Assets from './pages/Assets';
 import Users from './pages/Users';
@@ -67,6 +68,7 @@ function AppRoutes() {
   { path: 'purchases', element: <Purchases /> },
   { path: 'inventory', element: <Inventory /> },
   { path: 'bills', element: <Bills /> },
+  { path: 'sales-returns', element: <SalesReturns /> },
   { path: 'reports', element: <Reports /> },
   { path: 'profile', element: <AdminProfile /> },   // ✅ ADD THIS
   { path: 'hsn-codes', element: <AdminRoute><HSNCodes /></AdminRoute> },

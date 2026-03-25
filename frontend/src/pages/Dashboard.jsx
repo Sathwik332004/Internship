@@ -333,9 +333,14 @@ export default function Dashboard() {
                       <p className="text-xs text-gray-500">
                         {new Date(bill.billDate).toLocaleDateString()}
                       </p>
+                      {Number(bill.returnTotal || 0) > 0 && (
+                        <p className="text-xs text-amber-600">
+                          Return: {formatCurrency(bill.returnTotal)}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{formatCurrency(bill.grandTotal)}</p>
+                      <p className="font-bold text-gray-900">{formatCurrency(bill.netGrandTotal ?? bill.grandTotal)}</p>
                       <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
                         bill.paymentMode === 'CASH' ? 'bg-green-100 text-green-800' :
                         bill.paymentMode === 'UPI' ? 'bg-blue-100 text-blue-800' :

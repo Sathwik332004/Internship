@@ -106,6 +106,13 @@ export const billAPI = {
   getSalesReport: (params) => api.get('/bills/report/sales', { params })
 };
 
+// Sales Return API
+export const salesReturnAPI = {
+  getAll: (params) => api.get('/sales-returns', { params }),
+  getOne: (id) => api.get(`/sales-returns/${id}`),
+  create: (data) => api.post('/sales-returns', data)
+};
+
 // Asset API
 export const assetAPI = {
   getAll: (params) => api.get('/assets', { params }),

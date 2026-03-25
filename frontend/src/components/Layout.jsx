@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   Hash,
-  Archive
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -36,6 +37,7 @@ const Layout = () => {
     { path: '/purchases', icon: Package, label: 'Purchases' },
     { path: '/inventory', icon: Archive, label: 'Inventory' },
     { path: '/bills', icon: FileText, label: 'Bills' },
+    { path: '/sales-returns', icon: RotateCcw, label: 'Sales Return' },
     { path: '/reports', icon: BarChart3, label: 'Reports' },
     ...(isAdmin ? [
       { path: '/hsn-codes', icon: Hash, label: 'HSN Codes' },

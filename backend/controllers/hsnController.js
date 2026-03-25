@@ -317,9 +317,19 @@ exports.deleteHSNCode = async (req, res) => {
       });
     }
 
-    hsn.isDeleted = true;
-    hsn.hsnCode = `deleted_${Date.now()}_${hsn.hsnCode}`;
-    await hsn.save();
+    const archivedHsnCode = `deleted_${Date.now()}_${hsn.hsnCode}`;
+
+    // Soft delete the record and free up the original HSN code for reuse.
+    // Use an update query so the archived code does not fail the live-code validators.
+    await HSN.updateOne(
+      { _id: hsn._id, isDeleted: false },
+      {
+        $set: {
+          isDeleted: true,
+          hsnCode: archivedHsnCode
+        }
+      }
+    );
 
     res.status(200).json({
       success: true,

@@ -80,7 +80,7 @@ export default function HSNCodes() {
       fetchHSNCodes();
     } catch (error) {
       console.error('Error deleting HSN code:', error);
-      alert('Error deleting HSN code. Please try again.');
+      alert(error.response?.data?.message || 'Error deleting HSN code. Please try again.');
     }
   };
 

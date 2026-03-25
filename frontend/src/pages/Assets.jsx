@@ -283,7 +283,7 @@ export default function Assets() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Value</p>
-              <p className="text-2xl font-bold text-gray-900">â‚¹{totalAssetValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">Rs. {totalAssetValue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -337,7 +337,7 @@ export default function Assets() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          â‚¹{asset.cost?.toLocaleString()}
+                          Rs. {asset.cost?.toLocaleString()}
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -456,7 +456,7 @@ export default function Assets() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost (â‚¹) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost (Rs.) *</label>
                   <input
                     type="number"
                     required

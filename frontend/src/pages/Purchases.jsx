@@ -616,7 +616,7 @@ const PurchaseRow = React.memo(({
 
       {/* Amount Column */}
       <td className={`${getCellClass('amount')} text-right font-bold`}>
-        <span className="text-green-700">â‚¹{item.totalAmount?.toFixed(2) || '0.00'}</span>
+        <span className="text-green-700">Rs. {item.totalAmount?.toFixed(2) || '0.00'}</span>
       </td>
 
       {/* Actions Column */}
@@ -1392,7 +1392,7 @@ export default function Purchases() {
             </div>
             <div>
               <p className="text-sm text-slate-500">Total Amount</p>
-              <p className="text-2xl font-bold text-slate-900">â‚¹{purchases.reduce((sum, p) => sum + (p.grandTotal || 0), 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-slate-900">Rs. {purchases.reduce((sum, p) => sum + (p.grandTotal || 0), 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -1464,7 +1464,7 @@ export default function Purchases() {
                         <td className="px-4 py-4 text-sm text-gray-900">{purchase.supplier?.supplierName}</td>
                         <td className="px-4 py-4 text-sm text-gray-900">{new Date(purchase.purchaseDate).toLocaleDateString()}</td>
                         <td className="px-4 py-4 text-sm text-gray-900">{calculateTotalItems(purchase.items)} items</td>
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">â‚¹{purchase.grandTotal?.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-gray-900">Rs. {purchase.grandTotal?.toLocaleString()}</td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentModeColor(purchase.paymentMode)}`}>
                             {purchase.paymentMode}
@@ -1509,24 +1509,24 @@ export default function Purchases() {
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.batchNumber}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{formatExpiryDisplay(item.expiryDate)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">â‚¹{item.purchasePrice?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">Rs. {item.purchasePrice?.toFixed(2)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.gstPercent}%</td>
-                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{item.totalAmount?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {item.totalAmount?.toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                                 <tfoot className="bg-gray-50">
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
-                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{(purchase.totalGst || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {(purchase.totalGst || 0).toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Miscellaneous:</td>
-                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{(purchase.miscellaneousAmount || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {(purchase.miscellaneousAmount || 0).toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
-                                    <td className="px-4 py-2 text-sm font-bold text-gray-900">â‚¹{(purchase.grandTotal || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm font-bold text-gray-900">Rs. {(purchase.grandTotal || 0).toFixed(2)}</td>
                                   </tr>
                                 </tfoot>
                               </table>
@@ -1793,19 +1793,19 @@ export default function Purchases() {
                       </div>
                       <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount Saved</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.totalDiscount.toFixed(2)}</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.totalDiscount.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600">Extra Charges</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.miscellaneousAmount.toFixed(2)}</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.miscellaneousAmount.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.totalCgst.toFixed(2)}</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.totalCgst.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600">SGST</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.totalSgst.toFixed(2)}</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.totalSgst.toFixed(2)}</p>
                       </div>
                     </div>
                     <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/80 px-4 py-3">
@@ -1824,37 +1824,37 @@ export default function Purchases() {
                       </div>
                       <div className="hidden rounded-2xl bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100">Grand Total</p>
-                        <p className="mt-1 text-2xl font-bold text-emerald-300">Ã¢â€šÂ¹{totals.grandTotal.toFixed(2)}</p>
+                        <p className="mt-1 text-2xl font-bold text-emerald-300">Rs. {totals.grandTotal.toFixed(2)}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Subtotal</p>
-                        <p className="text-xl font-bold">â‚¹{totals.subtotal.toFixed(2)}</p>
+                        <p className="text-xl font-bold">Rs. {totals.subtotal.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount</p>
-                        <p className="text-xl font-bold text-green-400">-â‚¹{totals.totalDiscount.toFixed(2)}</p>
+                        <p className="text-xl font-bold text-green-400">-Rs. {totals.totalDiscount.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Total GST</p>
-                        <p className="text-xl font-bold">â‚¹{totals.totalGst.toFixed(2)}</p>
+                        <p className="text-xl font-bold">Rs. {totals.totalGst.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Miscellaneous</p>
-                        <p className="text-xl font-bold">â‚¹{totals.miscellaneousAmount.toFixed(2)}</p>
+                        <p className="text-xl font-bold">Rs. {totals.miscellaneousAmount.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
-                        <p className="text-xl font-bold">â‚¹{totals.totalCgst.toFixed(2)}</p>
+                        <p className="text-xl font-bold">Rs. {totals.totalCgst.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">SGST</p>
-                        <p className="text-xl font-bold">â‚¹{totals.totalSgst.toFixed(2)}</p>
+                        <p className="text-xl font-bold">Rs. {totals.totalSgst.toFixed(2)}</p>
                       </div>
                       <div className="hidden rounded-2xl border border-slate-200 bg-slate-950 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Grand Total</p>
-                        <p className="text-2xl font-bold text-green-400">â‚¹{totals.grandTotal.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-green-400">Rs. {totals.grandTotal.toFixed(2)}</p>
                       </div>
                     </div>
                     <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_35%),linear-gradient(135deg,_#020617_0%,_#0f172a_45%,_#052e2b_100%)] shadow-[0_24px_70px_rgba(2,6,23,0.28)]">
@@ -1866,7 +1866,7 @@ export default function Purchases() {
                         </div>
                         <div className="text-right">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100/70">Amount Payable</p>
-                          <p className="mt-2 text-4xl font-black tracking-tight text-white drop-shadow-[0_8px_24px_rgba(52,211,153,0.18)]">â‚¹{totals.grandTotal.toFixed(2)}</p>
+                          <p className="mt-2 text-4xl font-black tracking-tight text-white drop-shadow-[0_8px_24px_rgba(52,211,153,0.18)]">Rs. {totals.grandTotal.toFixed(2)}</p>
                           <div className="mt-3 inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-medium text-emerald-100 backdrop-blur-sm">
                             Updated live
                           </div>

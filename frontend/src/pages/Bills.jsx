@@ -133,7 +133,7 @@ export default function Bills() {
 
   const isBillPaid = (bill) => getPendingAmount(bill) <= 0;
 
-  const formatAmount = (amount) => `â‚¹${Number(amount || 0).toLocaleString('en-IN', {
+  const formatAmount = (amount) => `Rs. ${Number(amount || 0).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })}`;
@@ -265,7 +265,7 @@ export default function Bills() {
             <div>
               <p className="text-sm text-gray-600">Total Sales</p>
               <p className="text-2xl font-bold text-gray-900">
-                â‚¹{bills.reduce((sum, b) => sum + (b.netGrandTotal ?? b.grandTotal ?? 0), 0).toLocaleString()}
+                Rs. {bills.reduce((sum, b) => sum + (b.netGrandTotal ?? b.grandTotal ?? 0), 0).toLocaleString()}
               </p>
             </div>
           </div>
@@ -448,7 +448,7 @@ export default function Bills() {
                         </td>
                         <td className="px-2 sm:px-4 py-4">
                           <div className="text-sm font-medium text-gray-900">
-                            â‚¹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toLocaleString()}
+                            Rs. {Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toLocaleString()}
                           </div>
                           {Number(bill.returnTotal || 0) > 0 && (
                             <div className="text-xs text-amber-600">
@@ -521,49 +521,49 @@ export default function Bills() {
                                       </td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.batchNumber}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">â‚¹{item.rate?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">Rs. {item.rate?.toFixed(2)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.gstPercent}%</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.discountPercent}%</td>
-                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{item.total?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {item.total?.toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                                 <tfoot className="bg-gray-50">
                                   <tr>
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Subtotal:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{bill.subtotal?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {bill.subtotal?.toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{bill.totalGst?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {bill.totalGst?.toFixed(2)}</td>
                                   </tr>
                                   {bill.discountAmount > 0 && (
                                     <tr>
                                       <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">
                                         Discount ({bill.discountPercent}%):
                                       </td>
-                                      <td colSpan="2" className="px-4 py-2 text-sm font-medium text-green-600">-â‚¹{bill.discountAmount?.toFixed(2)}</td>
+                                      <td colSpan="2" className="px-4 py-2 text-sm font-medium text-green-600">-Rs. {bill.discountAmount?.toFixed(2)}</td>
                                     </tr>
                                   )}
                                   <tr className="bg-emerald-50">
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-900">â‚¹{bill.grandTotal?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-900">Rs. {bill.grandTotal?.toFixed(2)}</td>
                                   </tr>
                                   {Number(bill.returnTotal || 0) > 0 && (
                                     <>
                                       <tr>
                                         <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Sales Return:</td>
-                                        <td colSpan="2" className="px-4 py-2 text-sm font-medium text-amber-600">-â‚¹{Number(bill.returnTotal || 0).toFixed(2)}</td>
+                                        <td colSpan="2" className="px-4 py-2 text-sm font-medium text-amber-600">-Rs. {Number(bill.returnTotal || 0).toFixed(2)}</td>
                                       </tr>
                                       <tr className="bg-emerald-50">
                                         <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Net Sales:</td>
-                                        <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-700">â‚¹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toFixed(2)}</td>
+                                        <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-700">Rs. {Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toFixed(2)}</td>
                                       </tr>
                                     </>
                                   )}
                                   <tr>
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Amount Paid:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{bill.amountPaid?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {bill.amountPaid?.toFixed(2)}</td>
                                   </tr>
                                   {getPendingAmount(bill) > 0 && (
                                     <tr>

@@ -334,14 +334,14 @@ export default function Medicines() {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-1">
                             <span className="text-sm font-medium text-gray-900">
-                              â‚¹{medicine.defaultSellingPrice?.toFixed(2) || medicine.latestInventoryMrp?.toFixed(2) || '0.00'}
+                              Rs. {medicine.defaultSellingPrice?.toFixed(2) || medicine.latestInventoryMrp?.toFixed(2) || '0.00'}
                             </span>
                             {medicine.latestInventoryMrp && medicine.defaultSellingPrice !== medicine.latestInventoryMrp && (
                               <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded">Inv</span>
                             )}
                           </div>
                           {medicine.latestInventoryMrp && (
-                            <div className="text-xs text-gray-500 mt-0.5">Latest Inv MRP: â‚¹{medicine.latestInventoryMrp.toFixed(2)}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">Latest Inv MRP: Rs. {medicine.latestInventoryMrp.toFixed(2)}</div>
                           )}
                         </td>
                         <td className="px-4 py-4">
@@ -434,7 +434,7 @@ export default function Medicines() {
             </div>
             <div className="p-6 bg-yellow-50 border-b border-yellow-200">
               <p className="text-sm text-yellow-800">
-                ðŸ’Š <strong>Product Master:</strong> This form defines the product. Stock and GST are managed via the Purchase module.
+                💊 <strong>Product Master:</strong> This form defines the product. Stock and GST are managed via the Purchase module.
               </p>
             </div>
             <form onSubmit={handleSubmit} className="p-6">

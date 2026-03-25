@@ -14,6 +14,11 @@ const UNIT_OPTIONS = [
 
 export default function Medicines() {
   const [medicines, setMedicines] = useState([]);
+  const [summary, setSummary] = useState({
+    totalMedicines: 0,
+    expiringCount: 0,
+    expiredCount: 0
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,9 +65,18 @@ export default function Medicines() {
   const fetchMedicines = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/medicines?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}`);
-      setMedicines(response.data.data || []);
-      setTotalPages(response.data.totalPages || 1);
+      const [medicinesResponse, summaryResponse] = await Promise.all([
+        api.get(`/medicines?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}`),
+        api.get('/medicines/dashboard/summary')
+      ]);
+
+      setMedicines(medicinesResponse.data.data || []);
+      setTotalPages(medicinesResponse.data.totalPages || 1);
+      setSummary(summaryResponse.data.data || {
+        totalMedicines: 0,
+        expiringCount: 0,
+        expiredCount: 0
+      });
     } catch (error) {
       console.error('Error fetching medicines:', error);
     } finally {
@@ -199,7 +213,6 @@ export default function Medicines() {
     setShowModal(true);
   };
 
-  const isLowStock = (medicine) => (medicine.quantity || 0) <= (medicine.reorderLevel || 10);
   const isExpired = (medicine) => medicine.expiryDate && new Date(medicine.expiryDate) < new Date();
   const isExpiringSoon = (medicine) => {
     if (!medicine.expiryDate) return false;
@@ -210,7 +223,6 @@ export default function Medicines() {
   const getStockStatus = (medicine) => {
     if (isExpired(medicine)) return { label: 'Expired', class: 'bg-red-100 text-red-800' };
     if (isExpiringSoon(medicine)) return { label: 'Expiring Soon', class: 'bg-yellow-100 text-yellow-800' };
-    if (isLowStock(medicine)) return { label: 'Low Stock', class: 'bg-orange-100 text-orange-800' };
     return { label: 'OK', class: 'bg-green-100 text-green-800' };
   };
 
@@ -248,7 +260,7 @@ export default function Medicines() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -256,20 +268,7 @@ export default function Medicines() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Medicines</p>
-              <p className="text-2xl font-bold text-gray-900">{medicines.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <AlertTriangle className="text-orange-600" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Low Stock</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {medicines.filter(m => isLowStock(m)).length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalMedicines}</p>
             </div>
           </div>
         </div>
@@ -280,9 +279,7 @@ export default function Medicines() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Expiring Soon</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {medicines.filter(m => isExpiringSoon(m)).length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{summary.expiringCount}</p>
             </div>
           </div>
         </div>
@@ -293,9 +290,7 @@ export default function Medicines() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Expired</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {medicines.filter(m => isExpired(m)).length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{summary.expiredCount}</p>
             </div>
           </div>
         </div>
@@ -316,7 +311,6 @@ export default function Medicines() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand & Strength</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -336,15 +330,6 @@ export default function Medicines() {
                         <td className="px-4 py-4">
                           <div className="text-sm text-gray-900">{medicine.brandName}</div>
                           <div className="text-sm text-gray-500">{medicine.strength} - {medicine.packSize}</div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-sm font-medium ${isLowStock(medicine) ? 'text-red-600' : 'text-gray-900'}`}>
-                              {medicine.quantity || 0}
-                            </span>
-                            {isLowStock(medicine) && <AlertTriangle size={16} className="text-red-500" />}
-                          </div>
-                          <div className="text-xs text-gray-500">Min: {medicine.reorderLevel}</div>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-1">

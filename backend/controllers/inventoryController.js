@@ -69,7 +69,11 @@ exports.getInventory = async (req, res) => {
       });
 
       const lowStockMeds = medicines.filter((medicine) => {
-        const totalQuantity = stockMap[medicine._id.toString()] || 0;
+        const medicineId = medicine._id.toString();
+        if (!Object.prototype.hasOwnProperty.call(stockMap, medicineId)) {
+          return false;
+        }
+        const totalQuantity = stockMap[medicineId];
         return totalQuantity <= medicine.reorderLevel;
       });
 
@@ -450,7 +454,11 @@ exports.getLowStockItems = async (req, res) => {
 
     const lowStockItems = medicines
       .filter(med => {
-        const quantity = stockMap[med._id.toString()] || 0;
+        const medicineId = med._id.toString();
+        if (!Object.prototype.hasOwnProperty.call(stockMap, medicineId)) {
+          return false;
+        }
+        const quantity = stockMap[medicineId];
         return quantity <= med.reorderLevel;
       })
       .map(med => ({
@@ -579,7 +587,11 @@ exports.getInventoryStats = async (req, res) => {
     });
 
     const lowStockCount = medicines.filter(med => {
-      const quantity = stockMap[med._id.toString()] || 0;
+      const medicineId = med._id.toString();
+      if (!Object.prototype.hasOwnProperty.call(stockMap, medicineId)) {
+        return false;
+      }
+      const quantity = stockMap[medicineId];
       return quantity <= med.reorderLevel;
     }).length;
 

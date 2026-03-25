@@ -9,7 +9,6 @@ const {
   addMedicine,
   updateMedicine,
   deleteMedicine,
-  getLowStockMedicines,
   getExpiringMedicines,
   getExpiredMedicines,
   getInventoryReport,
@@ -25,7 +24,6 @@ router.use(syncExpiredInventory);
 router.get('/search', searchMedicines);
 router.get('/search-all', searchAllMedicines);
 router.get('/barcode/:barcode', getMedicineByBarcode);
-router.get('/alerts/low-stock', getLowStockMedicines);
 router.get('/alerts/expiring', getExpiringMedicines);
 router.get('/alerts/expired', getExpiredMedicines);
 router.get('/brands', getBrands);

@@ -65,8 +65,8 @@ export default function Dashboard() {
       setDashboardError('');
 
       const results = await Promise.allSettled([
-        api.get('/medicines/dashboard/summary'),
-        api.get('/medicines/alerts/low-stock'),
+        api.get('/inventory/stats'),
+        api.get('/inventory/low-stock'),
         api.get('/medicines/alerts/expiring?days=90'),
         api.get('/medicines/alerts/expired'),
         api.get('/bills/dashboard'),
@@ -90,7 +90,7 @@ export default function Dashboard() {
       }
 
       setStats({
-        totalMedicines: summary.totalMedicines || 0,
+        totalMedicines: summary.uniqueMedicineCount || 0,
         lowStockCount: summary.lowStockCount || 0,
         expiringCount: summary.expiringCount || expiring.length,
         expiredCount: summary.expiredCount || expired.length,
@@ -476,13 +476,13 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-4">
                 {lowStockMedicines.map((item) => (
-                  <div key={item._id} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
+                  <div key={item.medicine?._id || item._id} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
                     <div>
-                      <p className="font-medium text-gray-900">{item.medicineName}</p>
-                      <p className="text-sm text-gray-600">{item.brandName || 'No brand'}</p>
+                      <p className="font-medium text-gray-900">{item.medicine?.medicineName || item.medicineName}</p>
+                      <p className="text-sm text-gray-600">{item.medicine?.brandName || item.brandName || 'No brand'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-red-600">{item.quantity || item.stock || 0}</p>
+                      <p className="font-bold text-red-600">{item.currentStock ?? item.quantity ?? item.stock ?? 0}</p>
                       <p className="text-xs text-gray-500">Reorder at {item.reorderLevel || 0}</p>
                     </div>
                   </div>

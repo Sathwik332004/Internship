@@ -874,61 +874,6 @@ exports.deleteMedicine = async (req, res) => {
   }
 };
 
-// @desc    Get low stock medicines
-// @route   GET /api/medicines/alerts/low-stock
-// @access  Private
-exports.getLowStockMedicines = async (req, res) => {
-  try {
-    // Aggregate to get total stock per medicine
-    const inventoryStats = await Inventory.aggregate([
-      { $match: { isDeleted: false, status: 'ACTIVE' } },
-      {
-        $group: {
-          _id: '$medicine',
-          totalQuantity: { $sum: '$quantityAvailable' }
-        }
-      }
-    ]);
-
-    // Create map of medicine ID to quantity
-    const stockMap = {};
-    inventoryStats.forEach(stat => {
-      stockMap[stat._id.toString()] = stat.totalQuantity;
-    });
-
-    // Get all active medicines
-    const medicines = await Medicine.find({
-      isDeleted: false,
-      status: 'ACTIVE'
-    }).populate('hsnCode', 'hsnCode gstPercent');
-
-    // Filter medicines where stock <= reorderLevel
-    const lowStockMedicines = medicines
-      .filter(med => {
-        const quantity = stockMap[med._id.toString()] || 0;
-        return quantity <= med.reorderLevel;
-      })
-      .map(med => ({
-        ...med.toObject(),
-        quantity: stockMap[med._id.toString()] || 0
-      }))
-      .sort((a, b) => a.quantity - b.quantity);
-
-    res.status(200).json({
-      success: true,
-      count: lowStockMedicines.length,
-      data: lowStockMedicines
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Error getting low stock medicines',
-      error: error.message
-    });
-  }
-};
-
 // @desc    Get expiring medicines (within specified days, default 90 days)
 // @route   GET /api/medicines/alerts/expiring
 // @access  Private

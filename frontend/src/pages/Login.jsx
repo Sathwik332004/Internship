@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Eye, EyeOff, Loader2, ShieldCheck, Truck, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
 import { authAPI } from '../services/api';
 import BrandLogo from '../components/BrandLogo';
 import {
@@ -84,41 +84,12 @@ const Login = () => {
   return (
     <div className="medical-grid relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_24%),linear-gradient(135deg,_#fbfcf8,_#f2f7ee_55%,_#f3efe6)] p-4">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(163,230,53,0.14),transparent_18%),radial-gradient(circle_at_20%_85%,rgba(34,197,94,0.12),transparent_20%)]" />
-      <div className="relative grid w-full max-w-6xl overflow-hidden rounded-[36px] border border-white/50 bg-white/70 shadow-[0_30px_100px_rgba(15,23,42,0.16)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-lime-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.28),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(163,230,53,0.22),transparent_22%)]" />
-          <div className="relative">
-            <BrandLogo />
-            <div className="mt-12 max-w-lg">
-              <p className="text-sm uppercase tracking-[0.35em] text-emerald-200/80">Clinical Retail Experience</p>
-              <h2 className="mt-4 text-4xl font-semibold leading-tight">A calmer, cleaner workspace for medicine billing, inventory, and care-led operations.</h2>
-              <p className="mt-5 text-base leading-7 text-slate-200/85">
-                Bhagya Medicals brings purchase tracking, billing accuracy, and inventory visibility into one polished medical command center.
-              </p>
-            </div>
-          </div>
-          <div className="relative grid gap-4">
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-              <ShieldCheck className="mb-3 h-6 w-6 text-emerald-200" />
-              <p className="text-lg font-semibold">Secure staff access</p>
-              <p className="mt-1 text-sm text-slate-200/80">OTP-backed sign-in for accountable day-to-day pharmacy operations.</p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-              <Truck className="mb-3 h-6 w-6 text-lime-200" />
-              <p className="text-lg font-semibold">Purchase to shelf clarity</p>
-              <p className="mt-1 text-sm text-slate-200/80">Track procurement, expiry, and low-stock movement with inventory-first logic.</p>
-            </div>
-          </div>
-        </section>
-
+      <div className="relative w-full max-w-xl overflow-hidden rounded-[36px] border border-white/50 bg-white/70 shadow-[0_30px_100px_rgba(15,23,42,0.16)] backdrop-blur-xl">
         <section className="p-6 sm:p-10">
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8">
               <div className="flex items-center justify-between">
                 <BrandLogo compact showTagline={false} />
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
-                  Staff Login
-                </span>
               </div>
               <div className="mt-8">
                 <h1 className="text-3xl font-semibold text-slate-950">Welcome back</h1>
@@ -128,13 +99,6 @@ const Login = () => {
 
             {!otpRequired ? (
               <form onSubmit={handleLogin} className="space-y-6">
-                <div className="rounded-3xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-800">
-                  <div className="flex items-center gap-2 font-medium">
-                    <Sparkles className="h-4 w-4" />
-                    Premium medical workspace
-                  </div>
-                  <p className="mt-1 text-emerald-700/80">Use your authorized staff account to continue.</p>
-                </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Email Address

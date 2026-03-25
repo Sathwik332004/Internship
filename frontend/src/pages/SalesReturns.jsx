@@ -316,7 +316,7 @@ export default function SalesReturns() {
         <div className="space-y-6">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
-              <Search size={18} className="text-blue-600" />
+              <Search size={18} className="text-emerald-600" />
               <h2 className="text-lg font-semibold text-gray-900">Search Bill</h2>
             </div>
             <div className="relative mb-4">
@@ -326,7 +326,7 @@ export default function SalesReturns() {
                 value={billSearch}
                 onChange={(event) => setBillSearch(event.target.value)}
                 placeholder="Search invoice number, customer name, or phone..."
-                className="w-full rounded-xl border border-gray-300 py-2.5 pl-10 pr-4 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-gray-300 py-2.5 pl-10 pr-4 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -346,8 +346,8 @@ export default function SalesReturns() {
                     onClick={() => loadBill(bill._id)}
                     className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
                       selectedBill?._id === bill._id
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                        ? 'border-emerald-600 bg-emerald-50'
+                        : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -355,7 +355,7 @@ export default function SalesReturns() {
                         <div className="font-semibold text-gray-900">{bill.invoiceNumber}</div>
                         <div className="mt-1 text-sm text-gray-600">{bill.customerName || 'Walk-in Customer'}</div>
                         <div className="mt-1 text-xs text-gray-500">
-                          {formatDate(bill.billDate)}{bill.customerPhone ? ` • ${bill.customerPhone}` : ''}
+                          {formatDate(bill.billDate)}{bill.customerPhone ? ` â€¢ ${bill.customerPhone}` : ''}
                         </div>
                       </div>
                       <div className="text-right">
@@ -382,7 +382,7 @@ export default function SalesReturns() {
                   value={historySearch}
                   onChange={(event) => setHistorySearch(event.target.value)}
                   placeholder="Search returns..."
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -404,7 +404,7 @@ export default function SalesReturns() {
                         <div className="break-all font-semibold text-gray-900">{entry.returnNumber}</div>
                         <div className="mt-1 break-all text-sm text-gray-600">{entry.invoiceNumber}</div>
                         <div className="mt-1 text-xs text-gray-500">
-                          {entry.customerName || 'Walk-in Customer'} • {formatDate(entry.returnDate)}
+                          {entry.customerName || 'Walk-in Customer'} â€¢ {formatDate(entry.returnDate)}
                         </div>
                       </div>
                       <div className="text-right">
@@ -461,7 +461,7 @@ export default function SalesReturns() {
                     <div className="text-sm text-gray-500">Original Bill Amount</div>
                     <div className="mt-1 text-2xl font-bold text-gray-900">{formatAmount(selectedBill.grandTotal)}</div>
                     <div className="mt-2 text-xs text-gray-500">
-                      Discount: {formatAmount(selectedBill.discountAmount)} • GST: {formatAmount(selectedBill.totalGst)}
+                      Discount: {formatAmount(selectedBill.discountAmount)} â€¢ GST: {formatAmount(selectedBill.totalGst)}
                     </div>
                   </div>
                 </div>
@@ -509,7 +509,7 @@ export default function SalesReturns() {
                                   value={returnQuantities[index] ?? ''}
                                   disabled={remainingQuantity <= 0}
                                   onChange={(event) => updateReturnQuantity(index, event.target.value, remainingQuantity)}
-                                  className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                                  className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
                                 />
                               </td>
                               <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
@@ -578,12 +578,12 @@ export default function SalesReturns() {
                                 value={returnQuantities[index] ?? ''}
                                 disabled={remainingQuantity <= 0}
                                 onChange={(event) => updateReturnQuantity(index, event.target.value, remainingQuantity)}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 sm:text-left"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100 sm:text-left"
                               />
                             </div>
-                            <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm sm:min-w-[10rem]">
+                            <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm sm:min-w-[10rem]">
                               <div className="text-gray-500">Line Value</div>
-                              <div className="mt-1 font-semibold text-blue-900">
+                              <div className="mt-1 font-semibold text-emerald-900">
                                 {requestedQuantity > 0 ? formatAmount(previewAmount) : '-'}
                               </div>
                             </div>
@@ -603,7 +603,7 @@ export default function SalesReturns() {
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
                         placeholder="e.g. Damaged strip, wrong medicine, customer cancelled"
-                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                     <div>
@@ -613,7 +613,7 @@ export default function SalesReturns() {
                         value={notes}
                         onChange={(event) => setNotes(event.target.value)}
                         placeholder="Optional notes for this sales return..."
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   </div>

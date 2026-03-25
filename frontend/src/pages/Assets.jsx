@@ -154,10 +154,10 @@ export default function Assets() {
 
   const getAssetTypeColor = (type) => {
     switch (type) {
-      case 'ELECTRONICS': return 'bg-blue-100 text-blue-800';
+      case 'ELECTRONICS': return 'bg-emerald-100 text-emerald-800';
       case 'FURNITURE': return 'bg-amber-100 text-amber-800';
       case 'VEHICLE': return 'bg-green-100 text-green-800';
-      case 'MACHINERY': return 'bg-purple-100 text-purple-800';
+      case 'MACHINERY': return 'bg-amber-100 text-amber-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -165,7 +165,7 @@ export default function Assets() {
   const getConditionColor = (condition) => {
     switch (condition) {
       case 'NEW': return 'bg-green-100 text-green-800';
-      case 'GOOD': return 'bg-blue-100 text-blue-800';
+      case 'GOOD': return 'bg-emerald-100 text-emerald-800';
       case 'FAIR': return 'bg-yellow-100 text-yellow-800';
       case 'POOR': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -194,7 +194,7 @@ export default function Assets() {
         </div>
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
         >
           <Plus size={20} />
           Add Asset
@@ -211,13 +211,13 @@ export default function Assets() {
               placeholder="Search assets..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           >
             <option value="">All Types</option>
             {assetTypes.map(type => (
@@ -227,7 +227,7 @@ export default function Assets() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           >
             <option value="">All Statuses</option>
             {statuses.map(status => (
@@ -241,8 +241,8 @@ export default function Assets() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Package className="text-blue-600" size={24} />
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <Package className="text-emerald-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Assets</p>
@@ -278,12 +278,12 @@ export default function Assets() {
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <AlertTriangle className="text-purple-600" size={24} />
+            <div className="p-3 bg-amber-100 rounded-lg">
+              <AlertTriangle className="text-amber-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Value</p>
-              <p className="text-2xl font-bold text-gray-900">₹{totalAssetValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">â‚¹{totalAssetValue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -293,7 +293,7 @@ export default function Assets() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading assets...</p>
           </div>
         ) : (
@@ -337,7 +337,7 @@ export default function Assets() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          ₹{asset.cost?.toLocaleString()}
+                          â‚¹{asset.cost?.toLocaleString()}
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -354,7 +354,7 @@ export default function Assets() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleEdit(asset)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <Edit2 size={18} />
@@ -428,7 +428,7 @@ export default function Assets() {
                     value={formData.assetName}
                     maxLength={120}
                     onChange={(e) => setFormData({ ...formData, assetName: normalizeTextInput(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -437,7 +437,7 @@ export default function Assets() {
                     required
                     value={formData.assetType}
                     onChange={(e) => setFormData({ ...formData, assetType: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     {assetTypes.map(type => (
                       <option key={type.value} value={type.value}>{type.label}</option>
@@ -452,11 +452,11 @@ export default function Assets() {
                     max={new Date().toISOString().split('T')[0]}
                     value={formData.purchaseDate}
                     onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost (₹) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost (â‚¹) *</label>
                   <input
                     type="number"
                     required
@@ -464,7 +464,7 @@ export default function Assets() {
                     step="0.01"
                     value={formData.cost}
                     onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -473,7 +473,7 @@ export default function Assets() {
                     required
                     value={formData.condition}
                     onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     {conditions.map(condition => (
                       <option key={condition} value={condition}>{condition}</option>
@@ -486,7 +486,7 @@ export default function Assets() {
                     required
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     {statuses.map(status => (
                       <option key={status} value={status}>{status.replace('_', ' ')}</option>
@@ -500,7 +500,7 @@ export default function Assets() {
                     value={formData.location}
                     maxLength={120}
                     onChange={(e) => setFormData({ ...formData, location: normalizeTextInput(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -510,7 +510,7 @@ export default function Assets() {
                     value={formData.description}
                     maxLength={250}
                     onChange={(e) => setFormData({ ...formData, description: normalizeTextInput(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -524,7 +524,7 @@ export default function Assets() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   {editingAsset ? 'Update Asset' : 'Add Asset'}
                 </button>

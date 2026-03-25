@@ -18,6 +18,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useState } from 'react';
+import BrandLogo from './BrandLogo';
 
 const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -47,66 +48,69 @@ const Layout = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen medical-grid">
 
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 z-50 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`glass-panel fixed top-0 left-0 z-50 h-full w-[86vw] max-w-[320px] border-r border-white/40 shadow-[0_24px_70px_rgba(15,23,42,0.14)] transform transition-transform duration-300 ease-in-out sm:max-w-[360px] lg:w-72 lg:max-w-none lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
         <div className="flex flex-col h-full">
 
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b">
-            <h1 className="text-xl font-bold text-blue-600">Medical Store</h1>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden">
+          <div className="flex items-start justify-between px-5 py-5 border-b border-slate-200/70">
+            <BrandLogo compact />
+            <button onClick={() => setSidebarOpen(false)} className="rounded-xl p-2 text-slate-500 hover:bg-white/70 lg:hidden">
               <X className="w-6 h-6" />
             </button>
           </div>
 
           {/* Navigation */}
-          <nav className="mt-4 px-2 overflow-auto flex-1">
+          <nav className="mt-4 px-3 overflow-auto flex-1">
+            <p className="px-4 pb-3 text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">Workspace</p>
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-3 mb-1 rounded-lg transition-colors ${
+                  `group mb-1.5 flex items-center gap-3 rounded-2xl px-4 py-3 transition-all ${
                     isActive
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-gradient-to-r from-emerald-600 to-lime-500 text-white shadow-[0_16px_34px_rgba(34,197,94,0.28)]'
+                      : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
                   }`
                 }
               >
-                <item.icon className="w-5 h-5 mr-3" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/14 ring-1 ring-inset ring-white/20 group-hover:bg-white/80">
+                  <item.icon className="h-5 w-5" />
+                </span>
                 {item.label}
               </NavLink>
             ))}
           </nav>
 
           {/* User Profile */}
-          <div className="p-4 border-t">
+          <div className="border-t border-slate-200/70 p-4">
 
             <div
               onClick={() => navigate('/profile')}
-              className="flex items-center mb-4 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
+              className="premium-card mb-4 flex items-center cursor-pointer rounded-3xl p-3"
             >
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <span className="text-blue-600 font-semibold">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-lime-500 text-white shadow-lg">
+                <span className="font-semibold">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
               </div>
 
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                <p className="text-sm font-semibold text-slate-900">{user?.name}</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{user?.role}</p>
               </div>
 
             </div>
@@ -114,7 +118,7 @@ const Layout = () => {
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50"
+              className="flex w-full items-center rounded-2xl px-4 py-3 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
             >
               <LogOut className="w-4 h-4 mr-3" />
               Logout
@@ -127,29 +131,38 @@ const Layout = () => {
       </aside>
 
       {/* Main Content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-72">
 
         {/* Header */}
-        <header className="sticky top-0 z-30 h-16 bg-white shadow-sm flex items-center justify-between px-4">
+        <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 lg:px-6 lg:pt-4">
+          <div className="glass-panel flex min-h-[72px] flex-col justify-between gap-3 rounded-[24px] border border-white/50 px-4 py-3 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:flex-row sm:items-center sm:rounded-[28px] sm:px-5">
           
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-md hover:bg-gray-100"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-2xl p-3 text-slate-600 hover:bg-white/80 lg:hidden"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-700">Bhagya Medicals</p>
+              </div>
+            </div>
 
-          <div className="ml-auto flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
-              Welcome, <span className="font-medium">{user?.name}</span>
-            </span>
+            <div className="ml-0 flex items-center space-x-4 sm:ml-auto">
+              <div className="hidden rounded-2xl bg-gradient-to-r from-emerald-50 to-lime-50 px-4 py-2 text-right sm:block">
+                <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Signed in as</p>
+                <span className="text-sm font-semibold text-slate-900">{user?.name}</span>
+              </div>
+            </div>
           </div>
-
         </header>
 
         {/* Page Content */}
-        <main className="p-4 lg:p-6">
-          <Outlet />
+        <main className="p-3 sm:p-4 lg:p-6">
+          <div className="mx-auto max-w-[1600px]">
+            <Outlet />
+          </div>
         </main>
 
       </div>

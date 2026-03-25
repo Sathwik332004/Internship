@@ -236,7 +236,7 @@ export default function Medicines() {
         </div>
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
         >
           <Plus size={20} />
           Add Medicine
@@ -253,7 +253,7 @@ export default function Medicines() {
               placeholder="Search by name, brand, or barcode..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -263,8 +263,8 @@ export default function Medicines() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Package className="text-blue-600" size={24} />
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <Package className="text-emerald-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Medicines</p>
@@ -300,7 +300,7 @@ export default function Medicines() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading medicines...</p>
           </div>
         ) : (
@@ -334,14 +334,14 @@ export default function Medicines() {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-1">
                             <span className="text-sm font-medium text-gray-900">
-                              ₹{medicine.defaultSellingPrice?.toFixed(2) || medicine.latestInventoryMrp?.toFixed(2) || '0.00'}
+                              â‚¹{medicine.defaultSellingPrice?.toFixed(2) || medicine.latestInventoryMrp?.toFixed(2) || '0.00'}
                             </span>
                             {medicine.latestInventoryMrp && medicine.defaultSellingPrice !== medicine.latestInventoryMrp && (
                               <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded">Inv</span>
                             )}
                           </div>
                           {medicine.latestInventoryMrp && (
-                            <div className="text-xs text-gray-500 mt-0.5">Latest Inv MRP: ₹{medicine.latestInventoryMrp.toFixed(2)}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">Latest Inv MRP: â‚¹{medicine.latestInventoryMrp.toFixed(2)}</div>
                           )}
                         </td>
                         <td className="px-4 py-4">
@@ -367,7 +367,7 @@ export default function Medicines() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleEdit(medicine)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 size={18} />
@@ -434,7 +434,7 @@ export default function Medicines() {
             </div>
             <div className="p-6 bg-yellow-50 border-b border-yellow-200">
               <p className="text-sm text-yellow-800">
-                💊 <strong>Product Master:</strong> This form defines the product. Stock and GST are managed via the Purchase module.
+                ðŸ’Š <strong>Product Master:</strong> This form defines the product. Stock and GST are managed via the Purchase module.
               </p>
             </div>
             <form onSubmit={handleSubmit} className="p-6">
@@ -450,7 +450,7 @@ export default function Medicines() {
                       value={formData.medicineName}
                       maxLength={120}
                       onChange={(e) => setFormData({ ...formData, medicineName: normalizeTextInput(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -460,7 +460,7 @@ export default function Medicines() {
                       value={formData.brandName}
                       maxLength={80}
                       onChange={(e) => setFormData({ ...formData, brandName: normalizeTextInput(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -471,7 +471,7 @@ export default function Medicines() {
                       value={formData.strength}
                       maxLength={40}
                       onChange={(e) => setFormData({ ...formData, strength: normalizeTextInput(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                  
@@ -482,7 +482,7 @@ export default function Medicines() {
                       value={formData.manufacturer}
                       maxLength={80}
                       onChange={(e) => setFormData({ ...formData, manufacturer: normalizeTextInput(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -493,7 +493,7 @@ export default function Medicines() {
                       inputMode="numeric"
                       maxLength={14}
                       onChange={(e) => setFormData({ ...formData, barcode: e.target.value.replace(/\D/g, '').slice(0, 14) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -504,7 +504,7 @@ export default function Medicines() {
                       inputMode="numeric"
                       maxLength={14}
                       onChange={(e) => setFormData({ ...formData, gtin: e.target.value.replace(/\D/g, '').slice(0, 14) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -519,7 +519,7 @@ export default function Medicines() {
                     <select
                       value={formData.baseUnit}
                       onChange={(e) => setFormData({ ...formData, baseUnit: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     >
                       <option value="">Select Base Unit</option>
                       {UNIT_OPTIONS.map(unit => (
@@ -532,7 +532,7 @@ export default function Medicines() {
                     <select
                       value={formData.sellingUnit}
                       onChange={(e) => setFormData({ ...formData, sellingUnit: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     >
                       <option value="">Select Selling Unit</option>
                       {UNIT_OPTIONS.map(unit => (
@@ -547,7 +547,7 @@ export default function Medicines() {
                       min="1"
                       value={formData.conversionFactor}
                       onChange={(e) => setFormData({ ...formData, conversionFactor: parseInt(e.target.value) || 1 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500 mt-1">1 selling unit = X base units</p>
                   </div>
@@ -557,7 +557,7 @@ export default function Medicines() {
                       id="allowDecimal"
                       checked={formData.allowDecimal}
                       onChange={(e) => setFormData({ ...formData, allowDecimal: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                     />
                     <label htmlFor="allowDecimal" className="ml-2 text-sm text-gray-700">
                       Allow Decimal Quantities
@@ -581,7 +581,7 @@ export default function Medicines() {
                       step="0.01"
                       value={formData.defaultSellingPrice}
                       onChange={(e) => setFormData({ ...formData, defaultSellingPrice: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -591,7 +591,7 @@ export default function Medicines() {
                       min="0"
                       value={formData.reorderLevel}
                       onChange={(e) => setFormData({ ...formData, reorderLevel: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -599,7 +599,7 @@ export default function Medicines() {
                     <select
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     >
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
@@ -613,7 +613,7 @@ export default function Medicines() {
                 <button
                   type="button"
                   onClick={() => setMoreOptions(!moreOptions)}
-                  className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-emerald-600 transition-colors"
                 >
                   <Settings size={18} />
                   More Options
@@ -630,7 +630,7 @@ export default function Medicines() {
                           id="askDose"
                           checked={formData.askDose}
                           onChange={(e) => setFormData({ ...formData, askDose: e.target.checked })}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                         />
                         <label htmlFor="askDose" className="ml-2 text-sm text-gray-700">
                           Ask Dose on Billing
@@ -642,7 +642,7 @@ export default function Medicines() {
                           id="decimalAllowed"
                           checked={formData.decimalAllowed}
                           onChange={(e) => setFormData({ ...formData, decimalAllowed: e.target.checked })}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                         />
                         <label htmlFor="decimalAllowed" className="ml-2 text-sm text-gray-700">
                           Decimal Allowed
@@ -655,7 +655,7 @@ export default function Medicines() {
                           value={formData.salt}
                           maxLength={120}
                           onChange={(e) => setFormData({ ...formData, salt: normalizeTextInput(e.target.value) })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         />
                       </div>
                       <div>
@@ -665,7 +665,7 @@ export default function Medicines() {
                           value={formData.colorType}
                           maxLength={40}
                           onChange={(e) => setFormData({ ...formData, colorType: normalizeTextInput(e.target.value) })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         />
                       </div>
                       <div>
@@ -675,7 +675,7 @@ export default function Medicines() {
                           value={formData.packing}
                           maxLength={40}
                           onChange={(e) => setFormData({ ...formData, packing: normalizeTextInput(e.target.value) })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         />
                       </div>
                       <div>
@@ -683,7 +683,7 @@ export default function Medicines() {
                         <select
                           value={formData.itemType}
                           onChange={(e) => setFormData({ ...formData, itemType: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         >
                           <option value="">Select Item Type</option>
                           <option value="Tablets">Tablets</option>
@@ -712,7 +712,7 @@ export default function Medicines() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   {editingMedicine ? 'Update Medicine' : 'Add Medicine'}
                 </button>

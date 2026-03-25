@@ -1,5 +1,5 @@
 const defaultShopInfo = {
-  name: 'Medical Store',
+  name: 'Bhagya Medicals',
   address: '',
   phone: '',
   gstin: '',

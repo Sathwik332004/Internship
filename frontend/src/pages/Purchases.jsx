@@ -189,7 +189,7 @@ const PurchaseRow = React.memo(({
     let base = `${colClass} px-2 py-2 border-r border-gray-200 text-sm focus:outline-none transition-colors `;
     
     if (activeCell?.row === index && activeCell?.col === colKey) {
-      base += 'bg-blue-50 border-blue-500 ring-2 ring-blue-200 ';
+      base += 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-200 ';
     } else {
       base += 'bg-white ';
     }
@@ -319,7 +319,7 @@ const PurchaseRow = React.memo(({
   return (
     <tr 
       ref={rowRef}
-      className={`hover:bg-gray-50 ${activeCell?.row === index ? 'bg-blue-50/30' : ''}`}
+      className={`hover:bg-gray-50 ${activeCell?.row === index ? 'bg-emerald-50/30' : ''}`}
       onClick={() => onCellFocus(index, 'product')}
     >
       {/* Product Column - Wide Search Input */}
@@ -337,7 +337,7 @@ const PurchaseRow = React.memo(({
                 onSearchChange(value, index);
               }}
               placeholder="Search medicine name, brand or barcode..."
-              className="w-full h-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white"
+              className="w-full h-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 bg-white"
             />
             {showSearchResults && searchRowIndex === index && searchResults.length > 0 && (
               <div className="absolute left-0 top-full z-30 mt-2 w-full min-w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
@@ -351,7 +351,7 @@ const PurchaseRow = React.memo(({
                       key={medicine._id}
                       type="button"
                       onClick={() => onAddMedicine(medicine)}
-                      className="w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-blue-50"
+                      className="w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-emerald-50"
                     >
                       <p className="font-medium text-slate-900">{displayText}</p>
                       <p className="mt-1 text-sm text-slate-500">{medicine.brandName || 'Generic'}</p>
@@ -369,7 +369,7 @@ const PurchaseRow = React.memo(({
                 e.stopPropagation();
                 onSelectMedicine(index);
               }}
-              className="flex-1 text-left text-sm truncate text-gray-700 hover:text-blue-600 font-medium"
+              className="flex-1 text-left text-sm truncate text-gray-700 hover:text-emerald-600 font-medium"
               title={item.medicineName || 'Click to search'}
             >
               {item.medicineName || <span className="text-gray-400 italic">Search...</span>}
@@ -425,7 +425,7 @@ const PurchaseRow = React.memo(({
               setIsExpiryPickerOpen((current) => !current);
             }}
             onKeyDown={(e) => onKeyDown(e, index, 'expiry')}
-            className="flex w-full items-center justify-between rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="flex w-full items-center justify-between rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 transition hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
             title="Select expiry year and month"
           >
             <span>{formatExpiryDisplay(item.expiryDate) || 'Select expiry'}</span>
@@ -473,7 +473,7 @@ const PurchaseRow = React.memo(({
                     inputMode="numeric"
                     value={expiryParts.year}
                     onChange={(e) => handleExpiryYearInput(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                     placeholder="YYYY"
                   />
                 </div>
@@ -488,8 +488,8 @@ const PurchaseRow = React.memo(({
                     }}
                     className={`rounded-lg px-2 py-2 text-xs font-medium transition ${
                       expiryParts.year === year
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'border border-slate-200 text-slate-700 hover:border-blue-200 hover:bg-blue-50'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'border border-slate-200 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
                     }`}
                   >
                     {year}
@@ -616,7 +616,7 @@ const PurchaseRow = React.memo(({
 
       {/* Amount Column */}
       <td className={`${getCellClass('amount')} text-right font-bold`}>
-        <span className="text-green-700">₹{item.totalAmount?.toFixed(2) || '0.00'}</span>
+        <span className="text-green-700">â‚¹{item.totalAmount?.toFixed(2) || '0.00'}</span>
       </td>
 
       {/* Actions Column */}
@@ -1307,8 +1307,8 @@ export default function Purchases() {
   const getPaymentModeColor = (mode) => {
     switch (mode) {
       case 'CASH': return 'bg-green-100 text-green-800';
-      case 'UPI': return 'bg-blue-100 text-blue-800';
-      case 'CARD': return 'bg-purple-100 text-purple-800';
+      case 'UPI': return 'bg-emerald-100 text-emerald-800';
+      case 'CARD': return 'bg-amber-100 text-amber-800';
       case 'CREDIT': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -1342,7 +1342,7 @@ export default function Purchases() {
   }, []);
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.10),_transparent_30%),linear-gradient(180deg,_#f8fbff_0%,_#f4f7fb_100%)] p-6">
+    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.10),_transparent_30%),linear-gradient(180deg,_#fbfcf8_0%,_#f3f7ef_100%)] p-3 sm:p-4 lg:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
@@ -1352,7 +1352,7 @@ export default function Purchases() {
         <button onClick={() => {
           resetForm();
           setShowAddModal(true);
-        }} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md">
+        }} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">
           <Plus size={20} />
           New Purchase
         </button>
@@ -1367,17 +1367,17 @@ export default function Purchases() {
             placeholder="Search by invoice number or supplier..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
           />
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-blue-100 p-3">
-              <Package className="text-blue-600" size={24} />
+            <div className="rounded-xl bg-emerald-100 p-3">
+              <Package className="text-emerald-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-slate-500">Total Purchases</p>
@@ -1392,7 +1392,7 @@ export default function Purchases() {
             </div>
             <div>
               <p className="text-sm text-slate-500">Total Amount</p>
-              <p className="text-2xl font-bold text-slate-900">₹{purchases.reduce((sum, p) => sum + (p.grandTotal || 0), 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-slate-900">â‚¹{purchases.reduce((sum, p) => sum + (p.grandTotal || 0), 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -1410,7 +1410,7 @@ export default function Purchases() {
         <div className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-violet-100 p-3">
-              <Calendar className="text-purple-600" size={24} />
+              <Calendar className="text-amber-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-slate-500">This Month</p>
@@ -1430,7 +1430,7 @@ export default function Purchases() {
       <div className="overflow-hidden rounded-2xl border border-white/70 bg-white/95 shadow-sm backdrop-blur">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading purchases...</p>
           </div>
         ) : (
@@ -1464,7 +1464,7 @@ export default function Purchases() {
                         <td className="px-4 py-4 text-sm text-gray-900">{purchase.supplier?.supplierName}</td>
                         <td className="px-4 py-4 text-sm text-gray-900">{new Date(purchase.purchaseDate).toLocaleDateString()}</td>
                         <td className="px-4 py-4 text-sm text-gray-900">{calculateTotalItems(purchase.items)} items</td>
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">₹{purchase.grandTotal?.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-gray-900">â‚¹{purchase.grandTotal?.toLocaleString()}</td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentModeColor(purchase.paymentMode)}`}>
                             {purchase.paymentMode}
@@ -1472,7 +1472,7 @@ export default function Purchases() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
-                            <button onClick={() => toggleExpand(purchase._id)} className="rounded-xl p-2 text-blue-600 transition-colors hover:bg-blue-50">
+                            <button onClick={() => toggleExpand(purchase._id)} className="rounded-xl p-2 text-emerald-600 transition-colors hover:bg-emerald-50">
                               <Eye size={18} />
                             </button>
                             <button onClick={() => handleEditPurchase(purchase._id)} className="rounded-xl p-2 text-amber-600 transition-colors hover:bg-amber-50" title="Edit Purchase">
@@ -1509,24 +1509,24 @@ export default function Purchases() {
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.batchNumber}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{formatExpiryDisplay(item.expiryDate)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">₹{item.purchasePrice?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">â‚¹{item.purchasePrice?.toFixed(2)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.gstPercent}%</td>
-                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">₹{item.totalAmount?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{item.totalAmount?.toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                                 <tfoot className="bg-gray-50">
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
-                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">₹{(purchase.totalGst || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{(purchase.totalGst || 0).toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Miscellaneous:</td>
-                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">₹{(purchase.miscellaneousAmount || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{(purchase.miscellaneousAmount || 0).toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
-                                    <td className="px-4 py-2 text-sm font-bold text-gray-900">₹{(purchase.grandTotal || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm font-bold text-gray-900">â‚¹{(purchase.grandTotal || 0).toFixed(2)}</td>
                                   </tr>
                                 </tfoot>
                               </table>
@@ -1559,12 +1559,12 @@ export default function Purchases() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm md:p-4">
           <div className="flex min-h-full items-start justify-center md:items-center">
-            <div className="flex min-h-[92vh] w-full max-w-7xl flex-col overflow-y-auto overflow-x-hidden rounded-[28px] border border-white/60 bg-white shadow-2xl md:min-h-0 md:max-h-[95vh]">
+            <div className="flex min-h-[96vh] w-full max-w-7xl flex-col overflow-y-auto overflow-x-hidden rounded-[22px] border border-white/60 bg-white shadow-2xl sm:rounded-[28px] md:min-h-0 md:max-h-[95vh]">
             {/* Header */}
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-blue-400/20 bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 p-4 text-white md:p-6">
-              <div>
+            <div className="flex flex-shrink-0 flex-col gap-3 border-b border-emerald-400/20 bg-gradient-to-r from-emerald-700 via-emerald-600 to-lime-500 p-4 text-white md:flex-row md:items-center md:justify-between md:p-6">
+              <div className="pr-6">
                 <h2 className="text-xl font-bold">{editingPurchaseId ? 'Edit Purchase Order' : 'New Purchase Order'}</h2>
-                <p className="text-blue-100 text-sm">ERP Mode - Tab/Enter to navigate • Enter in Amount adds new row</p>
+                <p className="text-emerald-100 text-sm">ERP Mode - Tab/Enter to navigate â€¢ Enter in Amount adds new row</p>
               </div>
               <button onClick={() => {
                 setShowAddModal(false);
@@ -1581,19 +1581,19 @@ export default function Purchases() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">Purchase Number</label>
                   <div className="flex items-center gap-2 bg-white px-3 py-2 rounded border border-gray-300">
                     <Hash size={16} className="text-gray-400" />
-                    <span className="font-mono font-bold text-blue-600">{purchaseNumber}</span>
+                    <span className="font-mono font-bold text-emerald-600">{purchaseNumber}</span>
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Supplier *</label>
-                  <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
+                  <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" required>
                     <option value="">Select</option>
                     {suppliers.map(s => (<option key={s._id} value={s._id}>{s.supplierName}</option>))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
-                  <input type="date" value={purchaseDate} max={new Date().toISOString().split('T')[0]} onChange={(e) => setPurchaseDate(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required />
+                  <input type="date" value={purchaseDate} max={new Date().toISOString().split('T')[0]} onChange={(e) => setPurchaseDate(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" required />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Supplier Invoice *</label>
@@ -1603,13 +1603,13 @@ export default function Purchases() {
                     maxLength={50}
                     onChange={(e) => setSupplierInvoiceNumber(normalizeTextInput(e.target.value))} 
                     placeholder="Enter supplier invoice number"
-                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" 
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" 
                     required 
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Payment Mode</label>
-                  <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                  <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
                     <option value="CASH">Cash</option>
                     <option value="UPI">UPI</option>
                     <option value="CARD">Card</option>
@@ -1628,7 +1628,7 @@ export default function Purchases() {
                 </div>
                 <button
                   onClick={addEmptyRow}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
                 >
                   <Plus size={18} />
                   Add Item
@@ -1702,7 +1702,7 @@ export default function Purchases() {
                     <p className="mt-2 max-w-md text-sm text-slate-500">Start by adding your first purchase item. You can search the medicine and then continue filling the row.</p>
                     <button
                       onClick={addEmptyRow}
-                      className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+                      className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-700"
                     >
                       <Plus size={18} />
                       Add First Item
@@ -1714,7 +1714,7 @@ export default function Purchases() {
                 <div className="sticky bottom-0 border-t border-gray-200 bg-slate-50/95 p-4 backdrop-blur">
                   <button
                     onClick={addEmptyRow}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-blue-300 bg-white px-4 py-3 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-white px-4 py-3 text-sm font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
                   >
                     <Plus size={20} />
                     Add Item (or press Enter in last Amount field)
@@ -1726,16 +1726,16 @@ export default function Purchases() {
               {false && showSearchResults && searchResults.length > 0 && (
                 <div className="absolute z-50 mt-12 ml-4 w-[500px] bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-auto">
                   {searchResults.map((medicine) => {
-                    // Format: Medicine Name – Strength – Pack (e.g., Paracetamol 500mg – Tablet – Strip10)
+                    // Format: Medicine Name â€“ Strength â€“ Pack (e.g., Paracetamol 500mg â€“ Tablet â€“ Strip10)
                     const strength = medicine.strength || medicine.medicineStrength || '';
                     const pack = medicine.sellingUnit || medicine.packSize || medicine.baseUnit || '';
-                    const displayText = `${medicine.medicineName}${strength ? ` – ${strength}` : ''}${pack ? ` – ${pack}` : ''}`;
+                    const displayText = `${medicine.medicineName}${strength ? ` â€“ ${strength}` : ''}${pack ? ` â€“ ${pack}` : ''}`;
                     
                     return (
                       <button 
                         key={medicine._id} 
                         onClick={() => addMedicineToPurchase(medicine)} 
-                        className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
+                        className="w-full px-4 py-3 text-left hover:bg-emerald-50 border-b border-gray-100 last:border-0 transition-colors"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
@@ -1752,11 +1752,11 @@ export default function Purchases() {
 
             {/* Footer with Summary */}
             <div className="flex-shrink-0 border-t border-gray-200 bg-slate-50 p-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                    <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-emerald-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Amount</label>
@@ -1767,13 +1767,13 @@ export default function Purchases() {
                       value={miscellaneousAmount}
                       onChange={(e) => setMiscellaneousAmount(parseFloat(e.target.value) || 0)}
                       placeholder="0.00"
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
-                  <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-cyan-50 p-4 shadow-[0_14px_40px_rgba(148,163,184,0.18)]">
+                  <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-lime-50 p-4 shadow-[0_14px_40px_rgba(148,163,184,0.18)]">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-700">Purchase Insights</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-lime-700">Purchase Insights</p>
                         <h3 className="mt-2 text-lg font-semibold text-slate-900">Entry Snapshot</h3>
                         <p className="mt-1 text-sm text-slate-500">A quick look at the purchase before saving.</p>
                       </div>
@@ -1782,9 +1782,9 @@ export default function Purchases() {
                         <p className="mt-1 text-2xl font-bold">{purchaseItems.length}</p>
                       </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Payment Mode</p>
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">Payment Mode</p>
                         <p className="mt-2 text-base font-semibold text-slate-900">{paymentMode || 'CASH'}</p>
                       </div>
                       <div className="rounded-2xl border border-violet-100 bg-violet-50/80 p-3">
@@ -1793,19 +1793,19 @@ export default function Purchases() {
                       </div>
                       <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount Saved</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.totalDiscount.toFixed(2)}</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.totalDiscount.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600">Extra Charges</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.miscellaneousAmount.toFixed(2)}</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.miscellaneousAmount.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.totalCgst.toFixed(2)}</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.totalCgst.toFixed(2)}</p>
                       </div>
-                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-600">SGST</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">₹{totals.totalSgst.toFixed(2)}</p>
+                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600">SGST</p>
+                        <p className="mt-2 text-base font-semibold text-slate-900">â‚¹{totals.totalSgst.toFixed(2)}</p>
                       </div>
                     </div>
                     <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/80 px-4 py-3">
@@ -1815,46 +1815,46 @@ export default function Purchases() {
                   </div>
                 </div>
                 <div>
-                  <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
-                    <div className="mb-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 px-4 py-4 text-white">
+                  <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-emerald-50 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
+                    <div className="mb-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900 px-4 py-4 text-white">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-blue-200">Live Totals</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200">Live Totals</p>
                         <h3 className="mt-2 text-xl font-semibold">Purchase Summary</h3>
                         <p className="mt-1 text-sm text-slate-300">Review the purchase value as you update items.</p>
                       </div>
                       <div className="hidden rounded-2xl bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-100">Grand Total</p>
-                        <p className="mt-1 text-2xl font-bold text-emerald-300">â‚¹{totals.grandTotal.toFixed(2)}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100">Grand Total</p>
+                        <p className="mt-1 text-2xl font-bold text-emerald-300">Ã¢â€šÂ¹{totals.grandTotal.toFixed(2)}</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Subtotal</p>
-                        <p className="text-xl font-bold">₹{totals.subtotal.toFixed(2)}</p>
+                        <p className="text-xl font-bold">â‚¹{totals.subtotal.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount</p>
-                        <p className="text-xl font-bold text-green-400">-₹{totals.totalDiscount.toFixed(2)}</p>
+                        <p className="text-xl font-bold text-green-400">-â‚¹{totals.totalDiscount.toFixed(2)}</p>
                       </div>
-                      <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Total GST</p>
-                        <p className="text-xl font-bold">₹{totals.totalGst.toFixed(2)}</p>
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Total GST</p>
+                        <p className="text-xl font-bold">â‚¹{totals.totalGst.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Miscellaneous</p>
-                        <p className="text-xl font-bold">₹{totals.miscellaneousAmount.toFixed(2)}</p>
+                        <p className="text-xl font-bold">â‚¹{totals.miscellaneousAmount.toFixed(2)}</p>
                       </div>
                       <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
-                        <p className="text-xl font-bold">₹{totals.totalCgst.toFixed(2)}</p>
+                        <p className="text-xl font-bold">â‚¹{totals.totalCgst.toFixed(2)}</p>
                       </div>
-                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">SGST</p>
-                        <p className="text-xl font-bold">₹{totals.totalSgst.toFixed(2)}</p>
+                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">SGST</p>
+                        <p className="text-xl font-bold">â‚¹{totals.totalSgst.toFixed(2)}</p>
                       </div>
                       <div className="hidden rounded-2xl border border-slate-200 bg-slate-950 p-4 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Grand Total</p>
-                        <p className="text-2xl font-bold text-green-400">₹{totals.grandTotal.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-green-400">â‚¹{totals.grandTotal.toFixed(2)}</p>
                       </div>
                     </div>
                     <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_35%),linear-gradient(135deg,_#020617_0%,_#0f172a_45%,_#052e2b_100%)] shadow-[0_24px_70px_rgba(2,6,23,0.28)]">
@@ -1866,7 +1866,7 @@ export default function Purchases() {
                         </div>
                         <div className="text-right">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100/70">Amount Payable</p>
-                          <p className="mt-2 text-4xl font-black tracking-tight text-white drop-shadow-[0_8px_24px_rgba(52,211,153,0.18)]">₹{totals.grandTotal.toFixed(2)}</p>
+                          <p className="mt-2 text-4xl font-black tracking-tight text-white drop-shadow-[0_8px_24px_rgba(52,211,153,0.18)]">â‚¹{totals.grandTotal.toFixed(2)}</p>
                           <div className="mt-3 inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-medium text-emerald-100 backdrop-blur-sm">
                             Updated live
                           </div>
@@ -1882,7 +1882,7 @@ export default function Purchases() {
                   setShowAddModal(false);
                   resetForm();
                 }} className="rounded-xl border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50">Cancel</button>
-                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2 text-white transition-colors hover:bg-blue-700 disabled:opacity-50">
+                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2 text-white transition-colors hover:bg-emerald-700 disabled:opacity-50">
                   <Save size={20} />
                   {saving ? 'Saving...' : editingPurchaseId ? 'Update Purchase' : 'Save Purchase'}
                 </button>

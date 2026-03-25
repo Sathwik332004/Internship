@@ -363,7 +363,7 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
                     { value: 'CARD', label: 'Card', icon: CreditCard },
                     { value: 'BANK', label: 'Bank', icon: Landmark }
                   ].map(({ value, label, icon: Icon }) => (
-                    <button key={value} onClick={() => setPaymentMode(value)} className={`rounded-lg border px-2 py-2 text-xs font-medium ${paymentMode === value ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 text-gray-700'}`}>
+                    <button key={value} onClick={() => setPaymentMode(value)} className={`rounded-lg border px-2 py-2 text-xs font-medium ${paymentMode === value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 text-gray-700'}`}>
                       {Icon ? <Icon size={14} className="mx-auto mb-1" /> : null}{label}
                     </button>
                   ))}

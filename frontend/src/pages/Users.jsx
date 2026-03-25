@@ -42,10 +42,10 @@ export default function Users() {
       console.error('Error fetching users:', error);
       // Use sample data if API fails
       setUsers([
-        { _id: '1', name: 'Admin', email: 'admin@medicalstore.com', role: 'admin', phone: '9876543210', isActive: true, createdAt: '2025-01-01' },
-        { _id: '2', name: 'Dr. Priya Sharma', email: 'priya@medicalstore.com', role: 'staff', phone: '9876543211', isActive: true, createdAt: '2025-01-15' },
-        { _id: '3', name: 'Rahul Patel', email: 'rahul@medicalstore.com', role: 'staff', phone: '9876543212', isActive: true, createdAt: '2025-01-20' },
-        { _id: '4', name: 'Anita Desai', email: 'anita@medicalstore.com', role: 'staff', phone: '9876543213', isActive: false, createdAt: '2025-02-01' },
+        { _id: '1', name: 'Admin', email: 'admin@bhagyamedicals.com', role: 'admin', phone: '9876543210', isActive: true, createdAt: '2025-01-01' },
+        { _id: '2', name: 'Dr. Priya Sharma', email: 'priya@bhagyamedicals.com', role: 'staff', phone: '9876543211', isActive: true, createdAt: '2025-01-15' },
+        { _id: '3', name: 'Rahul Patel', email: 'rahul@bhagyamedicals.com', role: 'staff', phone: '9876543212', isActive: true, createdAt: '2025-01-20' },
+        { _id: '4', name: 'Anita Desai', email: 'anita@bhagyamedicals.com', role: 'staff', phone: '9876543213', isActive: false, createdAt: '2025-02-01' },
       ]);
     } finally {
       setLoading(false);
@@ -129,8 +129,8 @@ export default function Users() {
 
   const getRoleColor = (role) => {
     switch (role) {
-      case 'admin': return 'bg-purple-100 text-purple-800';
-      case 'staff': return 'bg-blue-100 text-blue-800';
+      case 'admin': return 'bg-amber-100 text-amber-800';
+      case 'staff': return 'bg-emerald-100 text-emerald-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -145,7 +145,7 @@ export default function Users() {
         </div>
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
         >
           <Plus size={20} />
           Add User
@@ -161,7 +161,7 @@ export default function Users() {
             placeholder="Search by name, email, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
       </div>
@@ -170,8 +170,8 @@ export default function Users() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <User className="text-blue-600" size={24} />
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <User className="text-emerald-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Users</p>
@@ -181,8 +181,8 @@ export default function Users() {
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Shield className="text-purple-600" size={24} />
+            <div className="p-3 bg-amber-100 rounded-lg">
+              <Shield className="text-amber-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Admins</p>
@@ -211,7 +211,7 @@ export default function Users() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading users...</p>
           </div>
         ) : (
@@ -274,7 +274,7 @@ export default function Users() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleEdit(user)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <Edit2 size={18} />
@@ -348,7 +348,7 @@ export default function Users() {
                     value={formData.name}
                     maxLength={50}
                     onChange={(e) => setFormData({ ...formData, name: normalizeTextInput(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -358,7 +358,7 @@ export default function Users() {
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -371,7 +371,7 @@ export default function Users() {
                     value={formData.password}
                     minLength={6}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -382,7 +382,7 @@ export default function Users() {
                     inputMode="numeric"
                     maxLength={10}
                     onChange={(e) => setFormData({ ...formData, phone: normalizePhone(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -391,7 +391,7 @@ export default function Users() {
                     required
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     <option value="staff">Staff</option>
                     <option value="admin">Admin</option>
@@ -403,7 +403,7 @@ export default function Users() {
                       type="checkbox"
                       checked={formData.isActive}
                       onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                     />
                     <span className="text-sm font-medium text-gray-700">Active User</span>
                   </label>
@@ -419,7 +419,7 @@ export default function Users() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   {editingUser ? 'Update User' : 'Add User'}
                 </button>

@@ -162,7 +162,7 @@ export default function Reports() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
               activeTab === tab.id
-                ? 'bg-blue-600 text-white'
+                ? 'bg-emerald-600 text-white'
                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
             }`}
           >
@@ -182,7 +182,7 @@ export default function Reports() {
                 onClick={() => setDateRange(range)}
                 className={`px-3 py-2 rounded-lg text-sm ${
                   dateRange === range
-                    ? 'bg-blue-100 text-blue-700'
+                    ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -219,7 +219,7 @@ export default function Reports() {
       {/* Loading State */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
         </div>
       ) : (
         <>
@@ -244,10 +244,10 @@ export default function Reports() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total GST</p>
-                      <p className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(salesData.summary.totalGst)}</p>
+                      <p className="text-2xl font-bold text-amber-600 mt-1">{formatCurrency(salesData.summary.totalGst)}</p>
                     </div>
-                    <div className="p-3 bg-purple-100 rounded-lg">
-                      <BarChart3 className="w-6 h-6 text-purple-600" />
+                    <div className="p-3 bg-amber-100 rounded-lg">
+                      <BarChart3 className="w-6 h-6 text-amber-600" />
                     </div>
                   </div>
                 </div>
@@ -258,8 +258,8 @@ export default function Reports() {
                       <p className="text-sm font-medium text-gray-600">Total Bills</p>
                       <p className="text-2xl font-bold text-gray-900 mt-1">{salesData.summary.totalBills}</p>
                     </div>
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <FileText className="w-6 h-6 text-blue-600" />
+                    <div className="p-3 bg-emerald-100 rounded-lg">
+                      <FileText className="w-6 h-6 text-emerald-600" />
                     </div>
                   </div>
                 </div>
@@ -283,17 +283,17 @@ export default function Reports() {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">GST Breakdown</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-600">CGST</p>
-                    <p className="text-xl font-bold text-blue-900">{formatCurrency(salesData.summary.totalCgst)}</p>
+                  <div className="p-4 bg-emerald-50 rounded-lg">
+                    <p className="text-sm text-emerald-600">CGST</p>
+                    <p className="text-xl font-bold text-emerald-900">{formatCurrency(salesData.summary.totalCgst)}</p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
                     <p className="text-sm text-green-600">SGST</p>
                     <p className="text-xl font-bold text-green-900">{formatCurrency(salesData.summary.totalSgst)}</p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <p className="text-sm text-purple-600">IGST</p>
-                    <p className="text-xl font-bold text-purple-900">{formatCurrency(salesData.summary.totalIgst)}</p>
+                  <div className="p-4 bg-amber-50 rounded-lg">
+                    <p className="text-sm text-amber-600">IGST</p>
+                    <p className="text-xl font-bold text-amber-900">{formatCurrency(salesData.summary.totalIgst)}</p>
                   </div>
                   <div className="p-4 bg-orange-50 rounded-lg">
                     <p className="text-sm text-orange-600">Total Discount</p>
@@ -326,7 +326,7 @@ export default function Reports() {
                           <td className="px-4 py-3 text-gray-600">{formatDate(bill.billDate)}</td>
                           <td className="px-4 py-3 text-gray-600">{bill.customerName || 'Walk-in'}</td>
                           <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(bill.subtotal)}</td>
-                          <td className="px-4 py-3 text-right text-purple-600">{formatCurrency(bill.totalGst)}</td>
+                          <td className="px-4 py-3 text-right text-amber-600">{formatCurrency(bill.totalGst)}</td>
                           <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCurrency(bill.grandTotal)}</td>
                         </tr>
                       ))}
@@ -347,8 +347,8 @@ export default function Reports() {
                       <p className="text-sm font-medium text-gray-600">Total Purchases</p>
                       <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(purchaseData.summary.totalPurchases)}</p>
                     </div>
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <ShoppingCart className="w-6 h-6 text-blue-600" />
+                    <div className="p-3 bg-emerald-100 rounded-lg">
+                      <ShoppingCart className="w-6 h-6 text-emerald-600" />
                     </div>
                   </div>
                 </div>
@@ -357,10 +357,10 @@ export default function Reports() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total GST</p>
-                      <p className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(purchaseData.summary.totalGst)}</p>
+                      <p className="text-2xl font-bold text-amber-600 mt-1">{formatCurrency(purchaseData.summary.totalGst)}</p>
                     </div>
-                    <div className="p-3 bg-purple-100 rounded-lg">
-                      <BarChart3 className="w-6 h-6 text-purple-600" />
+                    <div className="p-3 bg-amber-100 rounded-lg">
+                      <BarChart3 className="w-6 h-6 text-amber-600" />
                     </div>
                   </div>
                 </div>
@@ -401,7 +401,7 @@ export default function Reports() {
                           <td className="px-4 py-3 text-gray-600">{formatDate(purchase.purchaseDate)}</td>
                           <td className="px-4 py-3 text-gray-600">{purchase.supplier?.supplierName || 'N/A'}</td>
                           <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(purchase.subtotal)}</td>
-                          <td className="px-4 py-3 text-right text-purple-600">{formatCurrency(purchase.totalGst)}</td>
+                          <td className="px-4 py-3 text-right text-amber-600">{formatCurrency(purchase.totalGst)}</td>
                           <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCurrency(purchase.grandTotal)}</td>
                         </tr>
                       ))}
@@ -423,12 +423,12 @@ export default function Reports() {
                 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <p className="text-sm font-medium text-gray-600">Total GST Collected</p>
-                  <p className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(gstData.summary.totalGst)}</p>
+                  <p className="text-2xl font-bold text-amber-600 mt-1">{formatCurrency(gstData.summary.totalGst)}</p>
                 </div>
                 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <p className="text-sm font-medium text-gray-600">CGST</p>
-                  <p className="text-2xl font-bold text-blue-600 mt-1">{formatCurrency(gstData.summary.totalCgst)}</p>
+                  <p className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(gstData.summary.totalCgst)}</p>
                 </div>
                 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -440,17 +440,17 @@ export default function Reports() {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">GST Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="p-4 bg-blue-50 rounded-lg text-center">
-                    <p className="text-blue-600 font-medium">CGST</p>
-                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(gstData.summary.totalCgst)}</p>
+                  <div className="p-4 bg-emerald-50 rounded-lg text-center">
+                    <p className="text-emerald-600 font-medium">CGST</p>
+                    <p className="text-2xl font-bold text-emerald-900">{formatCurrency(gstData.summary.totalCgst)}</p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg text-center">
                     <p className="text-green-600 font-medium">SGST</p>
                     <p className="text-2xl font-bold text-green-900">{formatCurrency(gstData.summary.totalSgst)}</p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-lg text-center">
-                    <p className="text-purple-600 font-medium">IGST</p>
-                    <p className="text-2xl font-bold text-purple-900">{formatCurrency(gstData.summary.totalIgst)}</p>
+                  <div className="p-4 bg-amber-50 rounded-lg text-center">
+                    <p className="text-amber-600 font-medium">IGST</p>
+                    <p className="text-2xl font-bold text-amber-900">{formatCurrency(gstData.summary.totalIgst)}</p>
                   </div>
                 </div>
               </div>
@@ -503,7 +503,7 @@ export default function Reports() {
                           <td className="px-4 py-3 font-medium text-gray-900">{med.medicineName}</td>
                           <td className="px-4 py-3 text-gray-600">{med.brandName}</td>
                           <td className="px-4 py-3 text-right text-gray-900">{med.quantity || 0}</td>
-                          <td className="px-4 py-3 text-right text-purple-600">{med.gstPercent}%</td>
+                          <td className="px-4 py-3 text-right text-amber-600">{med.gstPercent}%</td>
                           <td className="px-4 py-3 text-gray-600">{med.expiryDate ? formatDate(med.expiryDate) : 'N/A'}</td>
                         </tr>
                       ))}

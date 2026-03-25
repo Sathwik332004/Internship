@@ -25,7 +25,7 @@ import {
 } from '../utils/validation';
 
 const SHOP_INFO = {
-  name: 'Medical Store',
+  name: 'Bhagya Medicals',
   state: 'Maharashtra'
 };
 
@@ -608,15 +608,15 @@ export default function Billing() {
   };
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 lg:p-6">
       <div className="no-print">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Billing / POS</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={handleQRScan}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
             >
               <QrCode size={20} />
               Scan
@@ -635,7 +635,7 @@ export default function Billing() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         {/* Left Column - Search and Items */}
         <div className="lg:col-span-3 space-y-4">
           {/* Customer Details */}
@@ -652,7 +652,7 @@ export default function Billing() {
                   maxLength={80}
                   onChange={(e) => setCustomerDetails({...customerDetails, name: normalizeTextInput(e.target.value)})}
                   placeholder="Enter customer name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <div>
@@ -664,13 +664,13 @@ export default function Billing() {
                   maxLength={10}
                   onChange={(e) => setCustomerDetails({...customerDetails, phone: normalizePhone(e.target.value)})}
                   placeholder="Enter phone number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Customer State
-                  {totals.isInterstate && <span className="text-xs text-purple-600 ml-2">(Interstate - IGST)</span>}
+                  {totals.isInterstate && <span className="text-xs text-amber-600 ml-2">(Interstate - IGST)</span>}
                 </label>
                 <input
                   type="text"
@@ -678,7 +678,7 @@ export default function Billing() {
                   maxLength={50}
                   onChange={(e) => setCustomerDetails({...customerDetails, state: normalizeTextInput(e.target.value)})}
                   placeholder="e.g., Maharashtra, Karnataka"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -695,7 +695,7 @@ export default function Billing() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, brand, or barcode..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
               {showSearchResults && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
@@ -717,7 +717,7 @@ export default function Billing() {
                               Stock: {medicine.quantity || 0} {medicine.baseUnit || ''}
                             </p>
                             {medicine.conversionFactor > 1 && (
-                              <p className="text-xs text-blue-600">
+                              <p className="text-xs text-emerald-600">
                                 Pack: {medicine.conversionFactor} {medicine.baseUnit || 'units'}
                               </p>
                             )}
@@ -730,7 +730,7 @@ export default function Billing() {
                                 <p className="text-sm font-bold text-gray-900">
                                   {formatCurrency(medicine.defaultSellingPrice || medicine.inventoryBatches?.[0]?.mrp || 0)}
                                 </p>
-                                <p className="text-xs text-blue-600 font-medium">Qty: 1</p>
+                                <p className="text-xs text-emerald-600 font-medium">Qty: 1</p>
                               </div>
                             )}
                           </div>
@@ -788,7 +788,7 @@ export default function Billing() {
                               onClick={() => togglePackUnit(item.medicineId)}
                               className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
                                 item.isPack 
-                                  ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
                                   : 'bg-orange-100 text-orange-700 border border-orange-300'
                               }`}
                               title="Click to toggle between pack and loose"
@@ -822,7 +822,7 @@ export default function Billing() {
                               min="0"
                               value={item.quantity}
                               onChange={(e) => updateQuantity(item.medicineId, e.target.value)}
-                              className="w-20 text-center font-medium border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-20 text-center font-medium border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               onWheel={(e) => e.preventDefault()}
                             />
                             <button
@@ -876,7 +876,7 @@ export default function Billing() {
             {/* Payment Mode */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { value: 'CASH', icon: Banknote, label: 'Cash' },
                   { value: 'UPI', icon: Smartphone, label: 'UPI' },
@@ -888,7 +888,7 @@ export default function Billing() {
                     onClick={() => setPaymentMode(value)}
                     className={`px-2 py-2 rounded-lg border flex flex-col items-center gap-1 ${
                       paymentMode === value
-                        ? 'bg-blue-600 text-white border-blue-600'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                     }`}
                   >
@@ -909,7 +909,7 @@ export default function Billing() {
                 placeholder="Leave blank for full payment"
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -922,7 +922,7 @@ export default function Billing() {
                 onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
                 min="0"
                 max="100"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>

@@ -286,8 +286,8 @@ export default function Inventory() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-3">
-              <Package className="text-blue-600" size={22} />
+            <div className="rounded-lg bg-emerald-100 p-3">
+              <Package className="text-emerald-600" size={22} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Active Batches</p>
@@ -368,7 +368,7 @@ export default function Inventory() {
               placeholder="Search by medicine name or batch number..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
             />
           </div>
 
@@ -405,7 +405,7 @@ export default function Inventory() {
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-10 text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600" />
             <p className="mt-4 text-gray-600">Loading inventory...</p>
           </div>
         ) : (
@@ -420,13 +420,13 @@ export default function Inventory() {
                       className="cursor-pointer px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:bg-gray-100"
                       onClick={() => handleSort('expiryDate')}
                     >
-                      Expiry {sortBy === 'expiryDate' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+                      Expiry {sortBy === 'expiryDate' ? (sortOrder === 'asc' ? 'â†‘' : 'â†“') : ''}
                     </th>
                     <th
                       className="cursor-pointer px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:bg-gray-100"
                       onClick={() => handleSort('quantityAvailable')}
                     >
-                      Available {sortBy === 'quantityAvailable' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+                      Available {sortBy === 'quantityAvailable' ? (sortOrder === 'asc' ? 'â†‘' : 'â†“') : ''}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Purchase Price</th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">MRP</th>
@@ -630,7 +630,7 @@ export default function Inventory() {
                   step="1"
                   value={disposeForm.quantity}
                   onChange={(event) => setDisposeForm((current) => ({ ...current, quantity: event.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   required
                 />
               </div>
@@ -640,7 +640,7 @@ export default function Inventory() {
                 <select
                   value={disposeForm.reason}
                   onChange={(event) => setDisposeForm((current) => ({ ...current, reason: event.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 >
                   <option value="DAMAGED">Damaged</option>
                   <option value="EXPIRED">Expired</option>
@@ -655,7 +655,7 @@ export default function Inventory() {
                   value={disposeForm.notes}
                   onChange={(event) => setDisposeForm((current) => ({ ...current, notes: event.target.value }))}
                   placeholder="Optional note for the stock adjustment"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>
 

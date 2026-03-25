@@ -140,7 +140,7 @@ export default function HSNCodes() {
         </div>
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
         >
           <Plus size={20} />
           Add HSN Code
@@ -157,7 +157,7 @@ export default function HSNCodes() {
               placeholder="Search by HSN code or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -167,8 +167,8 @@ export default function HSNCodes() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Hash className="text-blue-600" size={24} />
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <Hash className="text-emerald-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total HSN Codes</p>
@@ -224,7 +224,7 @@ export default function HSNCodes() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading HSN codes...</p>
           </div>
         ) : (
@@ -253,7 +253,7 @@ export default function HSNCodes() {
                         <div className="text-sm text-gray-900">{hsn.description}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
                           {hsn.gstPercent}%
                         </span>
                       </td>
@@ -275,7 +275,7 @@ export default function HSNCodes() {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleEdit(hsn)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <Edit2 size={18} />
@@ -351,7 +351,7 @@ export default function HSNCodes() {
                     value={formData.hsnCode}
                     onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value.replace(/\D/g, '') })}
                     placeholder="e.g., 3004"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-1">4-8 digits</p>
                 </div>
@@ -364,7 +364,7 @@ export default function HSNCodes() {
                     maxLength={150}
                     onChange={(e) => setFormData({ ...formData, description: normalizeTextInput(e.target.value) })}
                     placeholder="e.g., Medicaments for retail sale"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -372,7 +372,7 @@ export default function HSNCodes() {
                   <select
                     value={formData.gstPercent}
                     onChange={(e) => setFormData({ ...formData, gstPercent: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     <option value={0}>0%</option>
                     <option value={5}>5%</option>
@@ -386,7 +386,7 @@ export default function HSNCodes() {
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
@@ -403,7 +403,7 @@ export default function HSNCodes() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   {editingHSN ? 'Update HSN Code' : 'Add HSN Code'}
                 </button>

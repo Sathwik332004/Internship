@@ -97,7 +97,7 @@ const AdminProfile = () => {
 
       const updatedUser = res.data.data;
 
-      setUser(updatedUser); // ⭐ Update AuthContext
+      setUser(updatedUser); // â­ Update AuthContext
       localStorage.setItem("user", JSON.stringify(updatedUser));
 
       setProfile({
@@ -158,11 +158,11 @@ const AdminProfile = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow">
+    <div className="mx-auto max-w-4xl rounded-2xl bg-white p-4 shadow sm:p-6 lg:p-8">
 
       <h2 className="text-2xl font-semibold mb-6">Admin Profile</h2>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 
         <div>
           <label className="text-sm font-medium text-gray-600">Name</label>
@@ -225,14 +225,14 @@ const AdminProfile = () => {
       <button
         onClick={updateProfile}
         disabled={loadingProfile}
-        className="mt-6 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+        className="mt-6 bg-emerald-600 text-white px-6 py-2 rounded hover:bg-emerald-700 disabled:opacity-50"
       >
         {loadingProfile ? "Updating..." : "Update Profile"}
       </button>
 
       <h3 className="text-xl font-semibold mt-10 mb-4">Change Password</h3>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 
         <div>
           <label>Current Password</label>

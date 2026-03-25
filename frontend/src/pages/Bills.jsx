@@ -23,7 +23,7 @@ export default function Bills() {
   const [paymentFilter, setPaymentFilter] = useState('ALL');
 
   const SHOP_INFO = {
-    name: 'Medical Store',
+    name: 'Bhagya Medicals',
     state: 'Maharashtra'
   };
 
@@ -115,8 +115,8 @@ export default function Bills() {
   const getPaymentModeColor = (mode) => {
     switch (mode) {
       case 'CASH': return 'bg-green-100 text-green-800';
-      case 'UPI': return 'bg-blue-100 text-blue-800';
-      case 'CARD': return 'bg-purple-100 text-purple-800';
+      case 'UPI': return 'bg-emerald-100 text-emerald-800';
+      case 'CARD': return 'bg-amber-100 text-amber-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -133,7 +133,7 @@ export default function Bills() {
 
   const isBillPaid = (bill) => getPendingAmount(bill) <= 0;
 
-  const formatAmount = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN', {
+  const formatAmount = (amount) => `â‚¹${Number(amount || 0).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })}`;
@@ -158,7 +158,7 @@ export default function Bills() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 lg:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
@@ -167,7 +167,7 @@ export default function Bills() {
         </div>
         <button
           onClick={() => navigate('/billing')}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
         >
           <Plus size={20} />
           New Bill
@@ -180,7 +180,7 @@ export default function Bills() {
           onClick={() => setShowPendingTab(false)}
           className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
             !showPendingTab 
-              ? 'border-blue-500 text-blue-600 bg-blue-50' 
+              ? 'border-emerald-500 text-emerald-600 bg-emerald-50' 
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -214,7 +214,7 @@ export default function Bills() {
                 setSearchTerm(e.target.value);
               }
             }}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
       </div>
@@ -234,7 +234,7 @@ export default function Bills() {
               }}
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                 paymentFilter === filter.key
-                  ? 'bg-blue-600 text-white border-blue-600'
+                  ? 'bg-emerald-600 text-white border-emerald-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -245,11 +245,11 @@ export default function Bills() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Receipt className="text-blue-600" size={24} />
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <Receipt className="text-emerald-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Bills</p>
@@ -265,15 +265,15 @@ export default function Bills() {
             <div>
               <p className="text-sm text-gray-600">Total Sales</p>
               <p className="text-2xl font-bold text-gray-900">
-                ₹{bills.reduce((sum, b) => sum + (b.netGrandTotal ?? b.grandTotal ?? 0), 0).toLocaleString()}
+                â‚¹{bills.reduce((sum, b) => sum + (b.netGrandTotal ?? b.grandTotal ?? 0), 0).toLocaleString()}
               </p>
             </div>
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Calendar className="text-purple-600" size={24} />
+            <div className="p-3 bg-amber-100 rounded-lg">
+              <Calendar className="text-amber-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Today's Bills</p>
@@ -372,7 +372,7 @@ export default function Bills() {
                                 setShowPendingTab(false);
                                 setCurrentPage(1);
                               }}
-                              className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                              className="text-emerald-600 hover:text-emerald-900 text-sm font-medium"
                             >
                               View Bills
                             </button>
@@ -390,7 +390,7 @@ export default function Bills() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Loading bills...</p>
             </div>
           ) : (
@@ -448,7 +448,7 @@ export default function Bills() {
                         </td>
                         <td className="px-2 sm:px-4 py-4">
                           <div className="text-sm font-medium text-gray-900">
-                            ₹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toLocaleString()}
+                            â‚¹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toLocaleString()}
                           </div>
                           {Number(bill.returnTotal || 0) > 0 && (
                             <div className="text-xs text-amber-600">
@@ -473,7 +473,7 @@ export default function Bills() {
                                 setSelectedBill(bill);
                                 setShowPrintModal(true);
                               }}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                               title="View Invoice & Print"
                             >
                               <Eye size={16} />
@@ -521,49 +521,49 @@ export default function Bills() {
                                       </td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.batchNumber}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">₹{item.rate?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">â‚¹{item.rate?.toFixed(2)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.gstPercent}%</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.discountPercent}%</td>
-                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">₹{item.total?.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{item.total?.toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                                 <tfoot className="bg-gray-50">
                                   <tr>
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Subtotal:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">₹{bill.subtotal?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{bill.subtotal?.toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">₹{bill.totalGst?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{bill.totalGst?.toFixed(2)}</td>
                                   </tr>
                                   {bill.discountAmount > 0 && (
                                     <tr>
                                       <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">
                                         Discount ({bill.discountPercent}%):
                                       </td>
-                                      <td colSpan="2" className="px-4 py-2 text-sm font-medium text-green-600">-₹{bill.discountAmount?.toFixed(2)}</td>
+                                      <td colSpan="2" className="px-4 py-2 text-sm font-medium text-green-600">-â‚¹{bill.discountAmount?.toFixed(2)}</td>
                                     </tr>
                                   )}
-                                  <tr className="bg-blue-50">
+                                  <tr className="bg-emerald-50">
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-bold text-blue-900">₹{bill.grandTotal?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-900">â‚¹{bill.grandTotal?.toFixed(2)}</td>
                                   </tr>
                                   {Number(bill.returnTotal || 0) > 0 && (
                                     <>
                                       <tr>
                                         <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Sales Return:</td>
-                                        <td colSpan="2" className="px-4 py-2 text-sm font-medium text-amber-600">-₹{Number(bill.returnTotal || 0).toFixed(2)}</td>
+                                        <td colSpan="2" className="px-4 py-2 text-sm font-medium text-amber-600">-â‚¹{Number(bill.returnTotal || 0).toFixed(2)}</td>
                                       </tr>
                                       <tr className="bg-emerald-50">
                                         <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Net Sales:</td>
-                                        <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-700">₹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toFixed(2)}</td>
+                                        <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-700">â‚¹{Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toFixed(2)}</td>
                                       </tr>
                                     </>
                                   )}
                                   <tr>
                                     <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Amount Paid:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">₹{bill.amountPaid?.toFixed(2)}</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">â‚¹{bill.amountPaid?.toFixed(2)}</td>
                                   </tr>
                                   {getPendingAmount(bill) > 0 && (
                                     <tr>

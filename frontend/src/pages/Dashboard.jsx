@@ -140,7 +140,7 @@ export default function Dashboard() {
     return (
       <div className="p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
         </div>
       </div>
     );
@@ -150,8 +150,7 @@ export default function Dashboard() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back! Here's what's happening in your store.</p>
+        <h1 className="text-3xl font-bold text-gray-900">Bhagya Medicals Dashboard</h1>
       </div>
 
       {dashboardError ? (
@@ -187,10 +186,10 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Today's GST Collected</p>
-              <p className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(stats.todayGst)}</p>
+              <p className="text-2xl font-bold text-amber-600 mt-1">{formatCurrency(stats.todayGst)}</p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
+            <div className="p-3 bg-amber-100 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-amber-600" />
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">
@@ -205,12 +204,12 @@ export default function Dashboard() {
               <p className="text-sm font-medium text-gray-600">This Month</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.monthlySales)}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Calendar className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <Calendar className="w-6 h-6 text-emerald-600" />
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">
-            <span className="text-blue-600 flex items-center gap-1">
+            <span className="text-emerald-600 flex items-center gap-1">
               {stats.monthlyBills} bills
             </span>
             <span className="text-gray-500 ml-2">this month</span>
@@ -224,8 +223,8 @@ export default function Dashboard() {
               <p className="text-sm font-medium text-gray-600">Total Medicines</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalMedicines}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Package className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <Package className="w-6 h-6 text-emerald-600" />
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">
@@ -289,8 +288,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Users className="w-6 h-6 text-purple-600" />
+            <div className="p-3 bg-amber-100 rounded-lg">
+              <Users className="w-6 h-6 text-amber-600" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Suppliers</p>
@@ -301,8 +300,8 @@ export default function Dashboard() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-100 rounded-lg">
-              <ShoppingCart className="w-6 h-6 text-indigo-600" />
+            <div className="p-3 bg-amber-100 rounded-lg">
+              <ShoppingCart className="w-6 h-6 text-amber-600" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Assets</p>
@@ -343,8 +342,8 @@ export default function Dashboard() {
                       <p className="font-bold text-gray-900">{formatCurrency(bill.netGrandTotal ?? bill.grandTotal)}</p>
                       <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
                         bill.paymentMode === 'CASH' ? 'bg-green-100 text-green-800' :
-                        bill.paymentMode === 'UPI' ? 'bg-blue-100 text-blue-800' :
-                        'bg-purple-100 text-purple-800'
+                        bill.paymentMode === 'UPI' ? 'bg-emerald-100 text-emerald-800' :
+                        'bg-amber-100 text-amber-800'
                       }`}>
                         {bill.paymentMode}
                       </span>

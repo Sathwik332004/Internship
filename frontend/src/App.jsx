@@ -30,7 +30,7 @@ const PrivateRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -44,7 +44,7 @@ const AdminRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -70,7 +70,7 @@ function AppRoutes() {
   { path: 'bills', element: <Bills /> },
   { path: 'sales-returns', element: <SalesReturns /> },
   { path: 'reports', element: <Reports /> },
-  { path: 'profile', element: <AdminProfile /> },   // ✅ ADD THIS
+  { path: 'profile', element: <AdminProfile /> },   // âœ… ADD THIS
   { path: 'hsn-codes', element: <AdminRoute><HSNCodes /></AdminRoute> },
   { path: 'assets', element: <AdminRoute><Assets /></AdminRoute> },
   { path: 'users', element: <AdminRoute><Users /></AdminRoute> },

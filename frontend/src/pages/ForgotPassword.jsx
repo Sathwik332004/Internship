@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Pill, ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { authAPI } from '../services/api';
+import BrandLogo from '../components/BrandLogo';
 import {
   isValidEmail,
   normalizeEmail,
@@ -59,27 +60,25 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-            <Pill className="w-8 h-8 text-blue-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
-          <p className="text-gray-500 mt-1">Medical Store Management System</p>
+    <div className="medical-grid flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_24%),linear-gradient(135deg,_#fbfcf8,_#f2f7ee_55%,_#f3efe6)] p-4">
+      <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/80 p-8 shadow-[0_30px_90px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+        <div className="mb-8">
+          <BrandLogo compact />
+          <h1 className="mt-8 text-3xl font-semibold text-slate-950">Reset Password</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Recover access to Bhagya Medicals with your email OTP.</p>
         </div>
 
         {step === 1 && (
           <form onSubmit={handleSendOTP} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
                 Email Address
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm"
                 placeholder="Enter your email"
                 required
               />
@@ -87,7 +86,7 @@ const ForgotPassword = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 via-lime-500 to-emerald-500 py-3.5 font-medium text-white shadow-[0_18px_40px_rgba(34,197,94,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -104,14 +103,14 @@ const ForgotPassword = () => {
         {step === 2 && (
           <form onSubmit={handleVerifyOTP} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
                 One Time Password
               </label>
               <input
                 type="text"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-center text-2xl tracking-widest shadow-sm"
                 placeholder="000000"
                 maxLength={6}
                 inputMode="numeric"
@@ -119,7 +118,7 @@ const ForgotPassword = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
                 New Password
               </label>
               <input
@@ -127,20 +126,20 @@ const ForgotPassword = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={6}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm"
                 placeholder="Enter new password"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
                 Confirm Password
               </label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm"
                 placeholder="Confirm new password"
                 required
               />
@@ -148,7 +147,7 @@ const ForgotPassword = () => {
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 via-lime-500 to-emerald-500 py-3.5 font-medium text-white shadow-[0_18px_40px_rgba(34,197,94,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -165,7 +164,7 @@ const ForgotPassword = () => {
         <div className="mt-6 text-center">
           <button
             onClick={() => navigate('/login')}
-            className="text-sm text-blue-600 hover:text-blue-700 flex items-center justify-center"
+            className="flex items-center justify-center text-sm font-medium text-emerald-700 hover:text-emerald-800"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Login

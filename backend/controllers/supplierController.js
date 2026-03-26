@@ -114,7 +114,6 @@ exports.addSupplier = async (req, res) => {
       phone,
       address,
       gstNumber,
-      state,
       isActive
     } = req.body;
 
@@ -125,7 +124,6 @@ exports.addSupplier = async (req, res) => {
     const normalizedAddress = normalizeOptionalText(address);
     const normalizedGst = normalizeUppercase(gstNumber);
     const normalizedPan = derivePanFromGst(normalizedGst);
-    const normalizedState = normalizeOptionalText(state);
 
     if (normalizedSupplierName.length < 2) {
       return res.status(400).json({ success: false, message: 'Supplier name must be at least 2 characters' });
@@ -143,10 +141,6 @@ exports.addSupplier = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide a valid GST number' });
     }
 
-    if (normalizedGst && !normalizedState) {
-      return res.status(400).json({ success: false, message: 'State is required when GST number is provided' });
-    }
-
     const supplier = await Supplier.create({
       supplierName: normalizedSupplierName,
       contactPerson: normalizedContactPerson,
@@ -155,7 +149,6 @@ exports.addSupplier = async (req, res) => {
       address: normalizedAddress,
       gstNumber: normalizedGst || '',
       panNumber: normalizedPan,
-      state: normalizedState,
       isActive: isActive !== false
     });
 
@@ -185,7 +178,6 @@ exports.updateSupplier = async (req, res) => {
       phone,
       address,
       gstNumber,
-      state,
       isActive
     } = req.body;
 
@@ -208,7 +200,6 @@ exports.updateSupplier = async (req, res) => {
     const normalizedAddress = address !== undefined ? normalizeOptionalText(address) : supplier.address;
     const normalizedGst = gstNumber !== undefined ? normalizeUppercase(gstNumber) : supplier.gstNumber;
     const normalizedPan = derivePanFromGst(normalizedGst);
-    const normalizedState = state !== undefined ? normalizeOptionalText(state) : supplier.state;
 
     if (normalizedSupplierName.length < 2) {
       return res.status(400).json({ success: false, message: 'Supplier name must be at least 2 characters' });
@@ -226,10 +217,6 @@ exports.updateSupplier = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide a valid GST number' });
     }
 
-    if (normalizedGst && !normalizedState) {
-      return res.status(400).json({ success: false, message: 'State is required when GST number is provided' });
-    }
-
     supplier.supplierName = normalizedSupplierName;
     supplier.contactPerson = normalizedContactPerson;
     supplier.email = normalizedEmail || undefined;
@@ -237,7 +224,6 @@ exports.updateSupplier = async (req, res) => {
     supplier.address = normalizedAddress;
     supplier.gstNumber = normalizedGst || '';
     supplier.panNumber = normalizedPan;
-    supplier.state = normalizedState;
     if (isActive !== undefined) supplier.isActive = isActive;
 
     await supplier.save();

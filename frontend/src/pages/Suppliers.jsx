@@ -36,7 +36,6 @@ export default function Suppliers() {
     address: '',
     gstNumber: '',
     panNumber: '',
-    state: '',
     isActive: true
   });
 
@@ -56,9 +55,9 @@ export default function Suppliers() {
       console.error('Error fetching suppliers:', error);
       // Use sample data if API fails
       setSuppliers([
-        { _id: '1', supplierName: 'MediCorp Pharmaceuticals', contactPerson: 'Rajesh Kumar', email: 'rajesh@medicorp.com', phone: '9988776655', address: '123 Industrial Area, Mumbai', gstNumber: '27AABCU9603R1ZX', panNumber: 'AABCU9603R', state: 'Maharashtra', isActive: true },
-        { _id: '2', supplierName: 'HealthCare Distributors', contactPerson: 'Sita Devi', email: 'sita@healthcare.com', phone: '9977553311', address: '456 Pharma Hub, Delhi', gstNumber: '07AABCU9603R1ZX', panNumber: 'AABCU9603R', state: 'Delhi', isActive: true },
-        { _id: '3', supplierName: 'LifeLine Medical Supplies', contactPerson: 'Amit Singh', email: 'amit@lifeline.com', phone: '9966332211', address: '789 Medical Complex, Bangalore', gstNumber: '29AABCU9603R1ZX', panNumber: 'AABCU9603R', state: 'Karnataka', isActive: true },
+        { _id: '1', supplierName: 'MediCorp Pharmaceuticals', contactPerson: 'Rajesh Kumar', email: 'rajesh@medicorp.com', phone: '9988776655', address: '123 Industrial Area, Mumbai', gstNumber: '27AABCU9603R1ZX', panNumber: 'AABCU9603R', isActive: true },
+        { _id: '2', supplierName: 'HealthCare Distributors', contactPerson: 'Sita Devi', email: 'sita@healthcare.com', phone: '9977553311', address: '456 Pharma Hub, Delhi', gstNumber: '07AABCU9603R1ZX', panNumber: 'AABCU9603R', isActive: true },
+        { _id: '3', supplierName: 'LifeLine Medical Supplies', contactPerson: 'Amit Singh', email: 'amit@lifeline.com', phone: '9966332211', address: '789 Medical Complex, Bangalore', gstNumber: '29AABCU9603R1ZX', panNumber: 'AABCU9603R', isActive: true },
       ]);
     } finally {
       setLoading(false);
@@ -82,8 +81,7 @@ export default function Suppliers() {
       phone: normalizePhone(formData.phone),
       address: normalizeTextInput(formData.address).trim(),
       gstNumber: normalizeUppercase(formData.gstNumber),
-      panNumber: derivePanFromGst(formData.gstNumber),
-      state: normalizeTextInput(formData.state).trim()
+      panNumber: derivePanFromGst(formData.gstNumber)
     };
 
     try {
@@ -123,7 +121,6 @@ export default function Suppliers() {
       address: supplier.address || '',
       gstNumber: supplier.gstNumber || '',
       panNumber: supplier.panNumber || derivePanFromGst(supplier.gstNumber || ''),
-      state: supplier.state || '',
       isActive: supplier.isActive !== false
     });
     setShowModal(true);
@@ -138,7 +135,6 @@ export default function Suppliers() {
       address: '',
       gstNumber: '',
       panNumber: '',
-      state: '',
       isActive: true
     });
   };
@@ -148,13 +144,6 @@ export default function Suppliers() {
     resetForm();
     setShowModal(true);
   };
-
-  const indianStates = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana',
-    'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
-    'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana',
-    'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Jammu and Kashmir', 'Ladakh'
-  ];
 
   return (
     <div className="p-6">
@@ -243,7 +232,7 @@ export default function Suppliers() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST & State</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PAN</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -274,7 +263,6 @@ export default function Suppliers() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-900">{supplier.gstNumber}</div>
-                        <div className="text-sm text-gray-500">{supplier.state}</div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-900">{supplier.panNumber || derivePanFromGst(supplier.gstNumber || '') || '-'}</div>
@@ -422,19 +410,6 @@ export default function Suppliers() {
                     placeholder="Auto-filled from GST"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                  <select
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  >
-                    <option value="">Select State</option>
-                    {indianStates.map(state => (
-                      <option key={state} value={state}>{state}</option>
-                    ))}
-                  </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>

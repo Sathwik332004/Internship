@@ -162,7 +162,6 @@ export const validateSupplierForm = (formData) => {
   const phone = normalizePhone(formData.phone);
   const email = normalizeEmail(formData.email);
   const gstNumber = normalizeUppercase(formData.gstNumber);
-  const state = normalizeWhitespace(formData.state);
 
   if (supplierName.length < 2) {
     return "Supplier name must be at least 2 characters";
@@ -182,10 +181,6 @@ export const validateSupplierForm = (formData) => {
 
   if (gstNumber && !isValidGST(gstNumber)) {
     return "Enter a valid 15-character GST number";
-  }
-
-  if (gstNumber && !state) {
-    return "State is required when GST number is provided";
   }
 
   return "";

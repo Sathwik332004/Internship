@@ -9,7 +9,7 @@ const inventorySchema = new mongoose.Schema({
 
   batchNumber: {
     type: String,
-    required: true
+    default: ''
   },
 
   expiryDate: {

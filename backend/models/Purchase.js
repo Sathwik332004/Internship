@@ -40,7 +40,7 @@ const purchaseItemSchema = new mongoose.Schema({
   // Batch details
   batchNumber: {
     type: String,
-    required: true
+    default: ''
   },
   expiryDate: {
     type: Date,

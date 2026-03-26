@@ -404,7 +404,7 @@ export const validatePurchaseForm = ({
       return { error: `Select a medicine for item ${index + 1}`, rowIndex: index, field: "product" };
     }
 
-    if (!isValidBatchNumber(item.batchNumber || "")) {
+    if (item.batchNumber && !isValidBatchNumber(item.batchNumber || "")) {
       return { error: `Enter a valid batch number for item ${index + 1}`, rowIndex: index, field: "batch" };
     }
 

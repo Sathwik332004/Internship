@@ -433,14 +433,8 @@ exports.addPurchase = async (req, res) => {
           message: `Valid HSN code is required for item ${index + 1}`
         });
       }
-
-      if (!isValidBatchNumber(item.batchNumber || '')) {
-        await session.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          message: `Valid batch number is required for item ${index + 1}`
-        });
-      }
+    
+      
 
       if (!item.expiryDate || isExpiryBeforePurchaseMonth(item.expiryDate, purchaseDate)) {
         await session.abortTransaction();
@@ -787,7 +781,7 @@ exports.updatePurchase = async (req, res) => {
         throw new Error(`Valid HSN code is required for item ${index + 1}`);
       }
 
-      if (!isValidBatchNumber(item.batchNumber || '')) {
+      if (item.batchNumber && !isValidBatchNumber(item.batchNumber || '')) {
         throw new Error(`Valid batch number is required for item ${index + 1}`);
       }
 

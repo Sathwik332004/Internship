@@ -163,7 +163,8 @@ const PurchaseRow = React.memo(({
   onAddMedicine,
   onCloseSearch,
   hsnCodes,
-  onHSNChange
+  onHSNChange,
+  onRequestCreateHSN
 }) => {
   // Get fixed column class for each column
   const getColumnClass = (colKey) => {
@@ -410,7 +411,7 @@ const PurchaseRow = React.memo(({
           onKeyDown={(e) => onKeyDown(e, index, 'batch')}
           onFocus={() => onCellFocus(index, 'batch')}
           className={getInputClass('batch')}
-          placeholder="Batch"
+          placeholder="Batch (optional)"
         />
       </td>
 
@@ -583,20 +584,34 @@ const PurchaseRow = React.memo(({
 
       {/* HSN Column */}
       <td className={getCellClass('hsn')}>
-        <select
-          value={item.hsnCode || ""}
-          onChange={(e) => onHSNChange(index, e.target.value)}
-          onKeyDown={(e) => onKeyDown(e, index, 'hsn')}
-          onFocus={() => onCellFocus(index, 'hsn')}
-          className="w-full h-full bg-transparent focus:outline-none text-sm px-1"
-        >
-          <option value="">Select</option>
-          {Object.values(hsnCodes).map((hsn) => (
-            <option key={hsn.hsnCode} value={hsn.hsnCode}>
-              {hsn.hsnCode} - {hsn.gstPercent}%
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-1">
+          <input
+            type="text"
+            list={`hsn-options-${index}`}
+            value={item.hsnCode || ''}
+            onChange={(e) => onHSNChange(index, e.target.value)}
+            onKeyDown={(e) => onKeyDown(e, index, 'hsn')}
+            onFocus={() => onCellFocus(index, 'hsn')}
+            className="w-full h-full bg-transparent focus:outline-none text-sm px-1"
+            placeholder="HSN"
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRequestCreateHSN(index);
+            }}
+            className="rounded px-1 py-0.5 text-xs text-emerald-700 hover:bg-emerald-100"
+            title="Add new HSN"
+          >
+            +
+          </button>
+          <datalist id={`hsn-options-${index}`}>
+            {Object.values(hsnCodes).map((hsn) => (
+              <option key={hsn.hsnCode} value={hsn.hsnCode}>{hsn.hsnCode} - {hsn.gstPercent}%</option>
+            ))}
+          </datalist>
+        </div>
       </td>
 
       {/* Disc% Column */}
@@ -668,6 +683,10 @@ export default function Purchases() {
   const [miscellaneousAmount, setMiscellaneousAmount] = useState(0);
   const [notes, setNotes] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([]);
+  const [showQuickSupplierForm, setShowQuickSupplierForm] = useState(false);
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
+  const [quickSupplierForm, setQuickSupplierForm] = useState({ supplierName: '', phone: '' });
+  const [creatingHSN, setCreatingHSN] = useState(false);
   
   // Autocomplete state
   const [medicineSearch, setMedicineSearch] = useState('');
@@ -782,6 +801,129 @@ export default function Purchases() {
       setHsnCodes(hsnData);
     } catch (error) {
       console.error('Error fetching HSN codes:', error);
+    }
+  };
+
+  const handleQuickCreateSupplier = async () => {
+    const supplierName = normalizeTextInput(quickSupplierForm.supplierName).trim();
+    const phone = String(quickSupplierForm.phone || '').replace(/\D/g, '').slice(0, 10);
+
+    if (supplierName.length < 2) {
+      alert('Supplier name must be at least 2 characters.');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phone)) {
+      alert('Supplier phone must be exactly 10 digits.');
+      return;
+    }
+
+    try {
+      setCreatingSupplier(true);
+      const response = await api.post('/suppliers', {
+        supplierName,
+        phone,
+        isActive: true
+      });
+
+      const createdSupplier = response.data?.data;
+      await fetchSuppliers();
+
+      if (createdSupplier?._id) {
+        setSelectedSupplier(createdSupplier._id);
+      }
+
+      setQuickSupplierForm({ supplierName: '', phone: '' });
+      setShowQuickSupplierForm(false);
+    } catch (error) {
+      console.error('Error creating supplier:', error);
+      alert(error.response?.data?.message || 'Unable to create supplier. You may need admin access.');
+    } finally {
+      setCreatingSupplier(false);
+    }
+  };
+
+  const handleQuickCreateHSN = async (rowIndex) => {
+    if (creatingHSN) {
+      return;
+    }
+
+    const currentCode = purchaseItems[rowIndex]?.hsnCode || '';
+    const enteredCode = window.prompt('Enter HSN code (4 to 8 digits):', currentCode);
+    if (enteredCode === null) {
+      return;
+    }
+
+    const hsnCode = String(enteredCode).trim();
+    if (!/^\d{4,8}$/.test(hsnCode)) {
+      alert('HSN code must be 4 to 8 digits.');
+      return;
+    }
+
+    const enteredDescription = window.prompt('Enter HSN description:', 'Added from Purchases');
+    if (enteredDescription === null) {
+      return;
+    }
+
+    const description = normalizeTextInput(enteredDescription).trim();
+    if (description.length < 3) {
+      alert('HSN description must be at least 3 characters.');
+      return;
+    }
+
+    const enteredGst = window.prompt('Enter GST % (0, 5, 12, 18, 28):', '12');
+    if (enteredGst === null) {
+      return;
+    }
+
+    const gstPercent = Number(enteredGst);
+    if (![0, 5, 12, 18, 28].includes(gstPercent)) {
+      alert('GST must be one of 0, 5, 12, 18, 28.');
+      return;
+    }
+
+    try {
+      setCreatingHSN(true);
+
+      let hsnPayload = null;
+      try {
+        const createRes = await api.post('/hsn', {
+          hsnCode,
+          description,
+          gstPercent,
+          status: 'ACTIVE'
+        });
+        hsnPayload = createRes.data?.data;
+      } catch (createError) {
+        // If HSN already exists, reuse it.
+        if (createError.response?.data?.message?.toLowerCase()?.includes('already exists')) {
+          const existingRes = await api.get(`/hsn/code/${hsnCode}`);
+          hsnPayload = existingRes.data?.data;
+        } else {
+          throw createError;
+        }
+      }
+
+      if (!hsnPayload) {
+        hsnPayload = {
+          hsnCode,
+          gstPercent
+        };
+      }
+
+      setHsnCodes((prev) => ({
+        ...prev,
+        [hsnPayload.hsnCode]: hsnPayload
+      }));
+
+      handleHSNChange(rowIndex, hsnPayload.hsnCode);
+    } catch (error) {
+      console.error('Error creating HSN:', error);
+      alert(error.response?.data?.message || 'Unable to create HSN. You may need admin access.');
+      // Even without creation rights, allow manually entering the new HSN.
+      handleHSNChange(rowIndex, hsnCode);
+    } finally {
+      setCreatingHSN(false);
     }
   };
 
@@ -1216,6 +1358,8 @@ export default function Purchases() {
     setMiscellaneousAmount(0);
     setNotes('');
     setPurchaseItems([]);
+    setShowQuickSupplierForm(false);
+    setQuickSupplierForm({ supplierName: '', phone: '' });
     setMedicineSearch('');
     setBatchWarnings({});
     setActiveCell(null);
@@ -1586,10 +1730,59 @@ export default function Purchases() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Supplier *</label>
-                  <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" required>
-                    <option value="">Select</option>
-                    {suppliers.map(s => (<option key={s._id} value={s._id}>{s.supplierName}</option>))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" required>
+                      <option value="">Select</option>
+                      {suppliers.map(s => (<option key={s._id} value={s._id}>{s.supplierName}</option>))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickSupplierForm((prev) => !prev)}
+                      className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                  {showQuickSupplierForm && (
+                    <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2">
+                      <div className="grid grid-cols-1 gap-2">
+                        <input
+                          type="text"
+                          value={quickSupplierForm.supplierName}
+                          onChange={(e) => setQuickSupplierForm((prev) => ({ ...prev, supplierName: normalizeTextInput(e.target.value) }))}
+                          placeholder="Supplier name"
+                          className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={quickSupplierForm.phone}
+                          onChange={(e) => setQuickSupplierForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                          placeholder="Phone (10 digits)"
+                          className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowQuickSupplierForm(false);
+                              setQuickSupplierForm({ supplierName: '', phone: '' });
+                            }}
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleQuickCreateSupplier}
+                            disabled={creatingSupplier}
+                            className="rounded-lg border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                          >
+                            {creatingSupplier ? 'Adding...' : 'Save Supplier'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
@@ -1690,6 +1883,7 @@ export default function Purchases() {
                             onCloseSearch={closeMedicineSearch}
                             hsnCodes={hsnCodes}
                             onHSNChange={handleHSNChange}
+                            onRequestCreateHSN={handleQuickCreateHSN}
                           />
                         </React.Fragment>
                       ))}

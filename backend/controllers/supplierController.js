@@ -10,6 +10,16 @@ const {
   normalizeWhitespace
 } = require('../utils/validation');
 
+const derivePanFromGst = (gstNumber = '') => {
+  const normalizedGst = normalizeUppercase(gstNumber);
+  if (!isValidGST(normalizedGst)) {
+    return '';
+  }
+
+  // GSTIN format: 2 digits(state) + 10 chars(PAN) + 1(entity) + Z + 1(checksum)
+  return normalizedGst.slice(2, 12);
+};
+
 // @desc    Get all suppliers
 // @route   GET /api/suppliers
 // @access  Private
@@ -23,7 +33,8 @@ exports.getSuppliers = async (req, res) => {
       query.$or = [
         { supplierName: { $regex: search, $options: 'i' } },
         { contactPerson: { $regex: search, $options: 'i' } },
-        { gstNumber: { $regex: search, $options: 'i' } }
+        { gstNumber: { $regex: search, $options: 'i' } },
+        { panNumber: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -113,6 +124,7 @@ exports.addSupplier = async (req, res) => {
     const normalizedPhone = normalizePhone(phone);
     const normalizedAddress = normalizeOptionalText(address);
     const normalizedGst = normalizeUppercase(gstNumber);
+    const normalizedPan = derivePanFromGst(normalizedGst);
     const normalizedState = normalizeOptionalText(state);
 
     if (normalizedSupplierName.length < 2) {
@@ -142,6 +154,7 @@ exports.addSupplier = async (req, res) => {
       phone: normalizedPhone,
       address: normalizedAddress,
       gstNumber: normalizedGst || '',
+      panNumber: normalizedPan,
       state: normalizedState,
       isActive: isActive !== false
     });
@@ -194,6 +207,7 @@ exports.updateSupplier = async (req, res) => {
     const normalizedPhone = phone !== undefined ? normalizePhone(phone) : supplier.phone;
     const normalizedAddress = address !== undefined ? normalizeOptionalText(address) : supplier.address;
     const normalizedGst = gstNumber !== undefined ? normalizeUppercase(gstNumber) : supplier.gstNumber;
+    const normalizedPan = derivePanFromGst(normalizedGst);
     const normalizedState = state !== undefined ? normalizeOptionalText(state) : supplier.state;
 
     if (normalizedSupplierName.length < 2) {
@@ -222,6 +236,7 @@ exports.updateSupplier = async (req, res) => {
     supplier.phone = normalizedPhone;
     supplier.address = normalizedAddress;
     supplier.gstNumber = normalizedGst || '';
+    supplier.panNumber = normalizedPan;
     supplier.state = normalizedState;
     if (isActive !== undefined) supplier.isActive = isActive;
 

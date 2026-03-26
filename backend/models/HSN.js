@@ -17,7 +17,6 @@ const hsnSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true,
     trim: true
   },
   gstPercent: {
@@ -70,6 +69,6 @@ hsnSchema.pre('save', function(next) {
 });
 
 // Index for searching
-hsnSchema.index({ hsnCode: 'text', description: 'text' });
+hsnSchema.index({ hsnCode: 'text' });
 
 module.exports = mongoose.model('HSN', hsnSchema);

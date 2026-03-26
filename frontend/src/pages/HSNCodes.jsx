@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, AlertTriangle, Hash, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../services/api';
 import {
-  normalizeTextInput,
   validateHSNForm
 } from '../utils/validation';
 
@@ -18,7 +17,6 @@ export default function HSNCodes() {
 
   const [formData, setFormData] = useState({
     hsnCode: '',
-    description: '',
     gstPercent: 12,
     status: 'ACTIVE'
   });
@@ -53,7 +51,6 @@ export default function HSNCodes() {
     const payload = {
       ...formData,
       hsnCode: String(formData.hsnCode).trim(),
-      description: normalizeTextInput(formData.description).trim(),
       gstPercent: Number(formData.gstPercent)
     };
 
@@ -88,7 +85,6 @@ export default function HSNCodes() {
     setEditingHSN(hsn);
     setFormData({
       hsnCode: hsn.hsnCode || '',
-      description: hsn.description || '',
       gstPercent: hsn.gstPercent || 12,
       status: hsn.status || 'ACTIVE'
     });
@@ -98,7 +94,6 @@ export default function HSNCodes() {
   const resetForm = () => {
     setFormData({
       hsnCode: '',
-      description: '',
       gstPercent: 12,
       status: 'ACTIVE'
     });
@@ -125,7 +120,6 @@ export default function HSNCodes() {
     setFormData({
       ...formData,
       hsnCode: code.code,
-      description: code.desc,
       gstPercent: code.rate
     });
   };
@@ -154,7 +148,7 @@ export default function HSNCodes() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Search by HSN code or description..."
+              placeholder="Search by HSN code..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
@@ -234,7 +228,6 @@ export default function HSNCodes() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HSN Code</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">GST %</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CGST</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">SGST</th>
@@ -248,9 +241,6 @@ export default function HSNCodes() {
                     <tr key={hsn._id} className="hover:bg-gray-50">
                       <td className="px-4 py-4">
                         <div className="font-medium text-gray-900">{hsn.hsnCode}</div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-900">{hsn.description}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
@@ -356,30 +346,18 @@ export default function HSNCodes() {
                   <p className="text-xs text-gray-500 mt-1">4-8 digits</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">GST Percentage *</label>
                   <input
-                    type="text"
-                    required
-                    value={formData.description}
-                    maxLength={150}
-                    onChange={(e) => setFormData({ ...formData, description: normalizeTextInput(e.target.value) })}
-                    placeholder="e.g., Medicaments for retail sale"
+                    type="number"
+                    min="0"
+                    max="28"
+                    step="0.01"
+                    value={formData.gstPercent}
+                    onChange={(e) => setFormData({ ...formData, gstPercent: e.target.value })}
+                    placeholder="e.g., 12 or 18.5"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">GST Percentage *</label>
-                  <select
-                    value={formData.gstPercent}
-                    onChange={(e) => setFormData({ ...formData, gstPercent: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  >
-                    <option value={0}>0%</option>
-                    <option value={5}>5%</option>
-                    <option value={12}>12%</option>
-                    <option value={18}>18%</option>
-                    <option value={28}>28%</option>
-                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Enter any GST value from 0 to 28</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>

@@ -29,6 +29,12 @@ const supplierSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
+  panNumber: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
   state: {
     type: String,
     trim: true

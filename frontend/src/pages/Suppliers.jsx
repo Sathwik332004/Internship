@@ -10,6 +10,16 @@ import {
 } from '../utils/validation';
 
 export default function Suppliers() {
+  const derivePanFromGst = (gst = '') => {
+    const normalizedGst = normalizeUppercase(gst);
+    if (!/^\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/.test(normalizedGst)) {
+      return '';
+    }
+
+    // GSTIN format: 2 chars state + 10 chars PAN + rest
+    return normalizedGst.slice(2, 12);
+  };
+
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +35,7 @@ export default function Suppliers() {
     phone: '',
     address: '',
     gstNumber: '',
+    panNumber: '',
     state: '',
     isActive: true
   });
@@ -45,9 +56,9 @@ export default function Suppliers() {
       console.error('Error fetching suppliers:', error);
       // Use sample data if API fails
       setSuppliers([
-        { _id: '1', supplierName: 'MediCorp Pharmaceuticals', contactPerson: 'Rajesh Kumar', email: 'rajesh@medicorp.com', phone: '9988776655', address: '123 Industrial Area, Mumbai', gstNumber: '27AABCU9603R1ZX', state: 'Maharashtra', isActive: true },
-        { _id: '2', supplierName: 'HealthCare Distributors', contactPerson: 'Sita Devi', email: 'sita@healthcare.com', phone: '9977553311', address: '456 Pharma Hub, Delhi', gstNumber: '07AABCU9603R1ZX', state: 'Delhi', isActive: true },
-        { _id: '3', supplierName: 'LifeLine Medical Supplies', contactPerson: 'Amit Singh', email: 'amit@lifeline.com', phone: '9966332211', address: '789 Medical Complex, Bangalore', gstNumber: '29AABCU9603R1ZX', state: 'Karnataka', isActive: true },
+        { _id: '1', supplierName: 'MediCorp Pharmaceuticals', contactPerson: 'Rajesh Kumar', email: 'rajesh@medicorp.com', phone: '9988776655', address: '123 Industrial Area, Mumbai', gstNumber: '27AABCU9603R1ZX', panNumber: 'AABCU9603R', state: 'Maharashtra', isActive: true },
+        { _id: '2', supplierName: 'HealthCare Distributors', contactPerson: 'Sita Devi', email: 'sita@healthcare.com', phone: '9977553311', address: '456 Pharma Hub, Delhi', gstNumber: '07AABCU9603R1ZX', panNumber: 'AABCU9603R', state: 'Delhi', isActive: true },
+        { _id: '3', supplierName: 'LifeLine Medical Supplies', contactPerson: 'Amit Singh', email: 'amit@lifeline.com', phone: '9966332211', address: '789 Medical Complex, Bangalore', gstNumber: '29AABCU9603R1ZX', panNumber: 'AABCU9603R', state: 'Karnataka', isActive: true },
       ]);
     } finally {
       setLoading(false);
@@ -71,6 +82,7 @@ export default function Suppliers() {
       phone: normalizePhone(formData.phone),
       address: normalizeTextInput(formData.address).trim(),
       gstNumber: normalizeUppercase(formData.gstNumber),
+      panNumber: derivePanFromGst(formData.gstNumber),
       state: normalizeTextInput(formData.state).trim()
     };
 
@@ -110,6 +122,7 @@ export default function Suppliers() {
       phone: supplier.phone || '',
       address: supplier.address || '',
       gstNumber: supplier.gstNumber || '',
+      panNumber: supplier.panNumber || derivePanFromGst(supplier.gstNumber || ''),
       state: supplier.state || '',
       isActive: supplier.isActive !== false
     });
@@ -124,6 +137,7 @@ export default function Suppliers() {
       phone: '',
       address: '',
       gstNumber: '',
+      panNumber: '',
       state: '',
       isActive: true
     });
@@ -165,7 +179,7 @@ export default function Suppliers() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Search by name, contact person, or phone..."
+            placeholder="Search by name, contact person, GST, PAN, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
@@ -230,6 +244,7 @@ export default function Suppliers() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST & State</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PAN</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -260,6 +275,9 @@ export default function Suppliers() {
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-900">{supplier.gstNumber}</div>
                         <div className="text-sm text-gray-500">{supplier.state}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900">{supplier.panNumber || derivePanFromGst(supplier.gstNumber || '') || '-'}</div>
                       </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${supplier.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
@@ -384,8 +402,25 @@ export default function Suppliers() {
                     type="text"
                     value={formData.gstNumber}
                     maxLength={15}
-                    onChange={(e) => setFormData({ ...formData, gstNumber: normalizeUppercase(e.target.value) })}
+                    onChange={(e) => {
+                      const nextGst = normalizeUppercase(e.target.value);
+                      setFormData({
+                        ...formData,
+                        gstNumber: nextGst,
+                        panNumber: derivePanFromGst(nextGst)
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number</label>
+                  <input
+                    type="text"
+                    value={formData.panNumber}
+                    readOnly
+                    placeholder="Auto-filled from GST"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
                   />
                 </div>
                 <div>

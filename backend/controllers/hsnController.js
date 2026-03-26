@@ -1,7 +1,6 @@
 const HSN = require('../models/HSN');
 const {
-  isValidHSN,
-  normalizeWhitespace
+  isValidHSN
 } = require('../utils/validation');
 
 // @desc    Get all HSN codes
@@ -14,10 +13,7 @@ exports.getHSNCodes = async (req, res) => {
     let query = { isDeleted: false };
 
     if (search) {
-      query.$or = [
-        { hsnCode: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
+      query.hsnCode = { $regex: search, $options: 'i' };
     }
 
     if (status) {
@@ -133,10 +129,7 @@ exports.searchHSNCodes = async (req, res) => {
     const hsnCodes = await HSN.find({
       isDeleted: false,
       status: 'ACTIVE',
-      $or: [
-        { hsnCode: { $regex: q, $options: 'i' } },
-        { description: { $regex: q, $options: 'i' } }
-      ]
+      hsnCode: { $regex: q, $options: 'i' }
     })
       .sort({ hsnCode: 1 })
       .limit(parseInt(limit));
@@ -160,9 +153,9 @@ exports.searchHSNCodes = async (req, res) => {
 // @access  Private/Admin
 exports.createHSNCode = async (req, res) => {
   try {
-    const { hsnCode, description, gstPercent, status } = req.body;
+    const { hsnCode, gstPercent, status } = req.body;
     const normalizedHsnCode = String(hsnCode || '').trim();
-    const normalizedDescription = normalizeWhitespace(description);
+    const parsedGstPercent = Number(gstPercent);
 
     if (!isValidHSN(normalizedHsnCode)) {
       return res.status(400).json({
@@ -171,17 +164,10 @@ exports.createHSNCode = async (req, res) => {
       });
     }
 
-    if (normalizedDescription.length < 3) {
+    if (!Number.isFinite(parsedGstPercent) || parsedGstPercent < 0 || parsedGstPercent > 28) {
       return res.status(400).json({
         success: false,
-        message: 'Description must be at least 3 characters'
-      });
-    }
-
-    if (![0, 5, 12, 18, 28].includes(Number(gstPercent))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid GST percentage'
+        message: 'GST percentage must be between 0 and 28'
       });
     }
 
@@ -200,8 +186,7 @@ exports.createHSNCode = async (req, res) => {
 
     const hsn = await HSN.create({
       hsnCode: normalizedHsnCode,
-      description: normalizedDescription,
-      gstPercent: Number(gstPercent),
+      gstPercent: parsedGstPercent,
       status: status || 'ACTIVE'
     });
 
@@ -224,7 +209,7 @@ exports.createHSNCode = async (req, res) => {
 // @access  Private/Admin
 exports.updateHSNCode = async (req, res) => {
   try {
-    const { description, gstPercent, status } = req.body;
+    const { gstPercent, status } = req.body;
 
     let hsn = await HSN.findOne({
       _id: req.params.id,
@@ -261,25 +246,15 @@ exports.updateHSNCode = async (req, res) => {
       }
     }
 
-    if (description !== undefined) {
-      const normalizedDescription = normalizeWhitespace(description);
-      if (normalizedDescription.length < 3) {
-        return res.status(400).json({
-          success: false,
-          message: 'Description must be at least 3 characters'
-        });
-      }
-      hsn.description = normalizedDescription;
-    }
-
     if (gstPercent !== undefined) {
-      if (![0, 5, 12, 18, 28].includes(Number(gstPercent))) {
+      const parsedGstPercent = Number(gstPercent);
+      if (!Number.isFinite(parsedGstPercent) || parsedGstPercent < 0 || parsedGstPercent > 28) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid GST percentage'
+          message: 'GST percentage must be between 0 and 28'
         });
       }
-      hsn.gstPercent = Number(gstPercent);
+      hsn.gstPercent = parsedGstPercent;
     }
 
     hsn.status = status || hsn.status;

@@ -173,8 +173,11 @@ export default function Medicines() {
       itemType: medicine.itemType || ''
     });
     // Show more options if any advanced field is filled
-    const hasAdvancedFields = medicine.askDose || medicine.salt || medicine.colorType || 
-                              medicine.packing || medicine.decimalAllowed || medicine.itemType;
+    const hasAdvancedFields = medicine.askDose || medicine.salt || medicine.colorType ||
+                  medicine.packing || medicine.decimalAllowed || medicine.itemType ||
+                  medicine.defaultSellingPrice ||
+                  Number(medicine.reorderLevel || 10) !== 10 ||
+                  (medicine.status && medicine.status !== 'ACTIVE');
     setMoreOptions(!!hasAdvancedFields);
     setShowModal(true);
   };
@@ -569,45 +572,6 @@ export default function Medicines() {
               {/* NOTE: HSN & GST Section has been removed */}
               {/* GST is now handled in Purchase Entry module based on HSN code */}
 
-              {/* Pricing Section */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Pricing & Inventory</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Default Selling Price</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.defaultSellingPrice}
-                      onChange={(e) => setFormData({ ...formData, defaultSellingPrice: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level (Optional)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.reorderLevel}
-                      onChange={(e) => setFormData({ ...formData, reorderLevel: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
               {/* More Options Toggle */}
               <div className="mb-6">
                 <button
@@ -624,6 +588,38 @@ export default function Medicines() {
                 {moreOptions && (
                   <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Default Selling Price</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.defaultSellingPrice}
+                          onChange={(e) => setFormData({ ...formData, defaultSellingPrice: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level (Optional)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.reorderLevel}
+                          onChange={(e) => setFormData({ ...formData, reorderLevel: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select
+                          value={formData.status}
+                          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        >
+                          <option value="ACTIVE">ACTIVE</option>
+                          <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                      </div>
                       <div className="flex items-center">
                         <input
                           type="checkbox"

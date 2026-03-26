@@ -288,12 +288,14 @@ export const validateHSNForm = (formData) => {
     return "HSN code must be 4 to 8 digits";
   }
 
-  if (normalizeWhitespace(formData.description).length < 3) {
-    return "Description must be at least 3 characters";
-  }
-
-  if (![0, 5, 12, 18, 28].includes(Number(formData.gstPercent))) {
-    return "Select a valid GST percentage";
+  const gstPercent = Number(formData.gstPercent);
+  if (
+    String(formData.gstPercent).trim() === "" ||
+    !Number.isFinite(gstPercent) ||
+    gstPercent < 0 ||
+    gstPercent > 28
+  ) {
+    return "Enter a valid GST percentage between 0 and 28";
   }
 
   if (!["ACTIVE", "INACTIVE"].includes(formData.status)) {

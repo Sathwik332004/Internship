@@ -100,15 +100,34 @@ body {
     max-width: none !important;
     min-height: auto !important;
     margin: 0 !important;
-    border: none !important;
+    border: 1px solid #000 !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     padding: 0 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    color: #000 !important;
   }
 
-  .bill-document-table th,
-  .bill-document-table td {
-    padding: 10px 12px;
+  .bill-print-document .bill-document-table {
+    table-layout: fixed;
+  }
+
+  .bill-print-document .bill-document-table th,
+  .bill-print-document .bill-document-table td {
+    padding: 3px 4px !important;
+    line-height: 1.15 !important;
+    border-color: #000 !important;
+    border-width: 1px !important;
+    vertical-align: top;
+  }
+
+  .bill-print-document .bill-document-table thead th {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  .bill-print-document .bill-document-table tbody td {
+    font-size: 10.5px !important;
   }
 
   tr:hover {

@@ -155,6 +155,8 @@ const validateBillPayload = (payload = {}) => {
     customerPhone,
     customerState,
     customerAddress,
+    doctorName,
+    doctorRegNo,
     items,
     discountPercent,
     discountAmount,
@@ -167,6 +169,8 @@ const validateBillPayload = (payload = {}) => {
   const normalizedCustomerPhone = normalizePhone(customerPhone);
   const normalizedCustomerState = normalizeOptionalText(customerState);
   const normalizedCustomerAddress = normalizeOptionalText(customerAddress);
+  const normalizedDoctorName = normalizeOptionalText(doctorName);
+  const normalizedDoctorRegNo = normalizeOptionalText(doctorRegNo);
 
   if (normalizedCustomerName && normalizedCustomerName.length < 2) {
     throw createHttpError(400, 'Customer name must be at least 2 characters');
@@ -178,6 +182,10 @@ const validateBillPayload = (payload = {}) => {
 
   if (normalizedCustomerState && normalizedCustomerState.length < 2) {
     throw createHttpError(400, 'Customer state must be at least 2 characters');
+  }
+
+  if (normalizedDoctorName && normalizedDoctorName.length < 2) {
+    throw createHttpError(400, 'Doctor name must be at least 2 characters');
   }
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -229,6 +237,8 @@ const validateBillPayload = (payload = {}) => {
     normalizedCustomerPhone,
     normalizedCustomerState,
     normalizedCustomerAddress,
+    normalizedDoctorName,
+    normalizedDoctorRegNo,
     items,
     discountPercent: discountPercent !== undefined ? Number(discountPercent) : 0,
     discountAmount: discountAmount !== undefined && discountAmount !== null && discountAmount !== ''
@@ -366,6 +376,7 @@ const processBillItems = async ({ items, interstate, session }) => {
       medicine: medicine._id,
       medicineName: medicine.medicineName,
       brandName: medicine.brandName,
+      packSize: item.packSize || medicine.packSize || '',
       inventoryBatchId: item.inventoryBatchId || batchInfo?.inventoryBatchId || null,
       batchNumber: batchInfo?.batchNumber || String(item.batchNumber || 'N/A').toUpperCase(),
       expiryDate: batchInfo?.expiryDate || item.expiryDate || new Date(),
@@ -474,6 +485,7 @@ exports.getBills = async (req, res) => {
 
     const bills = await Bill.find(query)
       .populate('createdBy', 'name')
+      .populate('items.medicine', 'medicineName brandName packSize hsnCodeString')
       .sort({ billDate: -1 })
       .skip(skip)
       .limit(limitNum);
@@ -510,7 +522,7 @@ exports.getBill = async (req, res) => {
       isDeleted: false
     })
       .populate('createdBy', 'name')
-      .populate('items.medicine', 'medicineName brandName');
+      .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
 
     if (!bill) {
       return res.status(404).json({
@@ -556,6 +568,8 @@ exports.createBill = async (req, res) => {
       normalizedCustomerPhone,
       normalizedCustomerState,
       normalizedCustomerAddress,
+      normalizedDoctorName,
+      normalizedDoctorRegNo,
       items,
       discountPercent,
       discountAmount,
@@ -579,7 +593,8 @@ exports.createBill = async (req, res) => {
       ? calculatedSubtotal * (discountPercent / 100)
       : discountAmount;
 
-    const grandTotal = calculatedSubtotal - calculatedDiscountAmount;
+    const totalAfterDiscount = calculatedSubtotal - calculatedDiscountAmount;
+    const grandTotal = Math.round(totalAfterDiscount);
     const finalAmountPaid = amountPaid ?? grandTotal;
     const balance = finalAmountPaid - grandTotal;
 
@@ -589,6 +604,8 @@ exports.createBill = async (req, res) => {
       customerPhone: normalizedCustomerPhone,
       customerState: normalizedCustomerState,
       customerAddress: normalizedCustomerAddress,
+      doctorName: normalizedDoctorName,
+      doctorRegNo: normalizedDoctorRegNo,
       isInterstate: interstate,
       items: processedItems,
       subtotal: calculatedSubtotal,
@@ -611,7 +628,7 @@ exports.createBill = async (req, res) => {
 
     const populatedBill = await Bill.findById(bill._id)
       .populate('createdBy', 'name')
-      .populate('items.medicine', 'medicineName brandName');
+      .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
 
     res.status(201).json({
       success: true,
@@ -665,6 +682,8 @@ exports.updateBill = async (req, res) => {
       normalizedCustomerPhone,
       normalizedCustomerState,
       normalizedCustomerAddress,
+      normalizedDoctorName,
+      normalizedDoctorRegNo,
       items,
       discountPercent,
       discountAmount,
@@ -689,7 +708,8 @@ exports.updateBill = async (req, res) => {
       ? calculatedSubtotal * (discountPercent / 100)
       : discountAmount;
 
-    const grandTotal = calculatedSubtotal - calculatedDiscountAmount;
+    const totalAfterDiscount = calculatedSubtotal - calculatedDiscountAmount;
+    const grandTotal = Math.round(totalAfterDiscount);
     const finalAmountPaid = amountPaid ?? grandTotal;
     const balance = finalAmountPaid - grandTotal;
 
@@ -697,6 +717,8 @@ exports.updateBill = async (req, res) => {
     bill.customerPhone = normalizedCustomerPhone;
     bill.customerState = normalizedCustomerState;
     bill.customerAddress = normalizedCustomerAddress;
+    bill.doctorName = normalizedDoctorName;
+    bill.doctorRegNo = normalizedDoctorRegNo;
     bill.isInterstate = interstate;
     bill.items = processedItems;
     bill.subtotal = calculatedSubtotal;
@@ -717,7 +739,7 @@ exports.updateBill = async (req, res) => {
 
     const populatedBill = await Bill.findById(bill._id)
       .populate('createdBy', 'name')
-      .populate('items.medicine', 'medicineName brandName');
+      .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
 
     res.status(200).json({
       success: true,
@@ -1013,7 +1035,7 @@ exports.getTopMedicines = async (req, res) => {
 // @access  Private
 exports.getPendingCustomers = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, search } = req.query;
 
     let matchStage = {
       balance: { $lt: 0 },

@@ -14,6 +14,10 @@ const billItemSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  packSize: {
+    type: String,
+    default: ''
+  },
   batchNumber: {
     type: String,
     required: true
@@ -140,6 +144,14 @@ const billSchema = new mongoose.Schema({
     trim: true
   },
   customerAddress: {
+    type: String,
+    trim: true
+  },
+  doctorName: {
+    type: String,
+    trim: true
+  },
+  doctorRegNo: {
     type: String,
     trim: true
   },

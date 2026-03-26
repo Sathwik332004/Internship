@@ -25,7 +25,13 @@ import {
 } from '../utils/validation';
 
 const SHOP_INFO = {
-  name: 'Bhagya Medicals',
+  name: 'BHAGYA MEDICALS',
+  addressLine1: 'GROUND FLOOR PRIME CITY CENTRE MALL',
+  addressLine2: 'OPP GOVT. COLLEGE KARKALA UDUPI',
+  phone: '8829063939',
+  email: 'devarajshetty.56@gmail.com',
+  gstin: '29AEQPD2184N1ZW',
+  dlNo: 'KA-UD1-267389',
   state: 'Maharashtra'
 };
 
@@ -40,7 +46,10 @@ export default function Billing() {
   const [customerDetails, setCustomerDetails] = useState({
     name: '',
     phone: '',
-    state: ''
+    state: '',
+    address: '',
+    doctorName: '',
+    doctorRegNo: ''
   });
   
   const [billItems, setBillItems] = useState([]);
@@ -74,6 +83,7 @@ export default function Billing() {
           _id: medicine._id,
           medicineName: medicine.medicineName,
           brandName: medicine.brandName,
+          hsnCodeString: medicine.hsnCodeString || item.hsnCodeString || '',
           strength: medicine.strength,
           packSize: medicine.packSize,
           baseUnit: medicine.baseUnit,
@@ -88,7 +98,8 @@ export default function Billing() {
             expiryDate: item.expiryDate,
             quantityAvailable: item.quantityAvailable,
             mrp: item.mrp,
-            gstPercent: item.gstPercent
+            gstPercent: item.gstPercent,
+            hsnCodeString: item.hsnCodeString || medicine.hsnCodeString || ''
           }]
         });
         return;
@@ -101,7 +112,8 @@ export default function Billing() {
         expiryDate: item.expiryDate,
         quantityAvailable: item.quantityAvailable,
         mrp: item.mrp,
-        gstPercent: item.gstPercent
+        gstPercent: item.gstPercent,
+        hsnCodeString: item.hsnCodeString || medicine.hsnCodeString || ''
       });
 
       if (new Date(existing.expiryDate) > expiryDate) {
@@ -302,6 +314,7 @@ export default function Billing() {
       packMrp: fifoBatch.mrp,
       looseMrp: conversionFactor > 0 ? fifoBatch.mrp / conversionFactor : fifoBatch.mrp,
       gstPercent: fifoBatch.gstPercent || 12,
+      hsnCode: fifoBatch.hsnCodeString || medicine.hsnCodeString || medicine.hsnCode || '',
       inventoryBatchId: fifoBatch._id,
       // Calculate amount: MRP * Qty (respecting pack/loose)
       amount: (defaultIsPack ? fifoBatch.mrp : fifoBatch.mrp / conversionFactor) * defaultQty
@@ -434,9 +447,11 @@ export default function Billing() {
       }
     });
 
-    // Apply discount
+    // Apply discount and round to nearest rupee for final bill amount
     const discountAmount = (subtotal * discountPercent) / 100;
-    const grandTotal = subtotal - discountAmount;
+    const totalAfterDiscount = subtotal - discountAmount;
+    const grandTotal = Math.round(totalAfterDiscount);
+    const roundOff = grandTotal - totalAfterDiscount;
     
     return {
       subtotal,
@@ -445,6 +460,7 @@ export default function Billing() {
       totalSgst,
       totalIgst,
       discountAmount,
+      roundOff,
       grandTotal,
       isInterstate
     };
@@ -476,10 +492,15 @@ export default function Billing() {
         customerName: customerDetails.name,
         customerPhone: customerDetails.phone,
         customerState: customerDetails.state,
+        customerAddress: customerDetails.address,
+        doctorName: customerDetails.doctorName,
+        doctorRegNo: customerDetails.doctorRegNo,
         isInterstate: totals.isInterstate,
         items: billItems.map((item) => ({
           medicineName: item.medicineName,
           brandName: item.brandName,
+          hsnCode: item.hsnCode,
+          packSize: item.packSize,
           batchNumber: item.batchNumber,
           expiryDate: item.expiryDate,
           quantity: item.quantity,
@@ -497,6 +518,7 @@ export default function Billing() {
         totalIgst: totals.totalIgst,
         discountPercent,
         discountAmount: totals.discountAmount,
+        roundOff: totals.roundOff,
         grandTotal: totals.grandTotal,
         paymentMode,
         amountPaid: effectiveAmountPaid,
@@ -531,13 +553,19 @@ export default function Billing() {
       const normalizedCustomerDetails = {
         name: normalizeTextInput(customerDetails.name).trim(),
         phone: normalizePhone(customerDetails.phone),
-        state: normalizeTextInput(customerDetails.state).trim()
+        state: normalizeTextInput(customerDetails.state).trim(),
+        address: normalizeTextInput(customerDetails.address).trim(),
+        doctorName: normalizeTextInput(customerDetails.doctorName).trim(),
+        doctorRegNo: normalizeTextInput(customerDetails.doctorRegNo).trim()
       };
 
       const billData = {
         customerName: normalizedCustomerDetails.name,
         customerPhone: normalizedCustomerDetails.phone,
         customerState: normalizedCustomerDetails.state,
+        customerAddress: normalizedCustomerDetails.address,
+        doctorName: normalizedCustomerDetails.doctorName,
+        doctorRegNo: normalizedCustomerDetails.doctorRegNo,
         isInterstate: totals.isInterstate,
         items: billItems.map(item => {
           // Calculate base unit quantity for inventory deduction
@@ -548,6 +576,8 @@ export default function Billing() {
             medicine: item.medicineId,
             medicineName: item.medicineName,
             brandName: item.brandName,
+            hsnCode: item.hsnCode,
+            packSize: item.packSize,
             inventoryBatchId: item.inventoryBatchId,
             batchNumber: item.batchNumber,
             expiryDate: item.expiryDate,
@@ -557,6 +587,8 @@ export default function Billing() {
             unitQuantity: baseQty, // Base units for inventory
             rate: unitMrp,
             gstPercent: item.gstPercent,
+            cgstPercent: totals.isInterstate ? 0 : (Number(item.gstPercent || 0) / 2),
+            sgstPercent: totals.isInterstate ? 0 : (Number(item.gstPercent || 0) / 2),
             discountPercent: 0,
             discountAmount: 0
           };
@@ -568,6 +600,7 @@ export default function Billing() {
         totalIgst: totals.totalIgst,
         discountPercent: discountPercent,
         discountAmount: totals.discountAmount,
+        roundOff: totals.roundOff,
         grandTotal: totals.grandTotal,
         paymentMode: paymentMode,
         amountPaid: effectiveAmountPaid,
@@ -580,7 +613,7 @@ export default function Billing() {
       
       // Reset form
       setBillItems([]);
-      setCustomerDetails({ name: '', phone: '', state: '' });
+      setCustomerDetails({ name: '', phone: '', state: '', address: '', doctorName: '', doctorRegNo: '' });
       setDiscountPercent(0);
       setAmountPaid('');
       setErrorMessage('');
@@ -681,6 +714,39 @@ export default function Billing() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Patient Address</label>
+                <input
+                  type="text"
+                  value={customerDetails.address}
+                  maxLength={150}
+                  onChange={(e) => setCustomerDetails({...customerDetails, address: normalizeTextInput(e.target.value)})}
+                  placeholder="Enter patient address"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Doctor Name</label>
+                <input
+                  type="text"
+                  value={customerDetails.doctorName}
+                  maxLength={80}
+                  onChange={(e) => setCustomerDetails({...customerDetails, doctorName: normalizeTextInput(e.target.value)})}
+                  placeholder="Enter doctor name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Doctor Reg No.</label>
+                <input
+                  type="text"
+                  value={customerDetails.doctorRegNo}
+                  maxLength={40}
+                  onChange={(e) => setCustomerDetails({...customerDetails, doctorRegNo: normalizeTextInput(e.target.value)})}
+                  placeholder="Enter registration number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -765,9 +831,12 @@ export default function Billing() {
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Pack</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Unit</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Batch</th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">HSN</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Expiry</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Qty</th>
                       <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">MRP</th>
+                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">CGST</th>
+                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">SGST</th>
                       <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
                       <th className="px-3 py-3"></th>
                     </tr>
@@ -811,6 +880,9 @@ export default function Billing() {
                           <span className="text-sm font-mono text-gray-600">{item.batchNumber}</span>
                         </td>
                         <td className="px-3 py-3 text-center">
+                          <span className="text-sm text-gray-600">{item.hsnCode || '-'}</span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
                           <span className={`text-sm ${new Date(item.expiryDate) < new Date(Date.now() + 90*24*60*60*1000) ? 'text-orange-600' : 'text-gray-600'}`}>
                             {formatDate(item.expiryDate)}
                           </span>
@@ -848,6 +920,16 @@ export default function Billing() {
                           )}
                         </td>
                         <td className="px-3 py-3 text-right">
+                          <span className="text-sm text-gray-700">
+                            {(Number(item.gstPercent || 0) / 2).toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className="text-sm text-gray-700">
+                            {(Number(item.gstPercent || 0) / 2).toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
                           <span className="font-bold text-lg">{formatCurrency(item.amount)}</span>
                         </td>
                         <td className="px-3 py-3">
@@ -870,12 +952,15 @@ export default function Billing() {
         {/* Right Column - Summary */}
         <div className="space-y-4">
           {/* Payment Details */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold mb-4">Payment</h2>
+          <div className="bg-white border border-black">
+            <div className="border-b border-black px-4 py-2">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-black">Payment</h2>
+            </div>
+            <div className="p-4">
             
             {/* Payment Mode */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-2">Mode</label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { value: 'CASH', icon: Banknote, label: 'Cash' },
@@ -886,14 +971,14 @@ export default function Billing() {
                   <button
                     key={value}
                     onClick={() => setPaymentMode(value)}
-                    className={`px-2 py-2 rounded-lg border flex flex-col items-center gap-1 ${
+                    className={`px-2 py-2 border flex flex-col items-center gap-1 text-xs ${
                       paymentMode === value
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-black hover:bg-gray-50'
                     }`}
                   >
                     <Icon size={18} />
-                    <span className="text-xs">{label}</span>
+                    <span>{label}</span>
                   </button>
                 ))}
               </div>
@@ -901,7 +986,7 @@ export default function Billing() {
 
             {/* Amount Paid */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-1">Amount Paid</label>
               <input
                 type="number"
                 value={amountPaid}
@@ -909,81 +994,82 @@ export default function Billing() {
                 placeholder="Leave blank for full payment"
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-black focus:ring-0"
               />
             </div>
 
             {/* Bill Discount */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-1">Discount (%)</label>
               <input
                 type="number"
                 value={discountPercent}
                 onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
                 min="0"
                 max="100"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-black focus:ring-0"
               />
+            </div>
             </div>
           </div>
 
           {/* Bill Summary */}
-          <div className="bg-gray-900 text-white p-4 rounded-lg shadow-lg sticky top-4">
-            <h2 className="text-lg font-semibold mb-4">Bill Summary</h2>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Subtotal (Incl. GST):</span>
+          <div className="bg-white border border-black sticky top-4">
+            <div className="border-b border-black px-4 py-2">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-black">Bill Summary</h2>
+            </div>
+            <div className="text-sm text-black">
+              <div className="flex justify-between border-b border-black px-4 py-2">
+                <span className="font-medium">Subtotal (Incl. GST)</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
               
               {totals.discountAmount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Discount:</span>
-                  <span className="text-green-400">-{formatCurrency(totals.discountAmount)}</span>
+                <div className="flex justify-between border-b border-black px-4 py-2">
+                  <span className="font-medium">Discount</span>
+                  <span>-{formatCurrency(totals.discountAmount)}</span>
                 </div>
               )}
               
               {/* GST Breakdown */}
-              <div className="border-t border-gray-700 pt-2 mt-2">
+              <div>
                 {totals.isInterstate ? (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">IGST:</span>
+                  <div className="flex justify-between border-b border-black px-4 py-2">
+                    <span className="font-medium">IGST</span>
                     <span>{formatCurrency(totals.totalIgst)}</span>
                   </div>
                 ) : (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">CGST:</span>
+                    <div className="flex justify-between border-b border-black px-4 py-2">
+                      <span className="font-medium">CGST</span>
                       <span>{formatCurrency(totals.totalCgst)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">SGST:</span>
+                    <div className="flex justify-between border-b border-black px-4 py-2">
+                      <span className="font-medium">SGST</span>
                       <span>{formatCurrency(totals.totalSgst)}</span>
                     </div>
                   </>
                 )}
-                <div className="flex justify-between font-medium">
-                  <span className="text-gray-300">Total GST:</span>
+                <div className="flex justify-between border-b border-black px-4 py-2 font-medium">
+                  <span>Total GST</span>
                   <span>{formatCurrency(totals.totalGst)}</span>
                 </div>
               </div>
               
-              <div className="border-t border-gray-700 pt-2 mt-2">
-                <div className="flex justify-between text-xl font-bold">
-                  <span>Grand Total:</span>
-                  <span className="text-green-400">{formatCurrency(totals.grandTotal)}</span>
+              <div className="flex justify-between px-4 py-3 text-2xl font-bold border-b border-black">
+                <span>Grand Total</span>
+                <span>{formatCurrency(totals.grandTotal)}</span>
                 </div>
-              </div>
               
               {/* Payment Info */}
-              <div className="border-t border-gray-700 pt-2 mt-2 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Paid:</span>
+              <div>
+                <div className="flex justify-between border-b border-black px-4 py-2">
+                  <span className="font-medium">Paid</span>
                   <span>{formatCurrency(effectiveAmountPaid)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{balanceAmount >= 0 ? 'Change / Balance:' : 'Amount Due:'}</span>
-                  <span className={balanceAmount >= 0 ? 'text-green-400' : 'text-red-400'}>
+                <div className="flex justify-between px-4 py-2">
+                  <span className="font-medium">{balanceAmount >= 0 ? 'Change / Balance' : 'Amount Due'}</span>
+                  <span className={balanceAmount >= 0 ? 'text-black' : 'text-red-700'}>
                     {formatCurrency(Math.abs(balanceAmount))}
                   </span>
                 </div>
@@ -991,11 +1077,11 @@ export default function Billing() {
             </div>
 
             {/* Action Buttons */}
-            <div className="mt-6 space-y-2">
+            <div className="space-y-2 border-t border-black p-4">
               <button
                 onClick={() => handleSaveBill(false)}
                 disabled={saving || billItems.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                className="w-full flex items-center justify-center gap-2 bg-black text-white py-3 border border-black hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
               >
                 <Save size={20} />
                 {saving ? 'Saving...' : 'Save Bill'}
@@ -1003,7 +1089,7 @@ export default function Billing() {
               <button
                 onClick={() => handleSaveBill(true)}
                 disabled={saving || billItems.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-white text-gray-900 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                className="w-full flex items-center justify-center gap-2 bg-white text-gray-900 py-3 border border-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
               >
                 <Printer size={20} />
                 Save & Print

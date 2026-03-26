@@ -1,29 +1,23 @@
 const defaultShopInfo = {
   name: 'Bhagya Medicals',
   address: '',
+  addressLine1: '',
+  addressLine2: '',
   phone: '',
+  email: '',
   gstin: '',
+  dlNo: '',
   state: 'Maharashtra'
 };
 
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR'
-  }).format(Number(amount) || 0);
+const formatAmount = (amount) => (Number(amount) || 0).toFixed(2);
 
-const formatDateTime = (value) => {
+const formatDate = (value) => {
   if (!value) {
     return '-';
   }
 
-  return new Date(value).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return new Date(value).toLocaleDateString('en-GB');
 };
 
 const formatExpiry = (value) => {
@@ -32,25 +26,29 @@ const formatExpiry = (value) => {
   }
 
   return new Date(value).toLocaleDateString('en-IN', {
-    month: 'short',
-    year: 'numeric'
+    month: '2-digit',
+    year: '2-digit'
   });
 };
 
 const getQuantityLabel = (item) => {
-  if (item.quantityLabel) {
-    return item.quantityLabel;
-  }
-
   if (item.packQuantity > 0) {
     return `${item.packQuantity} pack`;
   }
 
   if (item.looseQuantity > 0) {
-    return `${item.looseQuantity} loose`;
+    return `${item.looseQuantity} tablet`;
   }
 
-  return `${item.quantity || item.unitQuantity || 0}`;
+  if (item.quantityLabel) {
+    const normalized = String(item.quantityLabel).trim().toLowerCase();
+    if (normalized.includes('pack')) {
+      return item.quantityLabel;
+    }
+    return normalized.replace(/\b(tab|tabs|tablet|tablets|loose|unit|units)\b/g, 'tablet');
+  }
+
+  return `${item.quantity || item.unitQuantity || 0} tablet`;
 };
 
 export default function BillPrintDocument({ bill, shopInfo, isDraft = false }) {
@@ -60,177 +58,189 @@ export default function BillPrintDocument({ bill, shopInfo, isDraft = false }) {
 
   const info = { ...defaultShopInfo, ...shopInfo };
   const customerName = bill.customerName?.trim() || 'Walk-in Customer';
-  const customerState = bill.customerState?.trim();
-  const lineSubtotal = (bill.items || []).reduce((sum, item) => {
+  const customerAddress = bill.customerAddress?.trim() || '';
+  const doctorName = bill.doctorName?.trim() || '';
+  const doctorRegNo = bill.doctorRegNo?.trim() || '';
+  const shopAddressLines = [info.addressLine1, info.addressLine2, info.address]
+    .filter(Boolean)
+    .flatMap((line) => String(line).split('\n').map((part) => part.trim()).filter(Boolean));
+
+  const lineGrossTotal = (bill.items || []).reduce((sum, item) => {
     const lineTotal = Number(item.total ?? item.amount);
     return sum + (Number.isFinite(lineTotal) ? lineTotal : 0);
   }, 0);
-  const displaySubtotal = lineSubtotal > 0 ? lineSubtotal : Number(bill.subtotal) || 0;
+
+  const displayGrossTotal = lineGrossTotal > 0 ? lineGrossTotal : Number(bill.grandTotal) || 0;
   const displayDiscount = Number(bill.discountAmount) || 0;
-  const displayGrandTotal = displaySubtotal - displayDiscount;
-  const displayAmountPaid = Number(bill.amountPaid) || 0;
-  const balance = displayAmountPaid - displayGrandTotal;
+  const displayTotalGst = Number(bill.totalGst) || 0;
+  const displayCgst = Number(bill.totalCgst) || (displayTotalGst > 0 ? displayTotalGst / 2 : 0);
+  const displaySgst = Number(bill.totalSgst) || (displayTotalGst > 0 ? displayTotalGst / 2 : 0);
+  const displaySubtotal = displayGrossTotal - displayCgst - displaySgst;
+  const grossAfterDiscount = displayGrossTotal - displayDiscount;
+  const roundedGrandTotal = Math.round(grossAfterDiscount);
+  const roundOff = roundedGrandTotal - grossAfterDiscount;
 
   return (
     <div className="bill-print-root">
-      <article className="bill-print-document mx-auto max-w-5xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <header className="flex flex-col gap-6 border-b border-slate-200 pb-6 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Customer Invoice</p>
-                <h2 className="text-3xl font-bold text-slate-900">{info.name}</h2>
-              </div>
-              {isDraft && (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
-                  Draft Preview
-                </span>
-              )}
-            </div>
-
-            {info.address && <p className="text-sm text-slate-600">{info.address}</p>}
-
-            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
-              {info.phone && <span>Phone: {info.phone}</span>}
-              {info.gstin && <span>GSTIN: {info.gstin}</span>}
-              {info.state && <span>State: {info.state}</span>}
-            </div>
+      <article className="bill-print-document mx-auto max-w-5xl border border-black bg-white text-black">
+        <header className="grid grid-cols-2 border-b border-black text-[13px]">
+          <div className="border-r border-black p-[10px] leading-[1.35]">
+            <p className="text-[32px] font-bold uppercase tracking-[0.2px]">{info.name}</p>
+            {shopAddressLines.map((line, idx) => (
+              <p key={`shop-line-${idx}`}>{line}</p>
+            ))}
+            {info.phone && <p>Phone : {info.phone}</p>}
+            {info.email && <p>E-Mail : {info.email}</p>}
           </div>
 
-          <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 md:min-w-72">
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Invoice No.</span>
-              <span className="font-semibold text-slate-900">{bill.invoiceNumber || 'Will be assigned on save'}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Bill Date</span>
-              <span className="font-semibold text-slate-900">{formatDateTime(bill.billDate || new Date())}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Payment</span>
-              <span className="font-semibold text-slate-900">{bill.paymentMode || 'CASH'}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Tax Type</span>
-              <span className="font-semibold text-slate-900">{bill.isInterstate ? 'IGST' : 'CGST + SGST'}</span>
-            </div>
+          <div className="p-[10px] leading-[1.45]">
+            <p>
+              <span className="font-semibold">Patient Name :</span> {customerName}
+            </p>
+            <p>
+              <span className="font-semibold">Patient Address :</span> {customerAddress}
+            </p>
+            <p>
+              <span className="font-semibold">Dr Name :</span> {doctorName}
+            </p>
+            <p>
+              <span className="font-semibold">Dr Reg No.</span> : {doctorRegNo}
+            </p>
+            {isDraft && <p className="mt-1 text-xs font-semibold uppercase">Draft Preview</p>}
           </div>
         </header>
 
-        <section className="grid gap-4 border-b border-slate-200 py-6 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Billed To</p>
-            <h3 className="mt-2 text-lg font-semibold text-slate-900">{customerName}</h3>
-            <div className="mt-3 space-y-1 text-sm text-slate-600">
-              <p>Phone: {bill.customerPhone?.trim() || '-'}</p>
-              <p>State: {customerState || '-'}</p>
-            </div>
+        <section className="grid grid-cols-[2fr_1.5fr_1.8fr] border-b border-black text-[12px]">
+          <div className="border-r border-black p-2">
+            <p>GSTIN : {info.gstin || '-'}</p>
+            <p>D.L.No. : {info.dlNo || '-'}</p>
           </div>
-
-          <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Notes</p>
-            <p className="mt-2">Prices are inclusive of GST. Please verify medicines and quantities before leaving the counter.</p>
+          <div className="flex items-center justify-center border-r border-black text-center text-[16px] font-bold tracking-[0.5px]">
+            GST INVOICE
+          </div>
+          <div className="p-2">
+            <p>
+              <span className="font-semibold">Invoice No.</span> : {bill.invoiceNumber || 'PENDING'}
+            </p>
+            <p>
+              <span className="font-semibold">Date</span>: {formatDate(bill.billDate || new Date())}
+            </p>
           </div>
         </section>
 
-        <section className="py-6">
-          <div className="overflow-hidden rounded-2xl border border-slate-200">
-            <table className="bill-document-table w-full">
-              <thead>
-                <tr className="bg-slate-100">
-                  <th className="w-14 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Medicine</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Batch</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Expiry</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Qty</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Rate</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">GST</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {bill.items?.map((item, index) => (
+        <section>
+          <table className="bill-document-table w-full border-collapse text-[11px]">
+            <colgroup>
+              <col style={{ width: '3%' }} />
+              <col style={{ width: '27%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '10%' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="border border-black px-1 py-1 text-left font-bold uppercase">Sn.</th>
+                <th className="border border-black px-1 py-1 text-left font-bold uppercase">Product Name</th>
+                <th className="border border-black px-1 py-1 text-left font-bold uppercase">Pack</th>
+                <th className="border border-black px-1 py-1 text-left font-bold uppercase">HSN</th>
+                <th className="border border-black px-1 py-1 text-left font-bold uppercase">Batch</th>
+                <th className="border border-black px-1 py-1 text-left font-bold uppercase">Exp.</th>
+                <th className="border border-black px-1 py-1 text-right font-bold uppercase">Qty</th>
+                <th className="border border-black px-1 py-1 text-right font-bold uppercase">MRP</th>
+                <th className="border border-black px-1 py-1 text-right font-bold uppercase">SGST</th>
+                <th className="border border-black px-1 py-1 text-right font-bold uppercase">CGST</th>
+                <th className="border border-black px-1 py-1 text-right font-bold uppercase">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(bill.items || []).map((item, index) => {
+                const gstPercent = Number(item.gstPercent) || 0;
+                const itemSgstPercent = Number(item.sgstPercent || (gstPercent / 2));
+                const itemCgstPercent = Number(item.cgstPercent || (gstPercent / 2));
+
+                return (
                   <tr key={`${item.medicineName}-${item.batchNumber}-${index}`}>
-                    <td className="px-4 py-4 text-sm text-slate-500">{index + 1}</td>
-                    <td className="px-4 py-4">
-                      <div className="font-semibold text-slate-900">{item.medicineName}</div>
-                      <div className="text-xs text-slate-500">{item.brandName || '-'}</div>
+                    <td className="border-x border-black px-1 py-[3px] align-top">{index + 1}.</td>
+                    <td className="border-x border-black px-1 py-1 align-top uppercase">{item.medicineName || '-'}</td>
+                    <td className="border-x border-black px-1 py-1 align-top">{item.packSize || item.medicine?.packSize || '-'}</td>
+                    <td className="border-x border-black px-1 py-1 align-top">{item.hsnCode || '-'}</td>
+                    <td className="border-x border-black px-1 py-1 align-top">{item.batchNumber || '-'}</td>
+                    <td className="border-x border-black px-1 py-1 align-top">{formatExpiry(item.expiryDate)}</td>
+                    <td className="border-x border-black px-1 py-1 text-right align-top">{getQuantityLabel(item)}</td>
+                    <td className="border-x border-black px-1 py-1 text-right align-top">{formatAmount(item.rate)}</td>
+                    <td className="border-x border-black px-1 py-1 text-right align-top">
+                      {itemSgstPercent.toFixed(2)}%
                     </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">{item.batchNumber || '-'}</td>
-                    <td className="px-4 py-4 text-sm text-slate-700">{formatExpiry(item.expiryDate)}</td>
-                    <td className="px-4 py-4 text-right text-sm font-medium text-slate-900">{getQuantityLabel(item)}</td>
-                    <td className="px-4 py-4 text-right text-sm text-slate-700">{formatCurrency(item.rate)}</td>
-                    <td className="px-4 py-4 text-right text-sm text-slate-700">{item.gstPercent || 0}%</td>
-                    <td className="px-4 py-4 text-right text-sm font-semibold text-slate-900">
-                      {formatCurrency(item.total ?? item.amount)}
+                    <td className="border-x border-black px-1 py-1 text-right align-top">
+                      {itemCgstPercent.toFixed(2)}%
+                    </td>
+                    <td className="border-x border-black px-1 py-1 text-right align-top">
+                      {formatAmount(item.total ?? item.amount)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+              {Array.from({ length: Math.max(0, 12 - (bill.items || []).length) }).map((_, index) => (
+                <tr key={`blank-${index}`}>
+                  <td className="border-x border-black h-[22px]" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                  <td className="border-x border-black" />
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
 
-        <section className="grid gap-6 border-t border-slate-200 pt-6 md:grid-cols-[1fr_320px]">
-          <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-semibold uppercase tracking-wide text-slate-700">Declaration</p>
-            <p className="mt-2">This is a computer-generated invoice and does not require a physical signature.</p>
-            <p className="mt-3 text-xs text-slate-500">Thank you for shopping with us. Medicines once sold may not be eligible for return unless required by law.</p>
+        <section className="grid grid-cols-[1fr_290px] border-t border-black">
+          <div className="border-r border-black p-2 text-[11px] leading-5">
+            <p className="font-semibold">Terms & Conditions</p>
+            <p>Goods once sold will not be taken back or exchanged.</p>
+            <p>Bills not paid due date will attract 24% interest.</p>
+            <p>All disputes subject to jurisdiction only.</p>
+            <p>Prescribed sales tax declaration will be given.</p>
+            <p className="mt-2 font-semibold">For {info.name.toUpperCase()}</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200">
-            <div className="space-y-3 p-5 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">Subtotal (Incl. GST)</span>
-                <span className="font-medium text-slate-900">{formatCurrency(displaySubtotal)}</span>
+          <div className="text-[12px]">
+            <div className="flex items-center justify-between border-b border-black px-3 py-2">
+              <span className="font-semibold">SUB TOTAL</span>
+              <span className="font-semibold">{formatAmount(displaySubtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-black px-3 py-2">
+              <span>SGST</span>
+              <span>{formatAmount(displaySgst)}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-black px-3 py-2">
+              <span>CGST</span>
+              <span>{formatAmount(displayCgst)}</span>
+            </div>
+            {displayDiscount > 0 && (
+              <div className="flex items-center justify-between border-b border-black px-3 py-2">
+                <span>DISCOUNT</span>
+                <span>-{formatAmount(displayDiscount)}</span>
               </div>
-
-              {displayDiscount > 0 && (
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-500">Discount</span>
-                  <span className="font-medium text-emerald-700">-{formatCurrency(displayDiscount)}</span>
-                </div>
-              )}
-
-              {bill.isInterstate ? (
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-500">IGST</span>
-                  <span className="font-medium text-slate-900">{formatCurrency(bill.totalIgst || bill.totalGst)}</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500">CGST</span>
-                    <span className="font-medium text-slate-900">{formatCurrency(bill.totalCgst)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500">SGST</span>
-                    <span className="font-medium text-slate-900">{formatCurrency(bill.totalSgst)}</span>
-                  </div>
-                </>
-              )}
-
-              <div className="flex items-center justify-between gap-4 border-t border-dashed border-slate-200 pt-3">
-                <span className="text-slate-500">Total GST</span>
-                <span className="font-medium text-slate-900">{formatCurrency(bill.totalGst)}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 border-t border-slate-200 pt-3 text-base">
-                <span className="font-semibold text-slate-900">Grand Total</span>
-                <span className="font-bold text-slate-900">{formatCurrency(displayGrandTotal)}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">Amount Paid</span>
-                <span className="font-medium text-slate-900">{formatCurrency(displayAmountPaid)}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">{balance >= 0 ? 'Change / Balance' : 'Amount Due'}</span>
-                <span className={`font-semibold ${balance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {formatCurrency(Math.abs(balance))}
-                </span>
-              </div>
+            )}
+            <div className="flex items-center justify-between border-b border-black px-3 py-2">
+              <span>Roundoff</span>
+              <span>{formatAmount(roundOff)}</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-3 text-[28px] font-bold">
+              <span>GRAND TOTAL</span>
+              <span>{formatAmount(roundedGrandTotal)}</span>
             </div>
           </div>
         </section>

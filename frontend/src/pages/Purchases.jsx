@@ -1755,10 +1755,6 @@ export default function Purchases() {
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                    <input type="text" value={notes} onChange={(e) => setNotes(normalizeTextInput(e.target.value))} maxLength={250} placeholder="Any additional notes..." className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-emerald-500" />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Amount</label>
                     <input
                       type="number"
@@ -1767,110 +1763,70 @@ export default function Purchases() {
                       value={miscellaneousAmount}
                       onChange={(e) => setMiscellaneousAmount(parseFloat(e.target.value) || 0)}
                       placeholder="0.00"
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-slate-500 bg-white px-3 py-2 focus:border-slate-700 focus:ring-0"
                     />
                   </div>
-                  <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-lime-50 p-4 shadow-[0_14px_40px_rgba(148,163,184,0.18)]">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-lime-700">Purchase Insights</p>
-                        <h3 className="mt-2 text-lg font-semibold text-slate-900">Entry Snapshot</h3>
-                        <p className="mt-1 text-sm text-slate-500">A quick look at the purchase before saving.</p>
-                      </div>
-                      <div className="rounded-2xl bg-slate-900 px-3 py-2 text-right text-white shadow-sm">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300">Items</p>
-                        <p className="mt-1 text-2xl font-bold">{purchaseItems.length}</p>
-                      </div>
+                  <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2">
+                      <h3 className="text-sm font-bold uppercase tracking-wide text-slate-800">Purchase Details</h3>
                     </div>
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">Payment Mode</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">{paymentMode || 'CASH'}</p>
+                    <div className="text-sm">
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Items</span>
+                        <span>{purchaseItems.length}</span>
                       </div>
-                      <div className="rounded-2xl border border-violet-100 bg-violet-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Purchase Date</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">{purchaseDate || 'Not set'}</p>
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Payment Mode</span>
+                        <span>{paymentMode || 'CASH'}</span>
                       </div>
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount Saved</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.totalDiscount.toFixed(2)}</p>
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Purchase Date</span>
+                        <span>{purchaseDate || 'Not set'}</span>
                       </div>
-                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600">Extra Charges</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.miscellaneousAmount.toFixed(2)}</p>
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Discount Saved</span>
+                        <span className="text-emerald-700">Rs. {totals.totalDiscount.toFixed(2)}</span>
                       </div>
-                      <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.totalCgst.toFixed(2)}</p>
+                      <div className="flex items-center justify-between px-4 py-2">
+                        <span className="font-medium">Extra Charges</span>
+                        <span>Rs. {totals.miscellaneousAmount.toFixed(2)}</span>
                       </div>
-                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-600">SGST</p>
-                        <p className="mt-2 text-base font-semibold text-slate-900">Rs. {totals.totalSgst.toFixed(2)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/80 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Notes Preview</p>
-                      <p className="mt-2 text-sm text-slate-600">{notes.trim() || 'Add a short note to remember supplier terms, batch info, or delivery details.'}</p>
                     </div>
                   </div>
                 </div>
                 <div>
-                  <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-emerald-50 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
-                    <div className="mb-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900 px-4 py-4 text-white">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200">Live Totals</p>
-                        <h3 className="mt-2 text-xl font-semibold">Purchase Summary</h3>
-                        <p className="mt-1 text-sm text-slate-300">Review the purchase value as you update items.</p>
-                      </div>
-                      <div className="hidden rounded-2xl bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100">Grand Total</p>
-                        <p className="mt-1 text-2xl font-bold text-emerald-300">Rs. {totals.grandTotal.toFixed(2)}</p>
-                      </div>
+                  <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2">
+                      <h3 className="text-sm font-bold uppercase tracking-wide text-slate-800">Purchase Summary</h3>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Subtotal</p>
-                        <p className="text-xl font-bold">Rs. {totals.subtotal.toFixed(2)}</p>
+                    <div className="text-sm text-black">
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Subtotal</span>
+                        <span>Rs. {totals.subtotal.toFixed(2)}</span>
                       </div>
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Discount</p>
-                        <p className="text-xl font-bold text-green-400">-Rs. {totals.totalDiscount.toFixed(2)}</p>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Discount</span>
+                        <span className="text-emerald-700">-Rs. {totals.totalDiscount.toFixed(2)}</span>
                       </div>
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Total GST</p>
-                        <p className="text-xl font-bold">Rs. {totals.totalGst.toFixed(2)}</p>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">CGST</span>
+                        <span>Rs. {totals.totalCgst.toFixed(2)}</span>
                       </div>
-                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Miscellaneous</p>
-                        <p className="text-xl font-bold">Rs. {totals.miscellaneousAmount.toFixed(2)}</p>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">SGST</span>
+                        <span>Rs. {totals.totalSgst.toFixed(2)}</span>
                       </div>
-                      <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">CGST</p>
-                        <p className="text-xl font-bold">Rs. {totals.totalCgst.toFixed(2)}</p>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Total GST</span>
+                        <span>Rs. {totals.totalGst.toFixed(2)}</span>
                       </div>
-                      <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">SGST</p>
-                        <p className="text-xl font-bold">Rs. {totals.totalSgst.toFixed(2)}</p>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Miscellaneous</span>
+                        <span>Rs. {totals.miscellaneousAmount.toFixed(2)}</span>
                       </div>
-                      <div className="hidden rounded-2xl border border-slate-200 bg-slate-950 p-4 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Grand Total</p>
-                        <p className="text-2xl font-bold text-green-400">Rs. {totals.grandTotal.toFixed(2)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_35%),linear-gradient(135deg,_#020617_0%,_#0f172a_45%,_#052e2b_100%)] shadow-[0_24px_70px_rgba(2,6,23,0.28)]">
-                      <div className="flex items-center justify-between gap-4 px-5 py-6">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-emerald-200/80">Grand Total</p>
-                          <p className="mt-2 text-sm text-slate-300">Final payable amount including GST and extras</p>
-                          <div className="mt-3 h-px w-24 bg-gradient-to-r from-emerald-300/80 to-transparent" />
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100/70">Amount Payable</p>
-                          <p className="mt-2 text-4xl font-black tracking-tight text-white drop-shadow-[0_8px_24px_rgba(52,211,153,0.18)]">Rs. {totals.grandTotal.toFixed(2)}</p>
-                          <div className="mt-3 inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-medium text-emerald-100 backdrop-blur-sm">
-                            Updated live
-                          </div>
-                        </div>
+                      <div className="flex justify-between bg-slate-900 px-4 py-3 text-2xl font-bold text-white">
+                        <span className="tracking-wide">Grand Total</span>
+                        <span>Rs. {totals.grandTotal.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -1881,8 +1837,8 @@ export default function Purchases() {
                 <button onClick={() => {
                   setShowAddModal(false);
                   resetForm();
-                }} className="rounded-xl border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50">Cancel</button>
-                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2 text-white transition-colors hover:bg-emerald-700 disabled:opacity-50">
+                }} className="rounded-lg border border-slate-400 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-slate-50">Cancel</button>
+                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-lg border border-black bg-black px-6 py-2 text-white transition-colors hover:bg-gray-900 disabled:opacity-50">
                   <Save size={20} />
                   {saving ? 'Saving...' : editingPurchaseId ? 'Update Purchase' : 'Save Purchase'}
                 </button>

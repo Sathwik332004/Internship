@@ -23,7 +23,13 @@ export default function Bills() {
   const [paymentFilter, setPaymentFilter] = useState('ALL');
 
   const SHOP_INFO = {
-    name: 'Bhagya Medicals',
+    name: 'BHAGYA MEDICALS',
+    addressLine1: 'GROUND FLOOR PRIME CITY CENTRE MALL',
+    addressLine2: 'OPP GOVT. COLLEGE KARKALA UDUPI',
+    phone: '8829063939',
+    email: 'devarajshetty.56@gmail.com',
+    gstin: '29AEQPD2184N1ZW',
+    dlNo: 'KA-UD1-267389',
     state: 'Maharashtra'
   };
 
@@ -123,6 +129,18 @@ export default function Bills() {
 
   const calculateTotalItems = (items) => {
     return items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+  };
+
+  const formatQuantityLabel = (item = {}) => {
+    if (Number(item.packQuantity || 0) > 0) {
+      return `${item.packQuantity} pack`;
+    }
+
+    if (Number(item.looseQuantity || 0) > 0) {
+      return `${item.looseQuantity} tablet`;
+    }
+
+    return `${item.quantity || item.unitQuantity || 0} tablet`;
   };
 
   const getPendingAmount = (bill) => {
@@ -499,15 +517,28 @@ export default function Bills() {
                       {expandedBill === bill._id && (
                         <tr>
                           <td colSpan="8" className="px-4 py-4 bg-gray-50">
+                            <div className="mb-3 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm md:grid-cols-2">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Doctor Name</p>
+                                <p className="font-medium text-gray-900">{bill.doctorName || '-'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Doctor Reg No.</p>
+                                <p className="font-medium text-gray-900">{bill.doctorRegNo || '-'}</p>
+                              </div>
+                            </div>
                             <div className="border rounded-lg overflow-hidden">
                               <table className="w-full">
                                 <thead className="bg-gray-100">
                                   <tr>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Medicine</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Pack</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">HSN</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Batch</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Qty</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Rate</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">GST</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">CGST</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">SGST</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Disc</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Total</th>
                                   </tr>
@@ -519,10 +550,13 @@ export default function Bills() {
                                         <div>{item.medicineName}</div>
                                         <div className="text-xs text-gray-500">{item.brandName}</div>
                                       </td>
+                                      <td className="px-4 py-2 text-sm text-gray-500">{item.packSize || item.medicine?.packSize || '-'}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-500">{item.hsnCode || item.medicine?.hsnCodeString || '-'}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.batchNumber}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">{formatQuantityLabel(item)}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">Rs. {item.rate?.toFixed(2)}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-500">{item.gstPercent}%</td>
+                                      <td className="px-4 py-2 text-sm text-gray-500">{Number(item.cgstPercent || (item.gstPercent || 0) / 2).toFixed(2)}%</td>
+                                      <td className="px-4 py-2 text-sm text-gray-500">{Number(item.sgstPercent || (item.gstPercent || 0) / 2).toFixed(2)}%</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.discountPercent}%</td>
                                       <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {item.total?.toFixed(2)}</td>
                                     </tr>
@@ -530,44 +564,60 @@ export default function Bills() {
                                 </tbody>
                                 <tfoot className="bg-gray-50">
                                   <tr>
-                                    <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Subtotal:</td>
+                                    <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Subtotal:</td>
                                     <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {bill.subtotal?.toFixed(2)}</td>
                                   </tr>
                                   <tr>
-                                    <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
+                                    <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">CGST:</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {Number(bill.totalCgst || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">SGST:</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {Number(bill.totalSgst || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
                                     <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {bill.totalGst?.toFixed(2)}</td>
                                   </tr>
                                   {bill.discountAmount > 0 && (
                                     <tr>
-                                      <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">
+                                      <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">
                                         Discount ({bill.discountPercent}%):
                                       </td>
                                       <td colSpan="2" className="px-4 py-2 text-sm font-medium text-green-600">-Rs. {bill.discountAmount?.toFixed(2)}</td>
                                     </tr>
                                   )}
+                                  <tr>
+                                    <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Roundoff:</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">
+                                      Rs. {(Math.round(Number((bill.subtotal || 0) - (bill.discountAmount || 0))) - Number((bill.subtotal || 0) - (bill.discountAmount || 0))).toFixed(2)}
+                                    </td>
+                                  </tr>
                                   <tr className="bg-emerald-50">
-                                    <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
-                                    <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-900">Rs. {bill.grandTotal?.toFixed(2)}</td>
+                                    <td colSpan="8" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
+                                    <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-900">
+                                      Rs. {Math.round(Number((bill.subtotal || 0) - (bill.discountAmount || 0))).toFixed(2)}
+                                    </td>
                                   </tr>
                                   {Number(bill.returnTotal || 0) > 0 && (
                                     <>
                                       <tr>
-                                        <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Sales Return:</td>
+                                        <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Sales Return:</td>
                                         <td colSpan="2" className="px-4 py-2 text-sm font-medium text-amber-600">-Rs. {Number(bill.returnTotal || 0).toFixed(2)}</td>
                                       </tr>
                                       <tr className="bg-emerald-50">
-                                        <td colSpan="5" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Net Sales:</td>
+                                        <td colSpan="8" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Net Sales:</td>
                                         <td colSpan="2" className="px-4 py-2 text-sm font-bold text-emerald-700">Rs. {Number(bill.netGrandTotal ?? bill.grandTotal ?? 0).toFixed(2)}</td>
                                       </tr>
                                     </>
                                   )}
                                   <tr>
-                                    <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Amount Paid:</td>
+                                    <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Amount Paid:</td>
                                     <td colSpan="2" className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {bill.amountPaid?.toFixed(2)}</td>
                                   </tr>
                                   {getPendingAmount(bill) > 0 && (
                                     <tr>
-                                      <td colSpan="5" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Pending Amount:</td>
+                                      <td colSpan="8" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Pending Amount:</td>
                                       <td colSpan="2" className="px-4 py-2 text-sm font-medium text-red-600">{formatAmount(getPendingAmount(bill))}</td>
                                     </tr>
                                   )}

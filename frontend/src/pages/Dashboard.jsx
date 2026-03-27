@@ -50,10 +50,13 @@ export default function Dashboard() {
   const [recentBills, setRecentBills] = useState([]);
   const [lowStockMedicines, setLowStockMedicines] = useState([]);
   const [expiringItems, setExpiringItems] = useState([]);
+  const [expiredItems, setExpiredItems] = useState([]);
   const [last7Days, setLast7Days] = useState([]);
   const [paymentModeData, setPaymentModeData] = useState([]);
   const [dashboardError, setDashboardError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [activeCard, setActiveCard] = useState('todaySales');
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -106,6 +109,7 @@ export default function Dashboard() {
 
       setLowStockMedicines(lowStock.slice(0, 5));
       setExpiringItems(expiring.slice(0, 5));
+      setExpiredItems(expired.slice(0, 5));
       setRecentBills(recentBills);
       setLast7Days(billsStats.last7Days || []);
       setPaymentModeData(
@@ -135,6 +139,182 @@ export default function Dashboard() {
   const chartSalesMax = Math.max(...last7Days.map(day => Number(day.sales) || 0), 0);
   const hasSalesChartData = last7Days.some(day => Number(day.sales) > 0);
   const hasPaymentModeData = paymentModeData.some(item => Number(item.value) > 0);
+  const cardBaseClasses = 'bg-white rounded-xl shadow-sm border p-6 cursor-pointer hover:shadow-md transition-shadow duration-200';
+
+  const handleCardClick = (cardKey) => {
+    setActiveCard(cardKey);
+    setIsDetailsModalOpen(true);
+  };
+
+  useEffect(() => {
+    if (!isDetailsModalOpen) {
+      return undefined;
+    }
+
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        setIsDetailsModalOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isDetailsModalOpen]);
+
+  const quickViewMeta = {
+    todaySales: {
+      title: "Today's Sales Details",
+      description: 'Latest bills recorded today.'
+    },
+    todayGst: {
+      title: "Today's GST Details",
+      description: 'Tax collected from the latest transactions.'
+    },
+    monthlySales: {
+      title: 'Monthly Sales Snapshot',
+      description: 'Recent transactions contributing to this month.'
+    },
+    totalMedicines: {
+      title: 'Medicine Inventory Snapshot',
+      description: 'Medicines that currently need stock attention.'
+    },
+    lowStock: {
+      title: 'Low Stock Details',
+      description: 'Medicines close to or below reorder level.'
+    },
+    expiring: {
+      title: 'Expiring Soon Details',
+      description: 'Inventory expiring within 90 days.'
+    },
+    expired: {
+      title: 'Expired Inventory Details',
+      description: 'Items already expired and pending disposal action.'
+    },
+    suppliers: {
+      title: 'Supplier Summary',
+      description: 'Current supplier count in the system.'
+    },
+    assets: {
+      title: 'Asset Summary',
+      description: isAdmin ? 'Tracked business assets.' : 'Assets are visible only to admins.'
+    }
+  };
+
+  const renderQuickViewContent = () => {
+    if (['todaySales', 'todayGst', 'monthlySales'].includes(activeCard)) {
+      return recentBills.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">No recent bills available</p>
+      ) : (
+        <div className="space-y-3">
+          {recentBills.slice(0, 5).map((bill) => (
+            <div key={bill._id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <div>
+                <p className="font-medium text-gray-900">{bill.invoiceNumber}</p>
+                <p className="text-sm text-gray-600">{bill.customerName || 'Walk-in Customer'}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-gray-900">{formatCurrency(bill.netGrandTotal ?? bill.grandTotal)}</p>
+                <p className="text-xs text-gray-500">{new Date(bill.billDate).toLocaleDateString()}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (['totalMedicines', 'lowStock'].includes(activeCard)) {
+      return lowStockMedicines.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">No low stock medicines found</p>
+      ) : (
+        <div className="space-y-3">
+          {lowStockMedicines.slice(0, 5).map((item) => (
+            <div key={item.medicine?._id || item._id} className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-4 py-3">
+              <div>
+                <p className="font-medium text-gray-900">{item.medicine?.medicineName || item.medicineName}</p>
+                <p className="text-sm text-gray-600">{item.medicine?.brandName || item.brandName || 'No brand'}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-red-600">{item.currentStock ?? item.quantity ?? item.stock ?? 0}</p>
+                <p className="text-xs text-gray-500">Reorder at {item.reorderLevel || 0}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeCard === 'expiring') {
+      return expiringItems.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">No expiring items available</p>
+      ) : (
+        <div className="space-y-3">
+          {expiringItems.slice(0, 5).map((item) => (
+            <div key={item._id} className="flex items-center justify-between rounded-lg border border-orange-100 bg-orange-50 px-4 py-3">
+              <div>
+                <p className="font-medium text-gray-900">{item.medicine?.medicineName}</p>
+                <p className="text-sm text-gray-600">Batch: {item.batchNumber}</p>
+              </div>
+              <div className="text-right">
+                <p className={`font-bold ${item.daysUntilExpiry <= 30 ? 'text-red-600' : 'text-orange-600'}`}>
+                  {item.daysUntilExpiry} days
+                </p>
+                <p className="text-xs text-gray-500">{new Date(item.expiryDate).toLocaleDateString()}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeCard === 'expired') {
+      return expiredItems.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">No expired items available</p>
+      ) : (
+        <div className="space-y-3">
+          {expiredItems.slice(0, 5).map((item) => (
+            <div key={item._id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <div>
+                <p className="font-medium text-gray-900">{item.medicine?.medicineName}</p>
+                <p className="text-sm text-gray-600">Batch: {item.batchNumber}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-gray-700">Expired</p>
+                <p className="text-xs text-gray-500">{new Date(item.expiryDate).toLocaleDateString()}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeCard === 'suppliers') {
+      return (
+        <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-5">
+          <p className="text-sm text-amber-700">Total registered suppliers</p>
+          <p className="mt-1 text-2xl font-bold text-amber-800">{stats.totalSuppliers}</p>
+        </div>
+      );
+    }
+
+    if (activeCard === 'assets') {
+      return (
+        <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-5">
+          <p className="text-sm text-amber-700">Total tracked assets</p>
+          <p className="mt-1 text-2xl font-bold text-amber-800">
+            {isAdmin ? stats.totalAssets : 'Restricted'}
+          </p>
+          {!isAdmin ? (
+            <p className="mt-2 text-xs text-gray-600">Ask an admin account to view full asset details.</p>
+          ) : null}
+        </div>
+      );
+    }
+
+    return <p className="text-gray-500 text-center py-4">Select a card to view details.</p>;
+  };
 
   if (loading) {
     return (
@@ -162,7 +342,10 @@ export default function Dashboard() {
       {/* Stats Grid - Today's Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Today's Sales */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div
+          onClick={() => handleCardClick('todaySales')}
+          className={`${cardBaseClasses} border-gray-200`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Today's Sales</p>
@@ -182,7 +365,10 @@ export default function Dashboard() {
         </div>
 
         {/* Today's GST */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div
+          onClick={() => handleCardClick('todayGst')}
+          className={`${cardBaseClasses} border-gray-200`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Today's GST Collected</p>
@@ -198,7 +384,10 @@ export default function Dashboard() {
         </div>
 
         {/* Monthly Sales */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div
+          onClick={() => handleCardClick('monthlySales')}
+          className={`${cardBaseClasses} border-gray-200`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">This Month</p>
@@ -217,7 +406,10 @@ export default function Dashboard() {
         </div>
 
         {/* Total Medicines */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div
+          onClick={() => handleCardClick('totalMedicines')}
+          className={`${cardBaseClasses} border-gray-200`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Medicines</p>
@@ -236,7 +428,10 @@ export default function Dashboard() {
       {/* Alert Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Low Stock Alert */}
-        <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6">
+        <div
+          onClick={() => handleCardClick('lowStock')}
+          className={`${cardBaseClasses} border-red-200`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Low Stock Alert</p>
@@ -252,7 +447,10 @@ export default function Dashboard() {
         </div>
 
         {/* Expiring Soon (90 days) */}
-        <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-6">
+        <div
+          onClick={() => handleCardClick('expiring')}
+          className={`${cardBaseClasses} border-orange-200`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Expiring Soon</p>
@@ -268,7 +466,10 @@ export default function Dashboard() {
         </div>
 
         {/* Expired */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div
+          onClick={() => handleCardClick('expired')}
+          className={`${cardBaseClasses} border-gray-200`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Expired Items</p>
@@ -286,7 +487,10 @@ export default function Dashboard() {
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div
+          onClick={() => handleCardClick('suppliers')}
+          className={`${cardBaseClasses} border-gray-200`}
+        >
           <div className="flex items-center gap-4">
             <div className="p-3 bg-amber-100 rounded-lg">
               <Users className="w-6 h-6 text-amber-600" />
@@ -298,7 +502,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div
+          onClick={() => handleCardClick('assets')}
+          className={`${cardBaseClasses} border-gray-200 ${isAdmin ? '' : 'cursor-not-allowed opacity-80'}`}
+        >
           <div className="flex items-center gap-4">
             <div className="p-3 bg-amber-100 rounded-lg">
               <ShoppingCart className="w-6 h-6 text-amber-600" />
@@ -491,6 +698,35 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {isDetailsModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+          onClick={() => setIsDetailsModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-xl border border-gray-200 bg-white shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-gray-200 p-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">{quickViewMeta[activeCard]?.title}</h2>
+                <p className="mt-1 text-sm text-gray-600">{quickViewMeta[activeCard]?.description}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-6">
+              {renderQuickViewContent()}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, AlertTriangle, Package, X, ChevronLeft, ChevronRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
   normalizeTextInput,
@@ -88,7 +89,7 @@ export default function Medicines() {
     e.preventDefault();
     const validationError = validateMedicineForm(formData, UNIT_OPTIONS);
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -131,7 +132,7 @@ export default function Medicines() {
       fetchMedicines();
     } catch (error) {
       console.error('Error saving medicine:', error);
-      alert(error.response?.data?.message || 'Error saving medicine. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving medicine. Please try again.');
     }
   };
 
@@ -142,7 +143,7 @@ export default function Medicines() {
       fetchMedicines();
     } catch (error) {
       console.error('Error deleting medicine:', error);
-      alert(error.response?.data?.message || 'Error deleting medicine. Please try again.');
+      toast.error(error.response?.data?.message || 'Error deleting medicine. Please try again.');
     }
   };
 

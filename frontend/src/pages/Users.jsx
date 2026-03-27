@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, User, Shield, Phone, Mail, CheckCircle, XCircle } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
   normalizeEmail,
@@ -57,7 +58,7 @@ export default function Users() {
 
     const validationError = validateUserForm(formData, { editingUser: !!editingUser });
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -82,7 +83,7 @@ export default function Users() {
       fetchUsers();
     } catch (error) {
       console.error('Error saving user:', error);
-      alert('Error saving user. Please try again.');
+      toast.error('Error saving user. Please try again.');
     }
   };
 
@@ -93,7 +94,7 @@ export default function Users() {
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Error deleting user. Please try again.');
+      toast.error('Error deleting user. Please try again.');
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, Monitor, Car, Sofa, Wrench, Package, AlertTriangle } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
   normalizeTextInput,
@@ -72,7 +73,7 @@ export default function Assets() {
     e.preventDefault();
     const validationError = validateAssetForm(formData);
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -97,7 +98,7 @@ export default function Assets() {
       fetchAssets();
     } catch (error) {
       console.error('Error saving asset:', error);
-      alert('Error saving asset. Please try again.');
+      toast.error('Error saving asset. Please try again.');
     }
   };
 
@@ -108,7 +109,7 @@ export default function Assets() {
       fetchAssets();
     } catch (error) {
       console.error('Error deleting asset:', error);
-      alert('Error deleting asset. Please try again.');
+      toast.error('Error deleting asset. Please try again.');
     }
   };
 

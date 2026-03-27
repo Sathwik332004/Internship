@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, AlertTriangle, Hash, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
   validateHSNForm
@@ -44,7 +45,7 @@ export default function HSNCodes() {
     e.preventDefault();
     const validationError = validateHSNForm(formData);
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -66,7 +67,7 @@ export default function HSNCodes() {
       fetchHSNCodes();
     } catch (error) {
       console.error('Error saving HSN code:', error);
-      alert(error.response?.data?.message || 'Error saving HSN code. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving HSN code. Please try again.');
     }
   };
 
@@ -77,7 +78,7 @@ export default function HSNCodes() {
       fetchHSNCodes();
     } catch (error) {
       console.error('Error deleting HSN code:', error);
-      alert(error.response?.data?.message || 'Error deleting HSN code. Please try again.');
+      toast.error(error.response?.data?.message || 'Error deleting HSN code. Please try again.');
     }
   };
 

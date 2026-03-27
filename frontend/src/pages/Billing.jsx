@@ -23,6 +23,7 @@ import {
   normalizeTextInput,
   validateBillingForm
 } from '../utils/validation';
+import { toast } from 'react-toastify';
 
 const SHOP_INFO = {
   name: 'BHAGYA MEDICALS',
@@ -544,7 +545,7 @@ export default function Billing() {
     });
     if (validationError) {
       setErrorMessage(validationError);
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -617,7 +618,7 @@ export default function Billing() {
       setDiscountPercent(0);
       setAmountPaid('');
       setErrorMessage('');
-      alert(shouldPrint ? 'Bill saved. Print dialog opened.' : 'Bill saved successfully!');
+      toast.success(shouldPrint ? 'Bill saved. Print dialog opened.' : 'Bill saved successfully!');
 
       if (shouldPrint && createdBill) {
         setTimeout(() => {
@@ -629,7 +630,7 @@ export default function Billing() {
       console.error('Bill save response:', error.response?.data);
       const errorMsg = error.response?.data?.message || 'Error saving bill';
       setErrorMessage(errorMsg);
-      alert(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -637,7 +638,7 @@ export default function Billing() {
 
   // Handle QR code scan (placeholder)
   const handleQRScan = () => {
-    alert('QR Code scanning feature - integrate with your QR scanner hardware');
+    toast.info('QR Code scanning feature - integrate with your QR scanner hardware');
   };
 
   return (

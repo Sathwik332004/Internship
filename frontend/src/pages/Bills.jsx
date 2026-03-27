@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, Phone, Printer, RotateCcw, Users, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import BillPrintDocument from '../components/BillPrintDocument';
 import api from '../services/api';
 
@@ -110,7 +111,7 @@ export default function Bills() {
       }
     } catch (error) {
       console.error('Error deleting bill:', error);
-      alert('Error deleting bill. Please try again.');
+      toast.error('Error deleting bill. Please try again.');
     }
   };
 

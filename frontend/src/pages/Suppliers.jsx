@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, X, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
   normalizeEmail,
@@ -69,7 +70,7 @@ export default function Suppliers() {
 
     const validationError = validateSupplierForm(formData);
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -96,7 +97,7 @@ export default function Suppliers() {
       fetchSuppliers();
     } catch (error) {
       console.error('Error saving supplier:', error);
-      alert('Error saving supplier. Please try again.');
+      toast.error('Error saving supplier. Please try again.');
     }
   };
 
@@ -107,7 +108,7 @@ export default function Suppliers() {
       fetchSuppliers();
     } catch (error) {
       console.error('Error deleting supplier:', error);
-      alert('Error deleting supplier. Please try again.');
+      toast.error('Error deleting supplier. Please try again.');
     }
   };
 

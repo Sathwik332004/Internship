@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, DollarSign, Package, AlertTriangle, Clock, Hash, Save, Pill, Check, Pencil } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
   normalizeTextInput,
@@ -33,6 +34,12 @@ const EXPIRY_MONTH_LOOKUP = EXPIRY_MONTH_OPTIONS.reduce((acc, option) => {
   acc[option.label.toLowerCase().slice(0, 3)] = option.value;
   return acc;
 }, {});
+
+const DEFAULT_QUICK_HSN_FORM = {
+  hsnCode: '',
+  description: 'Added from Purchases',
+  gstPercent: '12'
+};
 
 // Column configuration for grid - ERP Style with fixed column widths
 const GRID_COLUMNS = [
@@ -227,6 +234,7 @@ const PurchaseRow = React.memo(({
   const [isExpiryPickerOpen, setIsExpiryPickerOpen] = useState(false);
   const [expiryPickerYear, setExpiryPickerYear] = useState(initialPickerYear);
   const expiryPickerRef = useRef(null);
+  const expiryYearInputRef = useRef(null);
   const productSearchContainerRef = useRef(null);
   const visibleYears = Array.from({ length: 12 }, (_, yearOffset) => String(Number(expiryPickerYear) + yearOffset));
   const availableMonthOptions = EXPIRY_MONTH_OPTIONS.filter((option) => {
@@ -302,19 +310,22 @@ const PurchaseRow = React.memo(({
   const handleExpiryMonthInput = (value) => {
     const month = normalizeExpiryMonthInput(value);
     const nextParts = { ...expiryParts, month };
+    const isValidMonth = month.length === 2 && Number(month) >= 1 && Number(month) <= 12;
 
     if (
-      month.length === 2 &&
-      Number(month) >= 1 &&
-      Number(month) <= 12 &&
+      isValidMonth &&
       nextParts.year &&
       !(nextParts.year === String(suggestionStartYear) && Number(month) < purchaseMonthNumber)
     ) {
       updateExpiry(nextParts);
+      expiryYearInputRef.current?.focus();
       return;
     }
 
     setExpiryParts(nextParts);
+    if (isValidMonth) {
+      expiryYearInputRef.current?.focus();
+    }
   };
 
   return (
@@ -474,6 +485,7 @@ const PurchaseRow = React.memo(({
                     inputMode="numeric"
                     value={expiryParts.year}
                     onChange={(e) => handleExpiryYearInput(e.target.value)}
+                    ref={expiryYearInputRef}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                     placeholder="YYYY"
                   />
@@ -585,16 +597,22 @@ const PurchaseRow = React.memo(({
       {/* HSN Column */}
       <td className={getCellClass('hsn')}>
         <div className="flex items-center gap-1">
-          <input
-            type="text"
-            list={`hsn-options-${index}`}
+          <select
             value={item.hsnCode || ''}
             onChange={(e) => onHSNChange(index, e.target.value)}
             onKeyDown={(e) => onKeyDown(e, index, 'hsn')}
             onFocus={() => onCellFocus(index, 'hsn')}
-            className="w-full h-full bg-transparent focus:outline-none text-sm px-1"
-            placeholder="HSN"
-          />
+            className="w-full h-full rounded border border-slate-200 bg-white px-1 py-1 text-sm focus:border-emerald-400 focus:outline-none"
+          >
+            <option value="">Select HSN</option>
+            {Object.values(hsnCodes)
+              .sort((a, b) => String(a.hsnCode).localeCompare(String(b.hsnCode)))
+              .map((hsn) => (
+                <option key={hsn.hsnCode} value={hsn.hsnCode}>
+                  {hsn.hsnCode} - {hsn.gstPercent}%
+                </option>
+              ))}
+          </select>
           <button
             type="button"
             onClick={(e) => {
@@ -606,11 +624,6 @@ const PurchaseRow = React.memo(({
           >
             +
           </button>
-          <datalist id={`hsn-options-${index}`}>
-            {Object.values(hsnCodes).map((hsn) => (
-              <option key={hsn.hsnCode} value={hsn.hsnCode}>{hsn.hsnCode} - {hsn.gstPercent}%</option>
-            ))}
-          </datalist>
         </div>
       </td>
 
@@ -687,6 +700,9 @@ export default function Purchases() {
   const [creatingSupplier, setCreatingSupplier] = useState(false);
   const [quickSupplierForm, setQuickSupplierForm] = useState({ supplierName: '', phone: '' });
   const [creatingHSN, setCreatingHSN] = useState(false);
+  const [showQuickHsnForm, setShowQuickHsnForm] = useState(false);
+  const [quickHsnRowIndex, setQuickHsnRowIndex] = useState(-1);
+  const [quickHsnForm, setQuickHsnForm] = useState(DEFAULT_QUICK_HSN_FORM);
   
   // Autocomplete state
   const [medicineSearch, setMedicineSearch] = useState('');
@@ -809,12 +825,12 @@ export default function Purchases() {
     const phone = String(quickSupplierForm.phone || '').replace(/\D/g, '').slice(0, 10);
 
     if (supplierName.length < 2) {
-      alert('Supplier name must be at least 2 characters.');
+      toast.error('Supplier name must be at least 2 characters.');
       return;
     }
 
     if (!/^\d{10}$/.test(phone)) {
-      alert('Supplier phone must be exactly 10 digits.');
+      toast.error('Supplier phone must be exactly 10 digits.');
       return;
     }
 
@@ -837,7 +853,7 @@ export default function Purchases() {
       setShowQuickSupplierForm(false);
     } catch (error) {
       console.error('Error creating supplier:', error);
-      alert(error.response?.data?.message || 'Unable to create supplier. You may need admin access.');
+      toast.error(error.response?.data?.message || 'Unable to create supplier. You may need admin access.');
     } finally {
       setCreatingSupplier(false);
     }
@@ -848,37 +864,47 @@ export default function Purchases() {
       return;
     }
 
-    const currentCode = purchaseItems[rowIndex]?.hsnCode || '';
-    const enteredCode = window.prompt('Enter HSN code (4 to 8 digits):', currentCode);
-    if (enteredCode === null) {
+    const currentCode = String(purchaseItems[rowIndex]?.hsnCode || '').trim();
+    setQuickHsnRowIndex(rowIndex);
+    setQuickHsnForm({
+      ...DEFAULT_QUICK_HSN_FORM,
+      hsnCode: currentCode
+    });
+    setShowQuickHsnForm(true);
+  };
+
+  const closeQuickHsnForm = () => {
+    setShowQuickHsnForm(false);
+    setQuickHsnRowIndex(-1);
+    setQuickHsnForm(DEFAULT_QUICK_HSN_FORM);
+  };
+
+  const handleQuickCreateHSNSubmit = async () => {
+    if (creatingHSN) {
       return;
     }
 
-    const hsnCode = String(enteredCode).trim();
+    const targetRowIndex = quickHsnRowIndex;
+    if (targetRowIndex < 0) {
+      toast.error('Please select a row before adding HSN.');
+      return;
+    }
+
+    const hsnCode = String(quickHsnForm.hsnCode || '').trim();
     if (!/^\d{4,8}$/.test(hsnCode)) {
-      alert('HSN code must be 4 to 8 digits.');
+      toast.error('HSN code must be 4 to 8 digits.');
       return;
     }
 
-    const enteredDescription = window.prompt('Enter HSN description:', 'Added from Purchases');
-    if (enteredDescription === null) {
-      return;
-    }
-
-    const description = normalizeTextInput(enteredDescription).trim();
+    const description = normalizeTextInput(quickHsnForm.description).trim();
     if (description.length < 3) {
-      alert('HSN description must be at least 3 characters.');
+      toast.error('HSN description must be at least 3 characters.');
       return;
     }
 
-    const enteredGst = window.prompt('Enter GST % (0, 5, 12, 18, 28):', '12');
-    if (enteredGst === null) {
-      return;
-    }
-
-    const gstPercent = Number(enteredGst);
+    const gstPercent = Number(quickHsnForm.gstPercent);
     if (![0, 5, 12, 18, 28].includes(gstPercent)) {
-      alert('GST must be one of 0, 5, 12, 18, 28.');
+      toast.error('GST must be one of 0, 5, 12, 18, 28.');
       return;
     }
 
@@ -916,12 +942,15 @@ export default function Purchases() {
         [hsnPayload.hsnCode]: hsnPayload
       }));
 
-      handleHSNChange(rowIndex, hsnPayload.hsnCode);
+      handleHSNChange(targetRowIndex, hsnPayload.hsnCode);
+      toast.success('HSN added successfully.');
+      closeQuickHsnForm();
     } catch (error) {
       console.error('Error creating HSN:', error);
-      alert(error.response?.data?.message || 'Unable to create HSN. You may need admin access.');
+      toast.error(error.response?.data?.message || 'Unable to create HSN. You may need admin access.');
       // Even without creation rights, allow manually entering the new HSN.
-      handleHSNChange(rowIndex, hsnCode);
+      handleHSNChange(targetRowIndex, hsnCode);
+      closeQuickHsnForm();
     } finally {
       setCreatingHSN(false);
     }
@@ -1283,7 +1312,7 @@ export default function Purchases() {
     });
 
     if (validationResult.error) {
-      alert(validationResult.error);
+      toast.error(validationResult.error);
       if (validationResult.rowIndex !== undefined && validationResult.field) {
         setActiveCell({ row: validationResult.rowIndex, col: validationResult.field });
       }
@@ -1333,14 +1362,14 @@ export default function Purchases() {
         ? await api.put(`/purchases/${editingPurchaseId}`, purchaseData)
         : await api.post('/purchases', purchaseData);
       if (response.data.success) {
-        alert(editingPurchaseId ? 'Purchase updated successfully!' : 'Purchase created successfully!');
+        toast.success(editingPurchaseId ? 'Purchase updated successfully!' : 'Purchase created successfully!');
         setShowAddModal(false);
         resetForm();
         fetchPurchases();
       }
     } catch (error) {
       console.error('Error saving purchase:', error);
-      alert(error.response?.data?.message || (editingPurchaseId ? 'Error updating purchase. Please try again.' : 'Error creating purchase. Please try again.'));
+      toast.error(error.response?.data?.message || (editingPurchaseId ? 'Error updating purchase. Please try again.' : 'Error creating purchase. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -1360,6 +1389,9 @@ export default function Purchases() {
     setPurchaseItems([]);
     setShowQuickSupplierForm(false);
     setQuickSupplierForm({ supplierName: '', phone: '' });
+    setShowQuickHsnForm(false);
+    setQuickHsnRowIndex(-1);
+    setQuickHsnForm(DEFAULT_QUICK_HSN_FORM);
     setMedicineSearch('');
     setBatchWarnings({});
     setActiveCell(null);
@@ -1372,7 +1404,7 @@ export default function Purchases() {
       const purchase = response.data?.data;
 
       if (!purchase) {
-        alert('Unable to load purchase details.');
+        toast.error('Unable to load purchase details.');
         return;
       }
 
@@ -1426,7 +1458,7 @@ export default function Purchases() {
       setShowAddModal(true);
     } catch (error) {
       console.error('Error loading purchase for edit:', error);
-      alert(error.response?.data?.message || 'Unable to load purchase for editing.');
+      toast.error(error.response?.data?.message || 'Unable to load purchase for editing.');
     }
   };
 
@@ -1438,7 +1470,7 @@ export default function Purchases() {
       fetchPurchases();
     } catch (error) {
       console.error('Error deleting purchase:', error);
-      alert('Error deleting purchase. Please try again.');
+      toast.error('Error deleting purchase. Please try again.');
     }
   };
 
@@ -1704,6 +1736,75 @@ export default function Purchases() {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm md:p-4">
           <div className="flex min-h-full items-start justify-center md:items-center">
             <div className="flex min-h-[96vh] w-full max-w-7xl flex-col overflow-y-auto overflow-x-hidden rounded-[22px] border border-white/60 bg-white shadow-2xl sm:rounded-[28px] md:min-h-0 md:max-h-[95vh]">
+            {showQuickHsnForm && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4">
+                <div className="w-full max-w-md rounded-2xl border border-emerald-200 bg-white p-5 shadow-2xl">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold text-slate-900">Add HSN Code</h3>
+                    <p className="mt-1 text-sm text-slate-500">Create HSN without browser popup.</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">HSN Code</label>
+                      <input
+                        type="text"
+                        value={quickHsnForm.hsnCode}
+                        onChange={(e) => setQuickHsnForm((prev) => ({
+                          ...prev,
+                          hsnCode: e.target.value.replace(/\D/g, '').slice(0, 8)
+                        }))}
+                        placeholder="4 to 8 digits"
+                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">Description</label>
+                      <input
+                        type="text"
+                        value={quickHsnForm.description}
+                        onChange={(e) => setQuickHsnForm((prev) => ({
+                          ...prev,
+                          description: normalizeTextInput(e.target.value)
+                        }))}
+                        placeholder="HSN description"
+                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">GST %</label>
+                      <select
+                        value={quickHsnForm.gstPercent}
+                        onChange={(e) => setQuickHsnForm((prev) => ({ ...prev, gstPercent: e.target.value }))}
+                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                      >
+                        <option value="0">0</option>
+                        <option value="5">5</option>
+                        <option value="12">12</option>
+                        <option value="18">18</option>
+                        <option value="28">28</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={closeQuickHsnForm}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleQuickCreateHSNSubmit}
+                      disabled={creatingHSN}
+                      className="rounded-lg border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                    >
+                      {creatingHSN ? 'Saving...' : 'Save HSN'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Header */}
             <div className="flex flex-shrink-0 flex-col gap-3 border-b border-emerald-400/20 bg-gradient-to-r from-emerald-700 via-emerald-600 to-lime-500 p-4 text-white md:flex-row md:items-center md:justify-between md:p-6">
               <div className="pr-6">

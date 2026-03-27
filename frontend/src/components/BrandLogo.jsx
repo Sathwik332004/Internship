@@ -1,4 +1,4 @@
-import { HeartPulse, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 export default function BrandLogo({ compact = false, showTagline = true, onDark = false }) {
   const compactTitleClass = onDark ? 'text-white' : 'text-slate-900';
@@ -7,14 +7,13 @@ export default function BrandLogo({ compact = false, showTagline = true, onDark 
   if (compact) {
     return (
       <div className="flex items-center gap-3">
-        <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-700 via-teal-700 to-emerald-700 shadow-[0_14px_34px_rgba(15,118,110,0.28)]">
-          <Plus className="absolute h-7 w-7 text-white/90" strokeWidth={2.8} />
-          <HeartPulse className="relative h-4 w-4 text-cyan-50" strokeWidth={2.5} />
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 shadow-[0_12px_28px_rgba(15,118,110,0.18)]">
+          <Plus className="h-6 w-6 text-white" strokeWidth={2.8} />
         </div>
         <div className="min-w-0">
-          <p className={`truncate text-base font-semibold tracking-[0.12em] ${compactTitleClass}`}>BHAGYA MEDICALS</p>
+          <p className={`truncate text-base font-semibold tracking-[0.04em] ${compactTitleClass}`}>Bhagya Medicals</p>
           {showTagline ? (
-            <p className={`truncate text-[11px] uppercase tracking-[0.2em] ${compactTaglineClass}`}>Care. Clarity. Trust.</p>
+            <p className={`truncate text-[11px] uppercase tracking-[0.14em] ${compactTaglineClass}`}>Trusted Pharmacy</p>
           ) : null}
         </div>
       </div>
@@ -23,14 +22,13 @@ export default function BrandLogo({ compact = false, showTagline = true, onDark 
 
   return (
     <div className="flex items-center gap-4">
-      <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.6rem] bg-gradient-to-br from-cyan-700 via-teal-700 to-emerald-700 shadow-[0_20px_50px_rgba(15,118,110,0.32)]">
-        <Plus className="absolute h-10 w-10 text-white/90" strokeWidth={2.7} />
-        <HeartPulse className="relative h-6 w-6 text-cyan-50" strokeWidth={2.6} />
+      <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-emerald-600 shadow-[0_18px_38px_rgba(15,118,110,0.18)]">
+        <Plus className="h-8 w-8 text-white" strokeWidth={2.7} />
       </div>
       <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.28em] text-teal-700">Bhagya</p>
-        <h1 className="text-2xl font-semibold tracking-[0.08em] text-slate-950">MEDICALS</h1>
-      
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Bhagya</p>
+        <h1 className="text-2xl font-semibold tracking-[0.03em] text-slate-950">Medicals</h1>
+        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">Pharmacy & Wellness</p>
       </div>
     </div>
   );

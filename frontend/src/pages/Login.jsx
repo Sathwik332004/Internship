@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
 import { authAPI } from '../services/api';
 import BrandLogo from '../components/BrandLogo';
+import ThemeToggle from '../components/ThemeToggle';
 import {
   normalizeEmail,
   validateLoginForm,
@@ -84,6 +85,9 @@ const Login = () => {
   return (
     <div className="medical-grid relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_24%),linear-gradient(135deg,_#fbfcf8,_#f2f7ee_55%,_#f3efe6)] p-4">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(163,230,53,0.14),transparent_18%),radial-gradient(circle_at_20%_85%,rgba(34,197,94,0.12),transparent_20%)]" />
+      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
       <div className="relative w-full max-w-xl overflow-hidden rounded-[36px] border border-white/50 bg-white/70 shadow-[0_30px_100px_rgba(15,23,42,0.16)] backdrop-blur-xl">
         <section className="p-6 sm:p-10">
           <div className="mx-auto w-full max-w-md">

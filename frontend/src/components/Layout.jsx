@@ -2,8 +2,10 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
+  Moon,
   Pill, 
   ShoppingCart, 
+  SunMedium,
   FileText, 
   Users, 
   Package, 
@@ -19,9 +21,12 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import BrandLogo from './BrandLogo';
+import { useTheme } from '../context/ThemeContext';
+import ThemeToggle from './ThemeToggle';
 
 const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -149,7 +154,12 @@ const Layout = () => {
               </div>
             </div>
 
-            <div className="ml-0 flex items-center space-x-4 sm:ml-auto">
+            <div className="ml-0 flex items-center gap-3 sm:ml-auto">
+              <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 md:flex">
+                {isDark ? <Moon className="h-4 w-4 text-emerald-600" /> : <SunMedium className="h-4 w-4 text-emerald-600" />}
+                <span>{isDark ? 'Dark theme' : 'Light theme'}</span>
+              </div>
+              <ThemeToggle compact />
               <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-right sm:block">
                 <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Signed in as</p>
                 <span className="text-sm font-semibold text-slate-900">{user?.name}</span>

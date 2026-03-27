@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { authAPI } from '../services/api';
 import BrandLogo from '../components/BrandLogo';
+import ThemeToggle from '../components/ThemeToggle';
 import {
   isValidEmail,
   normalizeEmail,
@@ -60,7 +61,10 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="medical-grid flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_24%),linear-gradient(135deg,_#fbfcf8,_#f2f7ee_55%,_#f3efe6)] p-4">
+    <div className="medical-grid relative flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_24%),linear-gradient(135deg,_#fbfcf8,_#f2f7ee_55%,_#f3efe6)] p-4">
+      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/80 p-8 shadow-[0_30px_90px_rgba(15,23,42,0.14)] backdrop-blur-xl">
         <div className="mb-8">
           <BrandLogo compact />

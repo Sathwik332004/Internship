@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, 
-  DollarSign, 
+  IndianRupee, 
   Package, 
   ShoppingCart, 
   BarChart3,
@@ -134,7 +134,7 @@ export default function Reports() {
   };
 
   const tabs = [
-    { id: 'sales', label: 'Sales Report', icon: DollarSign },
+    { id: 'sales', label: 'Sales Report', icon: IndianRupee },
     { id: 'gst', label: 'GST Report', icon: BarChart3 },
     { id: 'expiry', label: 'Expiry Report', icon: AlertTriangle }
   ];
@@ -235,7 +235,7 @@ export default function Reports() {
                       <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(salesData.summary.totalSales)}</p>
                     </div>
                     <div className="p-3 bg-green-100 rounded-lg">
-                      <DollarSign className="w-6 h-6 text-green-600" />
+                      <IndianRupee className="w-6 h-6 text-green-600" />
                     </div>
                   </div>
                 </div>

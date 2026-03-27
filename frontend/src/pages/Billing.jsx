@@ -56,7 +56,9 @@ export default function Billing() {
   const [billItems, setBillItems] = useState([]);
   const [paymentMode, setPaymentMode] = useState('CASH');
   const [amountPaid, setAmountPaid] = useState('');
+  const [discountType, setDiscountType] = useState('PERCENT');
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountAmountInput, setDiscountAmountInput] = useState(0);
   const [lastSavedBill, setLastSavedBill] = useState(null);
   
   const [saving, setSaving] = useState(false);
@@ -448,8 +450,10 @@ export default function Billing() {
       }
     });
 
-    // Apply discount and round to nearest rupee for final bill amount
-    const discountAmount = (subtotal * discountPercent) / 100;
+    // Apply bill-level discount and round to nearest rupee for final bill amount
+    const discountAmount = discountType === 'PERCENT'
+      ? (subtotal * (discountPercent / 100))
+      : Math.min(Number(discountAmountInput) || 0, subtotal);
     const totalAfterDiscount = subtotal - discountAmount;
     const grandTotal = Math.round(totalAfterDiscount);
     const roundOff = grandTotal - totalAfterDiscount;
@@ -461,6 +465,7 @@ export default function Billing() {
       totalSgst,
       totalIgst,
       discountAmount,
+      discountPercentApplied: discountType === 'PERCENT' ? Number(discountPercent || 0) : 0,
       roundOff,
       grandTotal,
       isInterstate
@@ -517,7 +522,8 @@ export default function Billing() {
         totalCgst: totals.totalCgst,
         totalSgst: totals.totalSgst,
         totalIgst: totals.totalIgst,
-        discountPercent,
+        discountType,
+        discountPercent: totals.discountPercentApplied,
         discountAmount: totals.discountAmount,
         roundOff: totals.roundOff,
         grandTotal: totals.grandTotal,
@@ -539,7 +545,10 @@ export default function Billing() {
   const handleSaveBill = async (shouldPrint = false) => {
     const validationError = validateBillingForm({
       customerDetails,
+      discountType,
       discountPercent,
+      discountAmount: discountAmountInput,
+      subtotal: totals.subtotal,
       amountPaid,
       billItems
     });
@@ -599,8 +608,9 @@ export default function Billing() {
         totalCgst: totals.totalCgst,
         totalSgst: totals.totalSgst,
         totalIgst: totals.totalIgst,
-        discountPercent: discountPercent,
-        discountAmount: totals.discountAmount,
+        discountType,
+        discountPercent: totals.discountPercentApplied,
+        discountAmount: discountType === 'AMOUNT' ? (Number(discountAmountInput) || 0) : totals.discountAmount,
         roundOff: totals.roundOff,
         grandTotal: totals.grandTotal,
         paymentMode: paymentMode,
@@ -615,7 +625,9 @@ export default function Billing() {
       // Reset form
       setBillItems([]);
       setCustomerDetails({ name: '', phone: '', state: '', address: '', doctorName: '', doctorRegNo: '' });
+      setDiscountType('PERCENT');
       setDiscountPercent(0);
+      setDiscountAmountInput(0);
       setAmountPaid('');
       setErrorMessage('');
       toast.success(shouldPrint ? 'Bill saved. Print dialog opened.' : 'Bill saved successfully!');
@@ -1001,15 +1013,48 @@ export default function Billing() {
 
             {/* Bill Discount */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-1">Discount (%)</label>
-              <input
-                type="number"
-                value={discountPercent}
-                onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                min="0"
-                max="100"
-                className="w-full px-3 py-2 border border-black focus:ring-0"
-              />
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-1">Bill Discount</label>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDiscountType('PERCENT');
+                    setDiscountAmountInput(0);
+                  }}
+                  className={`border px-2 py-2 text-xs font-semibold ${discountType === 'PERCENT' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-black hover:bg-gray-50'}`}
+                >
+                  Percent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDiscountType('AMOUNT');
+                    setDiscountPercent(0);
+                  }}
+                  className={`border px-2 py-2 text-xs font-semibold ${discountType === 'AMOUNT' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-black hover:bg-gray-50'}`}
+                >
+                  Amount
+                </button>
+              </div>
+              {discountType === 'PERCENT' ? (
+                <input
+                  type="number"
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(Math.min(parseFloat(e.target.value) || 0, 100))}
+                  min="0"
+                  max="100"
+                  className="w-full px-3 py-2 border border-black focus:ring-0"
+                />
+              ) : (
+                <input
+                  type="number"
+                  value={discountAmountInput}
+                  onChange={(e) => setDiscountAmountInput(parseFloat(e.target.value) || 0)}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-black focus:ring-0"
+                />
+              )}
             </div>
             </div>
           </div>
@@ -1027,7 +1072,7 @@ export default function Billing() {
               
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between border-b border-black px-4 py-2">
-                  <span className="font-medium">Discount</span>
+                  <span className="font-medium">Discount ({discountType === 'PERCENT' ? `${Number(discountPercent || 0).toFixed(2)}%` : 'Amount'})</span>
                   <span>-{formatCurrency(totals.discountAmount)}</span>
                 </div>
               )}

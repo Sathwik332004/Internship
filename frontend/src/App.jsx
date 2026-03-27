@@ -95,13 +95,18 @@ function App() {
       <ToastContainer 
         position="top-right" 
         autoClose={3000}
-        hideProgressBar={false}
+        hideProgressBar
         newestOnTop
         closeOnClick
         rtl={false}
         pauseOnFocusLoss
         draggable
         pauseOnHover
+        theme="colored"
+        toastStyle={{
+          borderRadius: '12px',
+          fontFamily: 'Manrope, Segoe UI, sans-serif'
+        }}
       />
     </AuthProvider>
   );

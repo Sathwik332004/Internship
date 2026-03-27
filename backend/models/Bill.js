@@ -183,6 +183,11 @@ const billSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  discountType: {
+    type: String,
+    enum: ['PERCENT', 'AMOUNT'],
+    default: 'PERCENT'
+  },
   discountPercent: {
     type: Number,
     default: 0,

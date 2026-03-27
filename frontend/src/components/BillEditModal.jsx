@@ -15,7 +15,9 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
   const [items, setItems] = useState([]);
   const [paymentMode, setPaymentMode] = useState('CASH');
   const [amountPaid, setAmountPaid] = useState('');
+  const [discountType, setDiscountType] = useState('PERCENT');
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountAmountInput, setDiscountAmountInput] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -72,7 +74,26 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
         setItems(nextItems);
         setPaymentMode(bill.paymentMode || 'CASH');
         setAmountPaid(bill.amountPaid === undefined || bill.amountPaid === null ? '' : String(bill.amountPaid));
-        setDiscountPercent(Number(bill.discountPercent || 0));
+        const savedDiscountType = bill.discountType;
+        const savedPercent = Number(bill.discountPercent || 0);
+        const savedAmount = Number(bill.discountAmount || 0);
+        if (savedDiscountType === 'PERCENT') {
+          setDiscountType('PERCENT');
+          setDiscountPercent(savedPercent);
+          setDiscountAmountInput(0);
+        } else if (savedDiscountType === 'AMOUNT') {
+          setDiscountType('AMOUNT');
+          setDiscountPercent(0);
+          setDiscountAmountInput(savedAmount);
+        } else if (savedPercent > 0) {
+          setDiscountType('PERCENT');
+          setDiscountPercent(savedPercent);
+          setDiscountAmountInput(0);
+        } else {
+          setDiscountType('AMOUNT');
+          setDiscountPercent(0);
+          setDiscountAmountInput(savedAmount);
+        }
       } catch (loadError) {
         if (!cancelled) {
           console.error(loadError);
@@ -226,7 +247,10 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
     }
     return acc;
   }, { subtotal: 0, totalGst: 0, totalCgst: 0, totalSgst: 0, totalIgst: 0 });
-  totals.discountAmount = (totals.subtotal * discountPercent) / 100;
+  totals.discountAmount = discountType === 'PERCENT'
+    ? (totals.subtotal * (discountPercent / 100))
+    : Math.min(Number(discountAmountInput) || 0, totals.subtotal);
+  totals.discountPercentApplied = discountType === 'PERCENT' ? Number(discountPercent || 0) : 0;
   totals.grandTotal = totals.subtotal - totals.discountAmount;
   totals.isInterstate = !!customer.state && customer.state.trim().toLowerCase() !== SHOP_STATE.toLowerCase();
 
@@ -236,7 +260,10 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
   const save = async () => {
     const validationError = validateBillingForm({
       customerDetails: customer,
+      discountType,
       discountPercent,
+      discountAmount: discountAmountInput,
+      subtotal: totals.subtotal,
       amountPaid,
       billItems: items
     });
@@ -272,8 +299,9 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
             discountAmount: 0
           };
         }),
-        discountPercent,
-        discountAmount: totals.discountAmount,
+        discountPercent: totals.discountPercentApplied,
+        discountAmount: discountType === 'AMOUNT' ? (Number(discountAmountInput) || 0) : totals.discountAmount,
+        discountType,
         paymentMode,
         amountPaid: effectiveAmountPaid
       };
@@ -369,14 +397,40 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
                   ))}
                 </div>
                 <input type="number" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="Amount paid" className="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2" />
-                <input type="number" value={discountPercent} onChange={(e) => setDiscountPercent(Number.parseFloat(e.target.value) || 0)} min="0" max="100" placeholder="Discount %" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
+                <div className="mb-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountType('PERCENT');
+                      setDiscountAmountInput(0);
+                    }}
+                    className={`rounded-lg border px-2 py-2 text-xs font-semibold ${discountType === 'PERCENT' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 text-gray-700'}`}
+                  >
+                    Percent
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountType('AMOUNT');
+                      setDiscountPercent(0);
+                    }}
+                    className={`rounded-lg border px-2 py-2 text-xs font-semibold ${discountType === 'AMOUNT' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 text-gray-700'}`}
+                  >
+                    Amount
+                  </button>
+                </div>
+                {discountType === 'PERCENT' ? (
+                  <input type="number" value={discountPercent} onChange={(e) => setDiscountPercent(Math.min(Number.parseFloat(e.target.value) || 0, 100))} min="0" max="100" placeholder="Discount %" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
+                ) : (
+                  <input type="number" value={discountAmountInput} onChange={(e) => setDiscountAmountInput(Number.parseFloat(e.target.value) || 0)} min="0" step="0.01" placeholder="Discount Amount" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
+                )}
               </div>
               <div className="rounded-xl bg-gray-900 p-4 text-white">
                 <h3 className="mb-4 text-lg font-semibold">Updated Totals</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">Subtotal</span><span>{money(totals.subtotal)}</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">GST</span><span>{money(totals.totalGst)}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Discount</span><span>{money(totals.discountAmount)}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Discount ({discountType === 'PERCENT' ? `${Number(discountPercent || 0).toFixed(2)}%` : 'Amount'})</span><span>{money(totals.discountAmount)}</span></div>
                   <div className="flex justify-between border-t border-gray-700 pt-2 text-lg font-semibold"><span>Total</span><span className="text-green-400">{money(totals.grandTotal)}</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Paid</span><span>{money(effectiveAmountPaid)}</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">{effectiveAmountPaid - totals.grandTotal >= 0 ? 'Balance / Change' : 'Amount Due'}</span><span>{money(Math.abs(effectiveAmountPaid - totals.grandTotal))}</span></div>

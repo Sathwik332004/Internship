@@ -18,13 +18,47 @@ const {
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const getExpiryYearMonth = (expiryDate) => {
+  if (!expiryDate) {
+    return null;
+  }
+
+  const raw = String(expiryDate).trim();
+  const match = raw.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/);
+  if (match) {
+    return {
+      year: Number(match[1]),
+      month: Number(match[2])
+    };
+  }
+
+  const parsed = new Date(expiryDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return {
+    year: parsed.getFullYear(),
+    month: parsed.getMonth() + 1
+  };
+};
+
+const normalizeExpiryToMonthEnd = (expiryDate) => {
+  const parsed = getExpiryYearMonth(expiryDate);
+  if (!parsed?.year || !parsed?.month || parsed.month < 1 || parsed.month > 12) {
+    return null;
+  }
+
+  return new Date(Date.UTC(parsed.year, parsed.month, 0, 23, 59, 59, 999));
+};
+
 const isExpiryBeforePurchaseMonth = (expiryDate, purchaseDate) => {
   if (!expiryDate) {
     return false;
   }
 
-  const [year, month] = String(expiryDate).split('-').map(Number);
-  if (!year || !month) {
+  const parsedExpiry = getExpiryYearMonth(expiryDate);
+  if (!parsedExpiry?.year || !parsedExpiry?.month) {
     return true;
   }
 
@@ -33,7 +67,7 @@ const isExpiryBeforePurchaseMonth = (expiryDate, purchaseDate) => {
     return true;
   }
 
-  const expiryMonth = new Date(year, month - 1, 1);
+  const expiryMonth = new Date(parsedExpiry.year, parsedExpiry.month - 1, 1);
   const purchaseMonth = new Date(
     purchaseMonthDate.getFullYear(),
     purchaseMonthDate.getMonth(),
@@ -220,6 +254,7 @@ exports.getPurchases = async (req, res) => {
     const purchases = await Purchase.find(query)
       .populate('supplier', 'supplierName gstNumber')
       .populate('createdBy', 'name')
+      .populate('items.medicine', 'medicineName brandName')
       .sort({ purchaseDate: -1 })
       .skip(skip)
       .limit(limitNum);
@@ -391,14 +426,6 @@ exports.addPurchase = async (req, res) => {
       });
     }
 
-    if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
-      await session.abortTransaction();
-      return res.status(400).json({
-        success: false,
-        message: 'Discount percent must be between 0 and 100'
-      });
-    }
-
     if (miscellaneousAmount !== undefined && !isNonNegativeNumber(miscellaneousAmount)) {
       await session.abortTransaction();
       return res.status(400).json({
@@ -468,12 +495,43 @@ exports.addPurchase = async (req, res) => {
         });
       }
 
-      if (!isNonNegativeNumber(item.discountPercent || 0) || Number(item.discountPercent || 0) > 100) {
+      const itemDiscountType = item.discountType || 'PERCENT';
+      const itemSubtotal = Number(item.quantity || 0) * Number(item.purchasePrice || 0);
+
+      if (!['PERCENT', 'AMOUNT'].includes(itemDiscountType)) {
         await session.abortTransaction();
         return res.status(400).json({
           success: false,
-          message: `Discount percent must be between 0 and 100 for item ${index + 1}`
+          message: `Discount type must be PERCENT or AMOUNT for item ${index + 1}`
         });
+      }
+
+      if (itemDiscountType === 'PERCENT') {
+        if (!isNonNegativeNumber(item.discountPercent || 0) || Number(item.discountPercent || 0) > 100) {
+          await session.abortTransaction();
+          return res.status(400).json({
+            success: false,
+            message: `Discount percent must be between 0 and 100 for item ${index + 1}`
+          });
+        }
+      }
+
+      if (itemDiscountType === 'AMOUNT') {
+        if (!isNonNegativeNumber(item.discountAmount || 0)) {
+          await session.abortTransaction();
+          return res.status(400).json({
+            success: false,
+            message: `Discount amount must be 0 or higher for item ${index + 1}`
+          });
+        }
+
+        if (Number(item.discountAmount || 0) > itemSubtotal) {
+          await session.abortTransaction();
+          return res.status(400).json({
+            success: false,
+            message: `Discount amount cannot exceed subtotal for item ${index + 1}`
+          });
+        }
       }
     }
 
@@ -538,8 +596,12 @@ exports.addPurchase = async (req, res) => {
         // subtotal = quantity × purchasePrice
         const itemSubtotal = item.quantity * item.purchasePrice;
         
-        // discountAmount = subtotal × discountPercent / 100
-        const itemDiscountAmount = itemSubtotal * ((item.discountPercent || 0) / 100);
+        const itemDiscountType = item.discountType === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
+        const normalizedDiscountPercent = Number(item.discountPercent || 0);
+        const normalizedDiscountAmount = Number(item.discountAmount || 0);
+        const itemDiscountAmount = itemDiscountType === 'PERCENT'
+          ? itemSubtotal * (normalizedDiscountPercent / 100)
+          : Math.min(normalizedDiscountAmount, itemSubtotal);
         
         // taxableAmount = subtotal - discountAmount
         const itemTaxableAmount = itemSubtotal - itemDiscountAmount;
@@ -554,6 +616,11 @@ exports.addPurchase = async (req, res) => {
         calculatedDiscount += itemDiscountAmount;
         calculatedGst += itemGstAmount;
 
+        const normalizedExpiryDate = normalizeExpiryToMonthEnd(item.expiryDate);
+        if (!normalizedExpiryDate) {
+          throw new Error(`Invalid expiry date for medicine: ${item.medicine}`);
+        }
+
         processedItems.push({
           medicine: item.medicine,
           hsnCode: item.hsnCode || null,
@@ -566,7 +633,7 @@ exports.addPurchase = async (req, res) => {
           conversionFactor: item.conversionFactor || medicine.conversionFactor || 1,
         // Batch details - normalize to uppercase and trim
           batchNumber: normalizeUppercase(item.batchNumber),
-          expiryDate: item.expiryDate,
+          expiryDate: normalizedExpiryDate,
           mrp: item.mrp || 0,
           // Prices
           purchasePrice: item.purchasePrice,
@@ -574,7 +641,8 @@ exports.addPurchase = async (req, res) => {
           quantity: item.quantity,
           freeQuantity: item.freeQuantity || 0,
           // Discount
-          discountPercent: item.discountPercent || 0,
+          discountType: itemDiscountType,
+          discountPercent: itemDiscountType === 'PERCENT' ? normalizedDiscountPercent : 0,
           discountAmount: itemDiscountAmount,
           // Calculations
           subtotal: itemSubtotal,
@@ -591,10 +659,7 @@ exports.addPurchase = async (req, res) => {
         });
     }
 
-    // Apply purchase-level discount (if any)
-    const calculatedDiscountAmount = discountPercent 
-      ? calculatedSubtotal * (discountPercent / 100) 
-      : discountAmount || 0;
+    const calculatedDiscountAmount = calculatedDiscount;
     const calculatedMiscellaneousAmount = miscellaneousAmount || 0;
 
     const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount + calculatedMiscellaneousAmount;
@@ -611,7 +676,7 @@ exports.addPurchase = async (req, res) => {
       totalCgst: calculatedGst / 2,
       totalSgst: calculatedGst / 2,
       totalIgst: 0,
-      discountPercent: discountPercent || 0,
+      discountPercent: 0,
       discountAmount: calculatedDiscountAmount,
       miscellaneousAmount: calculatedMiscellaneousAmount,
       grandTotal: finalGrandTotal,
@@ -663,7 +728,7 @@ exports.addPurchase = async (req, res) => {
           const newInventory = new Inventory({
             medicine: item.medicine,
             batchNumber: normalizedBatchNumber,
-            expiryDate: item.expiryDate,
+            expiryDate: processedItem.expiryDate,
             quantityPurchased: item.quantity * conversionFactor,
             freeQuantity: (item.freeQuantity || 0) * conversionFactor,
             quantityAvailable: totalQuantity,
@@ -758,10 +823,6 @@ exports.updatePurchase = async (req, res) => {
       throw new Error('At least one purchase item is required');
     }
 
-    if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
-      throw new Error('Discount percent must be between 0 and 100');
-    }
-
     if (miscellaneousAmount !== undefined && !isNonNegativeNumber(miscellaneousAmount)) {
       throw new Error('Miscellaneous amount must be 0 or higher');
     }
@@ -801,8 +862,27 @@ exports.updatePurchase = async (req, res) => {
         throw new Error(`Purchase price and MRP must be 0 or higher for item ${index + 1}`);
       }
 
-      if (!isNonNegativeNumber(item.discountPercent || 0) || Number(item.discountPercent || 0) > 100) {
-        throw new Error(`Discount percent must be between 0 and 100 for item ${index + 1}`);
+      const itemDiscountType = item.discountType || 'PERCENT';
+      const itemSubtotal = Number(item.quantity || 0) * Number(item.purchasePrice || 0);
+
+      if (!['PERCENT', 'AMOUNT'].includes(itemDiscountType)) {
+        throw new Error(`Discount type must be PERCENT or AMOUNT for item ${index + 1}`);
+      }
+
+      if (itemDiscountType === 'PERCENT') {
+        if (!isNonNegativeNumber(item.discountPercent || 0) || Number(item.discountPercent || 0) > 100) {
+          throw new Error(`Discount percent must be between 0 and 100 for item ${index + 1}`);
+        }
+      }
+
+      if (itemDiscountType === 'AMOUNT') {
+        if (!isNonNegativeNumber(item.discountAmount || 0)) {
+          throw new Error(`Discount amount must be 0 or higher for item ${index + 1}`);
+        }
+
+        if (Number(item.discountAmount || 0) > itemSubtotal) {
+          throw new Error(`Discount amount cannot exceed subtotal for item ${index + 1}`);
+        }
       }
     }
 
@@ -814,6 +894,7 @@ exports.updatePurchase = async (req, res) => {
     await restorePurchaseInventory(purchase, session);
 
     let calculatedSubtotal = 0;
+    let calculatedDiscount = 0;
     let calculatedGst = 0;
     const processedItems = [];
 
@@ -850,13 +931,24 @@ exports.updatePurchase = async (req, res) => {
       }
 
       const itemSubtotal = item.quantity * item.purchasePrice;
-      const itemDiscountAmount = itemSubtotal * ((item.discountPercent || 0) / 100);
+      const itemDiscountType = item.discountType === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
+      const normalizedDiscountPercent = Number(item.discountPercent || 0);
+      const normalizedDiscountAmount = Number(item.discountAmount || 0);
+      const itemDiscountAmount = itemDiscountType === 'PERCENT'
+        ? itemSubtotal * (normalizedDiscountPercent / 100)
+        : Math.min(normalizedDiscountAmount, itemSubtotal);
       const itemTaxableAmount = itemSubtotal - itemDiscountAmount;
       const itemGstAmount = itemTaxableAmount * (gstPercent / 100);
       const itemTotalAmount = itemTaxableAmount + itemGstAmount;
 
       calculatedSubtotal += itemSubtotal;
+      calculatedDiscount += itemDiscountAmount;
       calculatedGst += itemGstAmount;
+
+      const normalizedExpiryDate = normalizeExpiryToMonthEnd(item.expiryDate);
+      if (!normalizedExpiryDate) {
+        throw new Error(`Invalid expiry date for medicine: ${item.medicine}`);
+      }
 
       processedItems.push({
         medicine: item.medicine,
@@ -868,12 +960,13 @@ exports.updatePurchase = async (req, res) => {
         sellingUnit: item.sellingUnit || medicine.sellingUnit || null,
         conversionFactor: item.conversionFactor || medicine.conversionFactor || 1,
         batchNumber: normalizeUppercase(item.batchNumber),
-        expiryDate: item.expiryDate,
+        expiryDate: normalizedExpiryDate,
         mrp: item.mrp || 0,
         purchasePrice: item.purchasePrice,
         quantity: item.quantity,
         freeQuantity: item.freeQuantity || 0,
-        discountPercent: item.discountPercent || 0,
+        discountType: itemDiscountType,
+        discountPercent: itemDiscountType === 'PERCENT' ? normalizedDiscountPercent : 0,
         discountAmount: itemDiscountAmount,
         subtotal: itemSubtotal,
         taxableAmount: itemTaxableAmount,
@@ -888,9 +981,7 @@ exports.updatePurchase = async (req, res) => {
       });
     }
 
-    const calculatedDiscountAmount = discountPercent
-      ? calculatedSubtotal * (discountPercent / 100)
-      : discountAmount || 0;
+    const calculatedDiscountAmount = calculatedDiscount;
     const calculatedMiscellaneousAmount = miscellaneousAmount || 0;
     const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount + calculatedMiscellaneousAmount;
 
@@ -903,7 +994,7 @@ exports.updatePurchase = async (req, res) => {
     purchase.totalCgst = calculatedGst / 2;
     purchase.totalSgst = calculatedGst / 2;
     purchase.totalIgst = 0;
-    purchase.discountPercent = discountPercent || 0;
+    purchase.discountPercent = 0;
     purchase.discountAmount = calculatedDiscountAmount;
     purchase.miscellaneousAmount = calculatedMiscellaneousAmount;
     purchase.grandTotal = finalGrandTotal;
@@ -938,13 +1029,13 @@ exports.updatePurchase = async (req, res) => {
         existingInventory.hsnCodeString = item.hsnCode || null;
         existingInventory.gstPercent = processedItem.gstPercent || 0;
         existingInventory.batchNumber = normalizedBatchNumber;
-        existingInventory.expiryDate = item.expiryDate;
+        existingInventory.expiryDate = processedItem.expiryDate;
         await existingInventory.save({ session });
       } else {
         const newInventory = new Inventory({
           medicine: item.medicine,
           batchNumber: normalizedBatchNumber,
-          expiryDate: item.expiryDate,
+          expiryDate: processedItem.expiryDate,
           quantityPurchased: item.quantity * conversionFactor,
           freeQuantity: (item.freeQuantity || 0) * conversionFactor,
           quantityAvailable: totalQuantity,

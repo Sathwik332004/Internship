@@ -362,7 +362,6 @@ export const validatePurchaseForm = ({
   selectedSupplier,
   purchaseDate,
   supplierInvoiceNumber,
-  discountPercent,
   miscellaneousAmount,
   purchaseItems
 }) => {
@@ -380,10 +379,6 @@ export const validatePurchaseForm = ({
 
   if (normalizeWhitespace(supplierInvoiceNumber).length < 2) {
     return { error: "Please enter a valid supplier invoice number" };
-  }
-
-  if (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100) {
-    return { error: "Purchase discount must be between 0 and 100" };
   }
 
   if (!isNonNegativeNumber(miscellaneousAmount || 0)) {
@@ -429,8 +424,23 @@ export const validatePurchaseForm = ({
       return { error: `Select a valid HSN code for item ${index + 1}`, rowIndex: index, field: "hsn" };
     }
 
-    if (!isNonNegativeNumber(item.discountPercent) || Number(item.discountPercent) > 100) {
-      return { error: `Discount must be between 0 and 100 for item ${index + 1}`, rowIndex: index, field: "disc" };
+    const discountType = item.discountType === "AMOUNT" ? "AMOUNT" : "PERCENT";
+    const itemSubtotal = (Number(item.quantity) || 0) * (Number(item.purchasePrice) || 0);
+
+    if (discountType === "PERCENT") {
+      if (!isNonNegativeNumber(item.discountPercent) || Number(item.discountPercent) > 100) {
+        return { error: `Discount must be between 0 and 100 for item ${index + 1}`, rowIndex: index, field: "disc" };
+      }
+    }
+
+    if (discountType === "AMOUNT") {
+      if (!isNonNegativeNumber(item.discountAmount)) {
+        return { error: `Discount amount cannot be negative for item ${index + 1}`, rowIndex: index, field: "disc" };
+      }
+
+      if (Number(item.discountAmount || 0) > itemSubtotal) {
+        return { error: `Discount amount cannot exceed subtotal for item ${index + 1}`, rowIndex: index, field: "disc" };
+      }
     }
   }
 
@@ -439,7 +449,10 @@ export const validatePurchaseForm = ({
 
 export const validateBillingForm = ({
   customerDetails,
+  discountType,
   discountPercent,
+  discountAmount,
+  subtotal,
   amountPaid,
   billItems
 }) => {
@@ -455,8 +468,20 @@ export const validateBillingForm = ({
     return "Customer state must be at least 2 characters";
   }
 
-  if (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100) {
-    return "Discount must be between 0 and 100";
+  if (discountType === "PERCENT") {
+    if (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100) {
+      return "Discount must be between 0 and 100";
+    }
+  }
+
+  if (discountType === "AMOUNT") {
+    if (!isNonNegativeNumber(discountAmount)) {
+      return "Discount amount cannot be negative";
+    }
+
+    if (Number(discountAmount || 0) > Number(subtotal || 0)) {
+      return "Discount amount cannot exceed subtotal";
+    }
   }
 
   if (amountPaid !== "" && (!isNonNegativeNumber(amountPaid) || Number(amountPaid) < 0)) {

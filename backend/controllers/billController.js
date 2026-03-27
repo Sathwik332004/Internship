@@ -158,6 +158,7 @@ const validateBillPayload = (payload = {}) => {
     doctorName,
     doctorRegNo,
     items,
+    discountType,
     discountPercent,
     discountAmount,
     paymentMode,
@@ -190,6 +191,10 @@ const validateBillPayload = (payload = {}) => {
 
   if (!Array.isArray(items) || items.length === 0) {
     throw createHttpError(400, 'At least one bill item is required');
+  }
+
+  if (discountType !== undefined && !['PERCENT', 'AMOUNT'].includes(discountType)) {
+    throw createHttpError(400, 'Discount type must be PERCENT or AMOUNT');
   }
 
   if (discountPercent !== undefined && (!isNonNegativeNumber(discountPercent) || Number(discountPercent) > 100)) {
@@ -240,6 +245,7 @@ const validateBillPayload = (payload = {}) => {
     normalizedDoctorName,
     normalizedDoctorRegNo,
     items,
+    discountType: discountType || 'PERCENT',
     discountPercent: discountPercent !== undefined ? Number(discountPercent) : 0,
     discountAmount: discountAmount !== undefined && discountAmount !== null && discountAmount !== ''
       ? Number(discountAmount)
@@ -571,6 +577,7 @@ exports.createBill = async (req, res) => {
       normalizedDoctorName,
       normalizedDoctorRegNo,
       items,
+      discountType,
       discountPercent,
       discountAmount,
       paymentMode,
@@ -589,7 +596,8 @@ exports.createBill = async (req, res) => {
       calculatedIgst
     } = await processBillItems({ items, interstate, session });
 
-    const calculatedDiscountAmount = discountPercent
+    const normalizedDiscountPercent = discountType === 'PERCENT' ? discountPercent : 0;
+    const calculatedDiscountAmount = discountType === 'PERCENT'
       ? calculatedSubtotal * (discountPercent / 100)
       : discountAmount;
 
@@ -613,7 +621,8 @@ exports.createBill = async (req, res) => {
       totalCgst: calculatedCgst,
       totalSgst: calculatedSgst,
       totalIgst: calculatedIgst,
-      discountPercent,
+      discountType,
+      discountPercent: normalizedDiscountPercent,
       discountAmount: calculatedDiscountAmount,
       grandTotal,
       paymentMode,
@@ -685,6 +694,7 @@ exports.updateBill = async (req, res) => {
       normalizedDoctorName,
       normalizedDoctorRegNo,
       items,
+      discountType,
       discountPercent,
       discountAmount,
       paymentMode,
@@ -704,7 +714,8 @@ exports.updateBill = async (req, res) => {
       calculatedIgst
     } = await processBillItems({ items, interstate, session });
 
-    const calculatedDiscountAmount = discountPercent
+    const normalizedDiscountPercent = discountType === 'PERCENT' ? discountPercent : 0;
+    const calculatedDiscountAmount = discountType === 'PERCENT'
       ? calculatedSubtotal * (discountPercent / 100)
       : discountAmount;
 
@@ -726,7 +737,8 @@ exports.updateBill = async (req, res) => {
     bill.totalCgst = calculatedCgst;
     bill.totalSgst = calculatedSgst;
     bill.totalIgst = calculatedIgst;
-    bill.discountPercent = discountPercent;
+    bill.discountType = discountType;
+    bill.discountPercent = normalizedDiscountPercent;
     bill.discountAmount = calculatedDiscountAmount;
     bill.grandTotal = grandTotal;
     bill.paymentMode = paymentMode;

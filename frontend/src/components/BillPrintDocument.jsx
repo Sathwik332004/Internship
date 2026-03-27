@@ -72,6 +72,11 @@ export default function BillPrintDocument({ bill, shopInfo, isDraft = false }) {
 
   const displayGrossTotal = lineGrossTotal > 0 ? lineGrossTotal : Number(bill.grandTotal) || 0;
   const displayDiscount = Number(bill.discountAmount) || 0;
+  const discountPercentValue = Number(bill.discountPercent) || 0;
+  const discountTypeValue = bill.discountType || (discountPercentValue > 0 ? 'PERCENT' : 'AMOUNT');
+  const displayDiscountType = discountTypeValue === 'PERCENT'
+    ? `PERCENT (${discountPercentValue.toFixed(2)}%)`
+    : 'AMOUNT';
   const displayTotalGst = Number(bill.totalGst) || 0;
   const displayCgst = Number(bill.totalCgst) || (displayTotalGst > 0 ? displayTotalGst / 2 : 0);
   const displaySgst = Number(bill.totalSgst) || (displayTotalGst > 0 ? displayTotalGst / 2 : 0);
@@ -228,6 +233,12 @@ export default function BillPrintDocument({ bill, shopInfo, isDraft = false }) {
               <span>CGST</span>
               <span>{formatAmount(displayCgst)}</span>
             </div>
+            {displayDiscount > 0 && (
+              <div className="flex items-center justify-between border-b border-black px-3 py-2">
+                <span>DISCOUNT TYPE</span>
+                <span>{displayDiscountType}</span>
+              </div>
+            )}
             {displayDiscount > 0 && (
               <div className="flex items-center justify-between border-b border-black px-3 py-2">
                 <span>DISCOUNT</span>

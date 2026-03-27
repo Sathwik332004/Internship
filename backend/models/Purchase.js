@@ -69,6 +69,11 @@ const purchaseItemSchema = new mongoose.Schema({
     default: 0
   },
   // Discount per item
+  discountType: {
+    type: String,
+    enum: ['PERCENT', 'AMOUNT'],
+    default: 'PERCENT'
+  },
   discountPercent: {
     type: Number,
     default: 0,

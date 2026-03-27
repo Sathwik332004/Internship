@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, DollarSign, Package, AlertTriangle, Clock, Hash, Save, Pill, Check, Pencil } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, IndianRupee, Package, AlertTriangle, Clock, Hash, Save, Pill, Check, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
@@ -52,7 +52,7 @@ const GRID_COLUMNS = [
   { key: 'mrp', label: 'MRP', className: 'mrp-col numeric-col', editable: true },
   { key: 'rate', label: 'PURCHASE RATE', className: 'rate-col numeric-col', editable: true },
   { key: 'hsn', label: 'HSN', className: 'hsn-col', editable: true },
-  { key: 'disc', label: 'DISC%', className: 'disc-col numeric-col', editable: true },
+  { key: 'disc', label: 'DISCOUNT', className: 'disc-col numeric-col', editable: true },
   { key: 'amount', label: 'AMOUNT', className: 'amount-col numeric-col', editable: false, isAmount: true },
   { key: 'actions', label: '', className: 'delete-col', editable: false }
 ];
@@ -397,20 +397,19 @@ const PurchaseRow = React.memo(({
             {item.sellingUnit} ({item.conversionFactor}s)
           </div>
         ) : (
-          <input
-            type="text"
+          <select
             value={item.unit || ''}
             onChange={(e) => onUpdateField(index, 'unit', e.target.value)}
             onKeyDown={(e) => onKeyDown(e, index, 'pack')}
             onFocus={() => onCellFocus(index, 'pack')}
-            className={getInputClass('pack')}
-            placeholder="Unit"
-            list={`unit-options-${index}`}
-          />
+            className="w-full h-full rounded border border-slate-200 bg-white px-1 py-1 text-sm focus:border-emerald-400 focus:outline-none"
+          >
+            <option value="">Select Pack</option>
+            {unitOptions.map((unit) => (
+              <option key={unit} value={unit}>{unit}</option>
+            ))}
+          </select>
         )}
-        <datalist id={`unit-options-${index}`}>
-          {unitOptions.map(u => <option key={u} value={u} />)}
-        </datalist>
       </td>
 
       {/* Batch Column */}
@@ -627,19 +626,38 @@ const PurchaseRow = React.memo(({
         </div>
       </td>
 
-      {/* Disc% Column */}
+      {/* Discount Column */}
       <td className={getCellClass('disc')}>
-        <input
-          type="number"
-          min="0"
-          max="100"
-          value={item.discountPercent || 0}
-          onChange={(e) => onUpdateField(index, 'discountPercent', parseFloat(e.target.value) || 0)}
-          onKeyDown={(e) => onKeyDown(e, index, 'disc')}
-          onFocus={() => onCellFocus(index, 'disc')}
-          className={getInputClass('disc')}
-          placeholder="0"
-        />
+        <div className="flex items-center gap-1">
+          <select
+            value={item.discountType || 'PERCENT'}
+            onChange={(e) => onUpdateField(index, 'discountType', e.target.value)}
+            onFocus={() => onCellFocus(index, 'disc')}
+            className="h-7 rounded border border-slate-200 bg-white px-1 text-xs"
+          >
+            <option value="PERCENT">%</option>
+            <option value="AMOUNT">Rs</option>
+          </select>
+          <input
+            type="number"
+            min="0"
+            max={item.discountType === 'AMOUNT' ? undefined : '100'}
+            step="0.01"
+            value={item.discountType === 'AMOUNT' ? (item.discountAmount || 0) : (item.discountPercent || 0)}
+            onChange={(e) => {
+              const parsed = parseFloat(e.target.value) || 0;
+              if (item.discountType === 'AMOUNT') {
+                onUpdateField(index, 'discountAmount', parsed);
+              } else {
+                onUpdateField(index, 'discountPercent', parsed);
+              }
+            }}
+            onKeyDown={(e) => onKeyDown(e, index, 'disc')}
+            onFocus={() => onCellFocus(index, 'disc')}
+            className={`${getInputClass('disc')} min-w-0 flex-1`}
+            placeholder="0"
+          />
+        </div>
       </td>
 
       {/* Amount Column */}
@@ -692,7 +710,6 @@ export default function Purchases() {
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState('');
   const [paymentMode, setPaymentMode] = useState('CASH');
-  const [discountPercent, setDiscountPercent] = useState(0);
   const [miscellaneousAmount, setMiscellaneousAmount] = useState(0);
   const [notes, setNotes] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([]);
@@ -1043,6 +1060,7 @@ export default function Purchases() {
       sellingPrice: lastPrice?.sellingPrice || medicine.defaultSellingPrice || 0,
       quantity: 1,
       freeQuantity: 0,
+      discountType: 'PERCENT',
       discountPercent: 0,
       discountAmount: 0,
       subtotal: 0,
@@ -1080,7 +1098,7 @@ export default function Purchases() {
     const updatedItems = [...purchaseItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     
-    if (['quantity', 'purchasePrice', 'discountPercent', 'gstPercent'].includes(field)) {
+    if (['quantity', 'purchasePrice', 'discountType', 'discountPercent', 'discountAmount', 'gstPercent'].includes(field)) {
       calculateItemTotals(updatedItems[index]);
     }
     
@@ -1114,13 +1132,21 @@ export default function Purchases() {
   const calculateItemTotals = (item) => {
     const quantity = parseFloat(item.quantity) || 0;
     const purchasePrice = parseFloat(item.purchasePrice) || 0;
+    const discountType = item.discountType === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
     const discountPercent = parseFloat(item.discountPercent) || 0;
+    const discountAmountInput = parseFloat(item.discountAmount) || 0;
     const gstPercent = parseFloat(item.gstPercent) || 0;
     const cgstPercent = gstPercent / 2;
     const sgstPercent = gstPercent / 2;
 
     item.subtotal = quantity * purchasePrice;
-    item.discountAmount = item.subtotal * (discountPercent / 100);
+    item.discountAmount = discountType === 'PERCENT'
+      ? item.subtotal * (discountPercent / 100)
+      : Math.min(Math.max(discountAmountInput, 0), item.subtotal);
+    item.discountPercent = discountType === 'PERCENT'
+      ? Math.min(Math.max(discountPercent, 0), 100)
+      : 0;
+    item.discountType = discountType;
     item.taxableAmount = item.subtotal - item.discountAmount;
     item.gstAmount = item.taxableAmount * (gstPercent / 100);
     item.cgstAmount = item.taxableAmount * (cgstPercent / 100);
@@ -1160,14 +1186,22 @@ export default function Purchases() {
   // Calculate totals
   const calculateTotals = useCallback(() => {
     const subtotal = purchaseItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-    const totalDiscount = purchaseItems.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
+    const itemDiscountTotal = purchaseItems.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
     const totalGst = purchaseItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
     const totalCgst = purchaseItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
     const totalSgst = purchaseItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
-    const itemTotal = purchaseItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
     const extraAmount = parseFloat(miscellaneousAmount) || 0;
-    const grandTotal = itemTotal + extraAmount;
-    return { subtotal, totalDiscount, totalGst, totalCgst, totalSgst, miscellaneousAmount: extraAmount, grandTotal };
+    const grandTotal = subtotal + totalGst - itemDiscountTotal + extraAmount;
+    return {
+      subtotal,
+      itemDiscountTotal,
+      totalDiscount: itemDiscountTotal,
+      totalGst,
+      totalCgst,
+      totalSgst,
+      miscellaneousAmount: extraAmount,
+      grandTotal
+    };
   }, [miscellaneousAmount, purchaseItems]);
 
   // Memoized totals
@@ -1280,6 +1314,7 @@ export default function Purchases() {
       sellingPrice: 0,
       quantity: 1,
       freeQuantity: 0,
+      discountType: 'PERCENT',
       discountPercent: 0,
       discountAmount: 0,
       subtotal: 0,
@@ -1306,7 +1341,6 @@ export default function Purchases() {
       selectedSupplier,
       purchaseDate,
       supplierInvoiceNumber,
-      discountPercent,
       miscellaneousAmount,
       purchaseItems
     });
@@ -1341,6 +1375,7 @@ export default function Purchases() {
           sellingPrice: parseFloat(item.sellingPrice),
           quantity: parseInt(item.quantity),
           freeQuantity: parseInt(item.freeQuantity) || 0,
+          discountType: item.discountType || 'PERCENT',
           discountPercent: parseFloat(item.discountPercent) || 0,
           discountAmount: item.discountAmount,
           subtotal: item.subtotal,
@@ -1350,7 +1385,7 @@ export default function Purchases() {
         })),
         subtotal: totals.subtotal,
         totalGst: totals.totalGst,
-        discountPercent: parseFloat(discountPercent),
+        discountPercent: 0,
         discountAmount: totals.totalDiscount,
         miscellaneousAmount: totals.miscellaneousAmount,
         grandTotal: totals.grandTotal,
@@ -1383,7 +1418,6 @@ export default function Purchases() {
     setPurchaseDate(new Date().toISOString().split('T')[0]);
     setSupplierInvoiceNumber('');
     setPaymentMode('CASH');
-    setDiscountPercent(0);
     setMiscellaneousAmount(0);
     setNotes('');
     setPurchaseItems([]);
@@ -1414,11 +1448,12 @@ export default function Purchases() {
       setPurchaseDate(purchase.purchaseDate ? new Date(purchase.purchaseDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
       setSupplierInvoiceNumber(purchase.supplierInvoiceNumber || '');
       setPaymentMode(purchase.paymentMode || 'CASH');
-      setDiscountPercent(purchase.discountPercent || 0);
       setMiscellaneousAmount(purchase.miscellaneousAmount || 0);
       setNotes(purchase.notes || '');
-      setPurchaseItems(
-        (purchase.items || []).map((item) => {
+      const mappedItems = (purchase.items || []).map((item) => {
+          const mappedDiscountPercent = Number(item.discountPercent || 0);
+          const mappedDiscountAmount = Number(item.discountAmount || 0);
+          const inferredDiscountType = item.discountType || (mappedDiscountPercent > 0 ? 'PERCENT' : 'AMOUNT');
           const mappedItem = {
             medicineId: item.medicine?._id || item.medicine || null,
             medicineName: item.medicine?.medicineName || '',
@@ -1436,8 +1471,9 @@ export default function Purchases() {
             sellingPrice: item.sellingPrice || 0,
             quantity: item.quantity || 1,
             freeQuantity: item.freeQuantity || 0,
-            discountPercent: item.discountPercent || 0,
-            discountAmount: item.discountAmount || 0,
+            discountType: inferredDiscountType,
+            discountPercent: inferredDiscountType === 'PERCENT' ? mappedDiscountPercent : 0,
+            discountAmount: inferredDiscountType === 'AMOUNT' ? mappedDiscountAmount : 0,
             subtotal: item.subtotal || 0,
             taxableAmount: item.taxableAmount || 0,
             gstAmount: item.gstAmount || 0,
@@ -1447,8 +1483,10 @@ export default function Purchases() {
           };
 
           return calculateItemTotals(mappedItem);
-        })
-      );
+        });
+
+      setPurchaseItems(mappedItems);
+
       setMedicineSearch('');
       setSearchResults([]);
       setShowSearchResults(false);
@@ -1564,7 +1602,7 @@ export default function Purchases() {
         <div className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-emerald-100 p-3">
-              <DollarSign className="text-green-600" size={24} />
+              <IndianRupee className="text-green-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-slate-500">Total Amount</p>
@@ -1680,7 +1718,7 @@ export default function Purchases() {
                                 <tbody className="divide-y divide-gray-200 bg-white">
                                   {purchase.items?.map((item, index) => (
                                     <tr key={index}>
-                                      <td className="px-4 py-2 text-sm text-gray-900">{item.medicine?.medicineName}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">{item.medicine?.medicineName || item.medicineName || '-'}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.hsnCode || '-'}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{item.batchNumber}</td>
                                       <td className="px-4 py-2 text-sm text-gray-500">{formatExpiryDisplay(item.expiryDate)}</td>
@@ -1695,6 +1733,18 @@ export default function Purchases() {
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Total GST:</td>
                                     <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {(purchase.totalGst || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Discount Type:</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                                      {Number(purchase.discountPercent || 0) > 0
+                                        ? `Percent (${Number(purchase.discountPercent || 0).toFixed(2)}%)`
+                                        : 'Amount'}
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Discount Amount:</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {(purchase.discountAmount || 0).toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Miscellaneous:</td>
@@ -1733,12 +1783,12 @@ export default function Purchases() {
 
       {/* Add Purchase Modal - ERP Grid Style */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-sm md:p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-2 backdrop-blur-sm md:p-4">
           <div className="flex min-h-full items-start justify-center md:items-center">
-            <div className="flex min-h-[96vh] w-full max-w-7xl flex-col overflow-y-auto overflow-x-hidden rounded-[22px] border border-white/60 bg-white shadow-2xl sm:rounded-[28px] md:min-h-0 md:max-h-[95vh]">
+            <div className="flex min-h-[96vh] w-full max-w-7xl flex-col overflow-y-auto overflow-x-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.16)] sm:rounded-[24px] md:min-h-0 md:max-h-[95vh]">
             {showQuickHsnForm && (
               <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4">
-                <div className="w-full max-w-md rounded-2xl border border-emerald-200 bg-white p-5 shadow-2xl">
+                <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
                   <div className="mb-4">
                     <h3 className="text-lg font-bold text-slate-900">Add HSN Code</h3>
                     <p className="mt-1 text-sm text-slate-500">Create HSN without browser popup.</p>
@@ -1754,7 +1804,7 @@ export default function Purchases() {
                           hsnCode: e.target.value.replace(/\D/g, '').slice(0, 8)
                         }))}
                         placeholder="4 to 8 digits"
-                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1767,7 +1817,7 @@ export default function Purchases() {
                           description: normalizeTextInput(e.target.value)
                         }))}
                         placeholder="HSN description"
-                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1775,7 +1825,7 @@ export default function Purchases() {
                       <select
                         value={quickHsnForm.gstPercent}
                         onChange={(e) => setQuickHsnForm((prev) => ({ ...prev, gstPercent: e.target.value }))}
-                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                       >
                         <option value="0">0</option>
                         <option value="5">5</option>
@@ -1806,21 +1856,24 @@ export default function Purchases() {
               </div>
             )}
             {/* Header */}
-            <div className="flex flex-shrink-0 flex-col gap-3 border-b border-emerald-400/20 bg-gradient-to-r from-emerald-700 via-emerald-600 to-lime-500 p-4 text-white md:flex-row md:items-center md:justify-between md:p-6">
+            <div className="flex flex-shrink-0 flex-col gap-3 border-b border-slate-200 bg-white p-4 md:flex-row md:items-center md:justify-between md:p-6">
               <div className="pr-6">
-                <h2 className="text-xl font-bold">{editingPurchaseId ? 'Edit Purchase Order' : 'New Purchase Order'}</h2>
-                <p className="text-emerald-100 text-sm">ERP Mode - Tab/Enter to navigate â€¢ Enter in Amount adds new row</p>
+                <div className="mb-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  {editingPurchaseId ? 'Editing' : 'New Entry'}
+                </div>
+                <h2 className="text-xl font-bold text-slate-900">{editingPurchaseId ? 'Edit Purchase Order' : 'New Purchase Order'}</h2>
+                <p className="text-sm text-slate-500">ERP mode - Tab/Enter to navigate | Enter in Amount adds new row</p>
               </div>
               <button onClick={() => {
                 setShowAddModal(false);
                 resetForm();
-              }} className="rounded-xl p-2 transition-colors hover:bg-white/10">
+              }} className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700">
                 <X size={24} />
               </button>
             </div>
             
             {/* Header Form */}
-            <div className="flex-shrink-0 border-b border-gray-200 bg-slate-50 p-4">
+            <div className="flex-shrink-0 border-b border-slate-200 bg-slate-50/70 p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 md:gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Purchase Number</label>
@@ -1839,27 +1892,27 @@ export default function Purchases() {
                     <button
                       type="button"
                       onClick={() => setShowQuickSupplierForm((prev) => !prev)}
-                      className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                      className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       + Add
                     </button>
                   </div>
                   {showQuickSupplierForm && (
-                    <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2">
+                    <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2">
                       <div className="grid grid-cols-1 gap-2">
                         <input
                           type="text"
                           value={quickSupplierForm.supplierName}
                           onChange={(e) => setQuickSupplierForm((prev) => ({ ...prev, supplierName: normalizeTextInput(e.target.value) }))}
                           placeholder="Supplier name"
-                          className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
                         <input
                           type="text"
                           value={quickSupplierForm.phone}
                           onChange={(e) => setQuickSupplierForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                           placeholder="Phone (10 digits)"
-                          className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
                         <div className="flex justify-end gap-2">
                           <button
@@ -1915,7 +1968,7 @@ export default function Purchases() {
 
             {/* Grid Layout - ERP Style */}
             <div className="flex min-h-[360px] flex-1 flex-col overflow-visible md:overflow-hidden">
-              <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
+              <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Purchase Items</p>
                   <p className="text-xs text-slate-500">Add medicines and continue entry row by row.</p>
@@ -1930,7 +1983,7 @@ export default function Purchases() {
               </div>
 
               {/* Table Header - Sticky */}
-              <div className="overflow-x-auto flex-shrink-0 border-b border-gray-200 bg-slate-100/80">
+              <div className="overflow-x-auto flex-shrink-0 border-b border-slate-200 bg-slate-50">
                 <table className="purchase-table w-full">
                   <thead className="sticky top-0 bg-gray-100 z-10">
                     <tr>
@@ -2006,10 +2059,10 @@ export default function Purchases() {
                 )}
 
                 {/* Add Row Button */}
-                <div className="sticky bottom-0 border-t border-gray-200 bg-slate-50/95 p-4 backdrop-blur">
+                <div className="sticky bottom-0 border-t border-slate-200 bg-slate-50/95 p-4 backdrop-blur">
                   <button
                     onClick={addEmptyRow}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-white px-4 py-3 text-sm font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
                   >
                     <Plus size={20} />
                     Add Item (or press Enter in last Amount field)
@@ -2046,9 +2099,15 @@ export default function Purchases() {
             </div>
 
             {/* Footer with Summary */}
-            <div className="flex-shrink-0 border-t border-gray-200 bg-slate-50 p-4">
+            <div className="flex-shrink-0 border-t border-slate-200 bg-slate-50/70 p-4">
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <div className="space-y-3">
+                  <div className="rounded-xl border border-slate-300 bg-white p-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Discount Scope</p>
+                    <p className="text-sm text-slate-700">
+                      Discount is applied per medicine row using the selector in the Discount column (% or Rs). No extra total purchase discount is applied.
+                    </p>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Amount</label>
                     <input
@@ -2079,8 +2138,8 @@ export default function Purchases() {
                         <span>{purchaseDate || 'Not set'}</span>
                       </div>
                       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
-                        <span className="font-medium">Discount Saved</span>
-                        <span className="text-emerald-700">Rs. {totals.totalDiscount.toFixed(2)}</span>
+                        <span className="font-medium">Item Discount Saved</span>
+                        <span className="text-emerald-700">Rs. {totals.itemDiscountTotal.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center justify-between px-4 py-2">
                         <span className="font-medium">Extra Charges</span>
@@ -2133,7 +2192,7 @@ export default function Purchases() {
                   setShowAddModal(false);
                   resetForm();
                 }} className="rounded-lg border border-slate-400 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-slate-50">Cancel</button>
-                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-lg border border-black bg-black px-6 py-2 text-white transition-colors hover:bg-gray-900 disabled:opacity-50">
+                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-lg border border-emerald-700 bg-emerald-700 px-6 py-2 text-white transition-colors hover:bg-emerald-800 disabled:opacity-50">
                   <Save size={20} />
                   {saving ? 'Saving...' : editingPurchaseId ? 'Update Purchase' : 'Save Purchase'}
                 </button>
@@ -2146,18 +2205,22 @@ export default function Purchases() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-red-100 rounded-full">
-                <Trash2 className="text-red-600" size={24} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                <Trash2 className="text-rose-600" size={22} />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Confirm Delete</h3>
+              <h3 className="text-lg font-bold text-slate-900">Confirm Delete</h3>
             </div>
-<p className="text-gray-600 mb-6">Are you sure you want to delete purchase <strong>{deleteConfirm.purchaseNumber || deleteConfirm.supplierInvoiceNumber}</strong>? This will also restore the inventory stock.</p>
+            <p className="mb-6 text-sm text-slate-600">
+              Are you sure you want to delete purchase{' '}
+              <strong className="text-slate-900">{deleteConfirm.purchaseNumber || deleteConfirm.supplierInvoiceNumber}</strong>?
+              This will also restore the inventory stock.
+            </p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm._id)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+              <button onClick={() => setDeleteConfirm(null)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700 transition-colors hover:bg-slate-50">Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm._id)} className="rounded-lg border border-rose-700 bg-rose-700 px-4 py-2 text-white transition-colors hover:bg-rose-800">Delete</button>
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import {
   Package, 
   AlertTriangle, 
   TrendingUp, 
-  DollarSign, 
+  IndianRupee, 
   Users, 
   ShoppingCart,
   Calendar,
@@ -352,7 +352,7 @@ export default function Dashboard() {
               <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.todaySales)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
+              <IndianRupee className="w-6 h-6 text-green-600" />
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, DollarSign, Receipt, ChevronDown, ChevronUp, Phone, Printer, RotateCcw, Users, AlertCircle } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, IndianRupee, Receipt, ChevronDown, ChevronUp, Phone, Printer, RotateCcw, Users, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BillPrintDocument from '../components/BillPrintDocument';
@@ -279,7 +279,7 @@ export default function Bills() {
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="text-green-600" size={24} />
+              <IndianRupee className="text-green-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Sales</p>
@@ -308,7 +308,7 @@ export default function Bills() {
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-orange-100 rounded-lg">
-              <DollarSign className="text-orange-600" size={24} />
+              <IndianRupee className="text-orange-600" size={24} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Pending Balance</p>

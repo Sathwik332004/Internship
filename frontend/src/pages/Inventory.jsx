@@ -58,6 +58,24 @@ export default function Inventory() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+
+      Promise.all([
+        fetchInventory(),
+        fetchStats(),
+        fetchDisposals()
+      ]).catch((error) => {
+        console.error('Error auto-refreshing inventory page:', error);
+      });
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [currentPage, searchTerm, sortBy, sortOrder, filterLowStock, filterExpiringSoon]);
+
   const loadInventoryPage = async () => {
     try {
       setLoading(true);
@@ -545,7 +563,7 @@ export default function Inventory() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Recent Disposal Records</h2>
               <p className="text-sm text-gray-600">
-                Includes manual damage disposal and automatic expiry disposal.
+                Includes manual damage disposal and automatic expiry disposal. Auto-refreshes every minute.
               </p>
             </div>
           </div>

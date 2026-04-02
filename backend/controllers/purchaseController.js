@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Purchase = require('../models/Purchase');
+const PurchaseReturn = require('../models/PurchaseReturn');
 const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const Supplier = require('../models/Supplier');
@@ -95,7 +96,10 @@ const restorePurchaseInventory = async (purchase, session) => {
 
     inventory.quantityPurchased = Math.max(0, inventory.quantityPurchased - purchasedQty);
     inventory.freeQuantity = Math.max(0, inventory.freeQuantity - freeQty);
-    inventory.quantityAvailable = inventory.quantityPurchased + inventory.freeQuantity;
+    inventory.quantityAvailable = Math.max(
+      0,
+      Number(inventory.quantityAvailable || 0) - purchasedQty - freeQty
+    );
 
     await inventory.save({ session });
   }
@@ -331,9 +335,20 @@ exports.deletePurchase = async (req, res) => {
 
     if (!purchase) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({
         success: false,
         message: 'Purchase not found'
+      });
+    }
+
+    const hasReturns = await PurchaseReturn.exists({ purchase: purchase._id }).session(session);
+    if (hasReturns) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Purchase cannot be deleted after purchase returns have been recorded'
       });
     }
 
@@ -713,7 +728,7 @@ exports.addPurchase = async (req, res) => {
           if (item.freeQuantity) {
             existingInventory.freeQuantity += (item.freeQuantity * conversionFactor);
           }
-          existingInventory.quantityAvailable = existingInventory.quantityPurchased + existingInventory.freeQuantity;
+          existingInventory.quantityAvailable += totalQuantity;
           existingInventory.purchasePrice = item.purchasePrice;
           existingInventory.mrp = item.mrp || 0;
           existingInventory.supplier = supplier;
@@ -791,6 +806,11 @@ exports.updatePurchase = async (req, res) => {
         success: false,
         message: 'Purchase not found'
       });
+    }
+
+    const hasReturns = await PurchaseReturn.exists({ purchase: purchase._id }).session(session);
+    if (hasReturns) {
+      throw new Error('Purchase cannot be updated after purchase returns have been recorded');
     }
 
     const {
@@ -1021,7 +1041,7 @@ exports.updatePurchase = async (req, res) => {
         if (item.freeQuantity) {
           existingInventory.freeQuantity += (item.freeQuantity * conversionFactor);
         }
-        existingInventory.quantityAvailable = existingInventory.quantityPurchased + existingInventory.freeQuantity;
+        existingInventory.quantityAvailable += totalQuantity;
         existingInventory.purchasePrice = item.purchasePrice;
         existingInventory.mrp = item.mrp || 0;
         existingInventory.supplier = supplier;

@@ -14,6 +14,7 @@ import Medicines from './pages/Medicines';
 import Billing from './pages/Billing';
 import Suppliers from './pages/Suppliers';
 import Purchases from './pages/Purchases';
+import PurchaseReturns from './pages/PurchaseReturns';
 import Inventory from './pages/Inventory';
 import Bills from './pages/Bills';
 import SalesReturns from './pages/SalesReturns';
@@ -67,6 +68,7 @@ function AppRoutes() {
   { path: 'billing', element: <Billing /> },
   { path: 'suppliers', element: <Suppliers /> },
   { path: 'purchases', element: <Purchases /> },
+  { path: 'purchase-returns', element: <PurchaseReturns /> },
   { path: 'inventory', element: <Inventory /> },
   { path: 'bills', element: <Bills /> },
   { path: 'sales-returns', element: <SalesReturns /> },

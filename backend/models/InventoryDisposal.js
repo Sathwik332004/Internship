@@ -23,7 +23,7 @@ const inventoryDisposalSchema = new mongoose.Schema({
   },
   batchNumber: {
     type: String,
-    required: true,
+    default: '',
     trim: true,
     uppercase: true
   },

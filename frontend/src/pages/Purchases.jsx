@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, IndianRupee, Package, AlertTriangle, Clock, Hash, Save, Pill, Check, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, IndianRupee, Package, AlertTriangle, Clock, Hash, Save, Pill, Check, Pencil, RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import {
@@ -690,6 +691,7 @@ const PurchaseRow = React.memo(({
 });
 
 export default function Purchases() {
+  const navigate = useNavigate();
   const [purchases, setPurchases] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [medicines, setMedicines] = useState([]);
@@ -1508,7 +1510,7 @@ export default function Purchases() {
       fetchPurchases();
     } catch (error) {
       console.error('Error deleting purchase:', error);
-      toast.error('Error deleting purchase. Please try again.');
+      toast.error(error.response?.data?.message || 'Error deleting purchase. Please try again.');
     }
   };
 
@@ -1563,13 +1565,22 @@ export default function Purchases() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Purchases</h1>
           <p className="mt-1 text-slate-600">Track and manage medicine purchases with batch-wise inventory control.</p>
         </div>
-        <button onClick={() => {
-          resetForm();
-          setShowAddModal(true);
-        }} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">
-          <Plus size={20} />
-          New Purchase
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => navigate('/purchase-returns')}
+            className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-amber-800 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-amber-100"
+          >
+            <RotateCcw size={18} />
+            Purchase Return
+          </button>
+          <button onClick={() => {
+            resetForm();
+            setShowAddModal(true);
+          }} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">
+            <Plus size={20} />
+            New Purchase
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -1689,10 +1700,17 @@ export default function Purchases() {
                             <button onClick={() => toggleExpand(purchase._id)} className="rounded-xl p-2 text-emerald-600 transition-colors hover:bg-emerald-50">
                               <Eye size={18} />
                             </button>
+                            <button
+                              onClick={() => navigate('/purchase-returns', { state: { purchaseId: purchase._id } })}
+                              className="rounded-xl p-2 text-indigo-600 transition-colors hover:bg-indigo-50"
+                              title="Purchase Return"
+                            >
+                              <RotateCcw size={18} />
+                            </button>
                             <button onClick={() => handleEditPurchase(purchase._id)} className="rounded-xl p-2 text-amber-600 transition-colors hover:bg-amber-50" title="Edit Purchase">
                               <Pencil size={18} />
                             </button>
-                            <button onClick={() => setDeleteConfirm(purchase)} className="rounded-xl p-2 text-red-600 transition-colors hover:bg-red-50">
+                            <button onClick={() => setDeleteConfirm(purchase)} className="rounded-xl p-2 text-red-600 transition-colors hover:bg-red-50" title="Delete Purchase">
                               <Trash2 size={18} />
                             </button>
                           </div>

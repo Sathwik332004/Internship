@@ -41,6 +41,7 @@ const Layout = () => {
     { path: '/medicines', icon: Pill, label: 'Medicines' },
     { path: '/suppliers', icon: Truck, label: 'Suppliers' },
     { path: '/purchases', icon: Package, label: 'Purchases' },
+    { path: '/purchase-returns', icon: RotateCcw, label: 'Purchase Return' },
     { path: '/inventory', icon: Archive, label: 'Inventory' },
     { path: '/bills', icon: FileText, label: 'Bills' },
     { path: '/sales-returns', icon: RotateCcw, label: 'Sales Return' },

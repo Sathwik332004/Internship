@@ -82,12 +82,22 @@ export const purchaseAPI = {
   getAll: (params) => api.get('/purchases', { params }),
   getOne: (id) => api.get(`/purchases/${id}`),
   create: (data) => api.post('/purchases', data),
+  update: (id, data) => api.put(`/purchases/${id}`, data),
+  delete: (id) => api.delete(`/purchases/${id}`),
   getReport: (params) => api.get('/purchases/report', { params })
+};
+
+// Purchase Return API
+export const purchaseReturnAPI = {
+  getAll: (params) => api.get('/purchase-returns', { params }),
+  getOne: (id) => api.get(`/purchase-returns/${id}`),
+  create: (data) => api.post('/purchase-returns', data)
 };
 
 // Inventory API
 export const inventoryAPI = {
   getAll: (params) => api.get('/inventory', { params }),
+  getByMedicine: (medicineId, params) => api.get(`/inventory/medicine/${medicineId}`, { params }),
   getStats: () => api.get('/inventory/stats'),
   dispose: (id, data) => api.post(`/inventory/${id}/dispose`, data),
   getDisposals: (params) => api.get('/inventory/disposals', { params })

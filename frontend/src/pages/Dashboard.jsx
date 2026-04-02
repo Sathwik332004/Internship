@@ -25,7 +25,7 @@ import {
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const PAYMENT_MODE_COLORS = ['#2563eb', '#14b8a6', '#f97316', '#8b5cf6', '#64748b'];
+const PAYMENT_MODE_COLORS = ['#C8F2CC', '#ABF7B1', '#83F28F', '#5CED73', '#39E75F'];
 
 const getResponseData = (result, fallback) => (
   result.status === 'fulfilled' ? (result.value?.data?.data ?? fallback) : fallback
@@ -609,7 +609,7 @@ export default function Dashboard() {
                   <XAxis dataKey="day" />
                   <YAxis tickFormatter={(value) => `Rs ${value}`} domain={[0, chartSalesMax || 1]} />
                   <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
-                  <Bar dataKey="sales" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="sales" fill="#5CED73" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

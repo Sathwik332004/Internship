@@ -769,6 +769,80 @@ exports.updateBill = async (req, res) => {
   }
 };
 
+// @desc    Settle the remaining amount on a pending bill
+// @route   PATCH /api/bills/:id/settle-pending
+// @access  Private
+exports.settlePendingBill = async (req, res) => {
+  try {
+    const bill = await Bill.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    });
+
+    if (!bill) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bill not found'
+      });
+    }
+
+    if (req.user.role === 'staff' && bill.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this bill'
+      });
+    }
+
+    const paymentMode = req.body?.paymentMode;
+    if (paymentMode && !['CASH', 'UPI', 'CARD', 'BANK'].includes(paymentMode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment mode'
+      });
+    }
+
+    const returnSummaryMap = await getReturnSummaryMap([bill._id]);
+    const enrichedBill = enrichBillWithReturnSummary(bill, returnSummaryMap);
+    const currentPendingAmount = roundCurrency(Number(enrichedBill.pendingAmount || 0));
+
+    if (currentPendingAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bill is already fully paid'
+      });
+    }
+
+    bill.amountPaid = roundCurrency(Number(bill.amountPaid || 0) + currentPendingAmount);
+    bill.balance = 0;
+
+    if (paymentMode) {
+      bill.paymentMode = paymentMode;
+    }
+
+    await bill.save();
+
+    const populatedBill = await Bill.findById(bill._id)
+      .populate('createdBy', 'name')
+      .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
+
+    const updatedReturnSummaryMap = await getReturnSummaryMap([bill._id]);
+    const settledBill = enrichBillWithReturnSummary(populatedBill, updatedReturnSummaryMap);
+
+    res.status(200).json({
+      success: true,
+      message: 'Pending bill settled successfully',
+      data: settledBill
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error settling pending bill',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get daily sales summary
 // @route   GET /api/bills/sales/daily
 // @access  Private

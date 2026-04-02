@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, IndianRupee, Receipt, ChevronDown, ChevronUp, Phone, Printer, RotateCcw, Users, AlertCircle } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, X, ChevronLeft, ChevronRight, Calendar, IndianRupee, Receipt, ChevronDown, ChevronUp, Phone, Printer, RotateCcw, Users, AlertCircle, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BillPrintDocument from '../components/BillPrintDocument';
@@ -22,6 +22,7 @@ export default function Bills() {
   const [pendingLoading, setPendingLoading] = useState(false);
   const [pendingSearch, setPendingSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('ALL');
+  const [settlingBillId, setSettlingBillId] = useState(null);
 
   const SHOP_INFO = {
     name: 'BHAGYA MEDICALS',
@@ -150,6 +151,12 @@ export default function Bills() {
     return Math.max(grandTotal - amountPaid, 0);
   };
 
+  const getCollectedAmount = (bill) => {
+    const grandTotal = Number(bill?.netGrandTotal ?? bill?.grandTotal) || 0;
+    const amountPaid = Number(bill?.amountPaid) || 0;
+    return Math.max(Math.min(amountPaid, grandTotal), 0);
+  };
+
   const isBillPaid = (bill) => getPendingAmount(bill) <= 0;
 
   const formatAmount = (amount) => `Rs. ${Number(amount || 0).toLocaleString('en-IN', {
@@ -171,6 +178,36 @@ export default function Bills() {
 
   const visiblePendingCustomers = pendingCustomers;
   const pendingBalanceTotal = pendingSummaryCustomers.reduce((sum, customer) => sum + (customer.totalPending || 0), 0);
+  const collectedSalesTotal = bills.reduce((sum, bill) => sum + getCollectedAmount(bill), 0);
+
+  const handleSettlePendingBill = async (bill) => {
+    const pendingAmount = getPendingAmount(bill);
+
+    if (pendingAmount <= 0) {
+      toast.info('This bill is already fully paid.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Close bill ${bill.invoiceNumber} by receiving the remaining amount of ${formatAmount(pendingAmount)}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setSettlingBillId(bill._id);
+      await api.patch(`/bills/${bill._id}/settle-pending`);
+      await Promise.all([fetchBills(), fetchPendingSummary()]);
+      toast.success(`Pending amount received for ${bill.invoiceNumber}.`);
+    } catch (error) {
+      console.error('Error settling pending bill:', error);
+      toast.error(error.response?.data?.message || 'Unable to close pending bill. Please try again.');
+    } finally {
+      setSettlingBillId(null);
+    }
+  };
 
   const printInvoice = () => {
     window.print();
@@ -282,9 +319,9 @@ export default function Bills() {
               <IndianRupee className="text-green-600" size={24} />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Sales</p>
+              <p className="text-sm text-gray-600">Collected Sales</p>
               <p className="text-2xl font-bold text-gray-900">
-                Rs. {bills.reduce((sum, b) => sum + (b.netGrandTotal ?? b.grandTotal ?? 0), 0).toLocaleString()}
+                {formatAmount(collectedSalesTotal)}
               </p>
             </div>
           </div>
@@ -486,7 +523,18 @@ export default function Bills() {
                           </span>
                         </td>
                         <td className="px-2 sm:px-4 py-4">
-                          <div className="flex items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {getPendingAmount(bill) > 0 && (
+                              <button
+                                onClick={() => handleSettlePendingBill(bill)}
+                                disabled={settlingBillId === bill._id}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                title="Receive remaining amount and close bill"
+                              >
+                                <Check size={14} />
+                                {settlingBillId === bill._id ? 'Closing...' : 'Close Pending'}
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 setSelectedBill(bill);

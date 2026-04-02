@@ -5,6 +5,7 @@ const {
   getBill,
   createBill,
   updateBill,
+  settlePendingBill,
   getDailySales,
   getSalesReport,
   getGstReport,
@@ -43,6 +44,9 @@ router.route('/report/gst')
 
 router.route('/pending-customers')
   .get(getPendingCustomers);
+
+router.route('/:id/settle-pending')
+  .patch(settlePendingBill);
 
 router.route('/:id')
   .get(getBill)

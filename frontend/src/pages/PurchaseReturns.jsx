@@ -92,6 +92,7 @@ export default function PurchaseReturns() {
   const [purchasesLoading, setPurchasesLoading] = useState(false);
 
   const [selectedPurchase, setSelectedPurchase] = useState(null);
+  const [activePurchaseId, setActivePurchaseId] = useState('');
   const [selectedPurchaseLoading, setSelectedPurchaseLoading] = useState(false);
   const [purchaseReturnHistory, setPurchaseReturnHistory] = useState([]);
   const [returnedByIndex, setReturnedByIndex] = useState({});
@@ -177,6 +178,7 @@ export default function PurchaseReturns() {
     if (!purchaseId) return;
 
     try {
+      setActivePurchaseId(purchaseId);
       setSelectedPurchaseLoading(true);
       setError('');
 
@@ -303,6 +305,341 @@ export default function PurchaseReturns() {
 
   const hasReturnSelection = returnPreview.lines > 0;
 
+  const renderReturnEntryCard = (className = '') => (
+    <div className={`rounded-2xl border border-gray-200 bg-white p-4 shadow-sm ${className}`.trim()}>
+      <div className="mb-4 flex items-center gap-2">
+        <FileText size={18} className="text-violet-600" />
+        <h2 className="text-lg font-semibold text-gray-900">Return Entry</h2>
+      </div>
+
+      {selectedPurchaseLoading ? (
+        <div className="rounded-xl border border-dashed border-gray-300 px-4 py-12 text-center text-sm text-gray-500">
+          Loading selected purchase...
+        </div>
+      ) : !selectedPurchase ? (
+        <div className="rounded-xl border border-dashed border-gray-300 px-4 py-12 text-center text-sm text-gray-500">
+          Select a purchase from the left to start a purchase return.
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 rounded-2xl bg-gray-50 p-4 lg:grid-cols-[1.2fr,0.8fr]">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <Package size={15} className="text-gray-400" />
+                <span className="font-medium">{selectedPurchase.purchaseNumber}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <Receipt size={15} className="text-gray-400" />
+                <span>{selectedPurchase.supplierInvoiceNumber}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <Calendar size={15} className="text-gray-400" />
+                <span>{formatDate(selectedPurchase.purchaseDate)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <Truck size={15} className="text-gray-400" />
+                <span>{selectedPurchase.supplier?.supplierName || 'Supplier'}</span>
+              </div>
+            </div>
+            <div className="rounded-xl bg-white p-4">
+              <div className="text-sm text-gray-500">Original Purchase Amount</div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">{formatAmount(selectedPurchase.grandTotal)}</div>
+              <div className="mt-2 text-xs text-gray-500">
+                Discount: {formatAmount(selectedPurchase.discountAmount)} | GST: {formatAmount(selectedPurchase.totalGst)}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200">
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full min-w-[1100px]">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Medicine</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Batch</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Qty</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Free</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Returned Qty</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Returned Free</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Remaining Qty</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Remaining Free</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Available</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Return Qty</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Return Free</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Line Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {selectedPurchase.items?.map((item, index) => {
+                    const {
+                      alreadyReturnedQuantity,
+                      alreadyReturnedFreeQuantity,
+                      availableQuantity,
+                      remainingQuantity,
+                      remainingFreeQuantity,
+                      requestedQuantity,
+                      requestedFreeQuantity,
+                      maxReturnQuantity,
+                      maxReturnFreeQuantity,
+                      previewAmount
+                    } = getItemReturnState(
+                      item,
+                      index,
+                      returnedByIndex,
+                      returnQuantities,
+                      returnFreeQuantities,
+                      availableByIndex
+                    );
+
+                    return (
+                      <tr key={`${item.medicineName || index}-${item.batchNumber}-${index}`} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900">{item.medicine?.medicineName || item.medicineName}</div>
+                          <div className="text-xs text-gray-500">
+                            {item.medicine?.brandName || item.brandName || '-'} | Exp {formatExpiry(item.expiryDate)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{item.batchNumber || '-'}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-900">{item.quantity || 0}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-900">{item.freeQuantity || 0}</td>
+                        <td className="px-4 py-3 text-center text-sm text-amber-700">{alreadyReturnedQuantity}</td>
+                        <td className="px-4 py-3 text-center text-sm text-amber-700">{alreadyReturnedFreeQuantity}</td>
+                        <td className="px-4 py-3 text-center text-sm font-medium text-emerald-700">{remainingQuantity}</td>
+                        <td className="px-4 py-3 text-center text-sm font-medium text-emerald-700">{remainingFreeQuantity}</td>
+                        <td className="px-4 py-3 text-center text-sm font-medium text-sky-700">{availableQuantity}</td>
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max={maxReturnQuantity}
+                            value={returnQuantities[index] ?? ''}
+                            disabled={maxReturnQuantity <= 0}
+                            onChange={(event) => updateReturnQuantity(index, event.target.value, maxReturnQuantity)}
+                            className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max={maxReturnFreeQuantity}
+                            value={returnFreeQuantities[index] ?? ''}
+                            disabled={maxReturnFreeQuantity <= 0}
+                            onChange={(event) => updateFreeReturnQuantity(index, event.target.value, maxReturnFreeQuantity)}
+                            className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                          {requestedQuantity > 0 || requestedFreeQuantity > 0 ? formatAmount(previewAmount) : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 p-3 lg:hidden">
+              {selectedPurchase.items?.map((item, index) => {
+                const {
+                  alreadyReturnedQuantity,
+                  alreadyReturnedFreeQuantity,
+                  availableQuantity,
+                  remainingQuantity,
+                  remainingFreeQuantity,
+                  requestedQuantity,
+                  requestedFreeQuantity,
+                  maxReturnQuantity,
+                  maxReturnFreeQuantity,
+                  previewAmount
+                } = getItemReturnState(
+                  item,
+                  index,
+                  returnedByIndex,
+                  returnQuantities,
+                  returnFreeQuantities,
+                  availableByIndex
+                );
+
+                return (
+                  <div key={`${item.medicineName || index}-${item.batchNumber}-${index}`} className="rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold text-gray-900">{item.medicine?.medicineName || item.medicineName}</div>
+                        <div className="truncate text-sm text-gray-500">{item.medicine?.brandName || item.brandName || '-'}</div>
+                      </div>
+                      <div className="shrink-0 text-right text-sm">
+                        <div className="font-medium text-gray-900">{formatAmount(item.purchasePrice)}</div>
+                        <div className="text-xs text-gray-500">purchase rate</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Batch</div>
+                        <div className="mt-1 text-sm font-medium text-gray-900">{item.batchNumber || '-'}</div>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Qty / Free</div>
+                        <div className="mt-1 text-sm font-medium text-gray-900">{item.quantity || 0} / {item.freeQuantity || 0}</div>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Returned</div>
+                        <div className="mt-1 text-sm font-medium text-amber-700">{alreadyReturnedQuantity} / {alreadyReturnedFreeQuantity}</div>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Remaining</div>
+                        <div className="mt-1 text-sm font-medium text-emerald-700">{remainingQuantity} / {remainingFreeQuantity}</div>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Available</div>
+                        <div className="mt-1 text-sm font-medium text-sky-700">{availableQuantity}</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">Return Quantity</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxReturnQuantity}
+                          value={returnQuantities[index] ?? ''}
+                          disabled={maxReturnQuantity <= 0}
+                          onChange={(event) => updateReturnQuantity(index, event.target.value, maxReturnQuantity)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">Return Free Qty</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxReturnFreeQuantity}
+                          value={returnFreeQuantities[index] ?? ''}
+                          disabled={maxReturnFreeQuantity <= 0}
+                          onChange={(event) => updateFreeReturnQuantity(index, event.target.value, maxReturnFreeQuantity)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm">
+                      <div className="text-gray-500">Return Value</div>
+                      <div className="mt-1 font-semibold text-emerald-900">
+                        {requestedQuantity > 0 || requestedFreeQuantity > 0 ? formatAmount(previewAmount) : '-'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.2fr,0.8fr]">
+            <div className="space-y-4 rounded-2xl border border-gray-200 p-4">
+              <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Free quantity affects stock only. Return value is calculated from paid quantity.
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Return Reason</label>
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="e.g. Damaged batch, overstock, expiry risk"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Notes</label>
+                <textarea
+                  rows="4"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Optional notes for this purchase return..."
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-gray-900 p-5 text-white 2xl:sticky 2xl:top-6">
+              <h3 className="text-lg font-semibold">Return Summary</h3>
+              <div className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Selected lines</span>
+                  <span>{returnPreview.lines}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Return qty</span>
+                  <span>{returnPreview.quantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Return free qty</span>
+                  <span>{returnPreview.freeQuantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Subtotal</span>
+                  <span>{formatAmount(returnPreview.subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">GST</span>
+                  <span>{formatAmount(returnPreview.totalGst)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Discount share</span>
+                  <span>{formatAmount(returnPreview.discountAmount)}</span>
+                </div>
+                <div className="flex justify-between border-t border-gray-700 pt-3 text-lg font-semibold">
+                  <span>Return total</span>
+                  <span className="text-emerald-400">{formatAmount(returnPreview.grandTotal)}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSubmit}
+                disabled={!hasReturnSelection || saving}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-center font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save size={18} />
+                {saving ? 'Saving Return...' : 'Save Purchase Return'}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 p-4">
+            <h3 className="text-base font-semibold text-gray-900">Selected Purchase Return History</h3>
+            <div className="mt-4 space-y-3">
+              {purchaseReturnHistory.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
+                  No purchase returns have been recorded for this purchase yet.
+                </div>
+              ) : (
+                purchaseReturnHistory.map((entry) => (
+                  <div key={entry._id} className="rounded-xl border border-gray-200 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-gray-900">{entry.returnNumber}</div>
+                        <div className="mt-1 text-sm text-gray-600">{formatDate(entry.returnDate)}</div>
+                        {entry.reason && (
+                          <div className="mt-1 text-xs text-gray-500">Reason: {entry.reason}</div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-emerald-700">{formatAmount(entry.grandTotal)}</div>
+                        <div className="text-xs text-gray-500">{entry.items?.length || 0} lines</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const handleSubmit = async () => {
     if (!selectedPurchase?._id) {
       setError('Select a purchase before saving purchase return.');
@@ -416,29 +753,36 @@ export default function PurchaseReturns() {
                 </div>
               ) : (
                 purchaseResults.map((purchase) => (
-                  <button
-                    key={purchase._id}
-                    onClick={() => loadPurchase(purchase._id)}
-                    className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-                      selectedPurchase?._id === purchase._id
-                        ? 'border-emerald-600 bg-emerald-50'
-                        : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-semibold text-gray-900">{purchase.purchaseNumber}</div>
-                        <div className="mt-1 text-sm text-gray-600">{purchase.supplierInvoiceNumber}</div>
-                        <div className="mt-1 text-xs text-gray-500">
-                          {purchase.supplier?.supplierName || 'Supplier'} | {formatDate(purchase.purchaseDate)}
+                  <div key={purchase._id}>
+                    <button
+                      onClick={() => loadPurchase(purchase._id)}
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                        activePurchaseId === purchase._id
+                          ? 'border-emerald-600 bg-emerald-50'
+                          : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold text-gray-900">{purchase.purchaseNumber}</div>
+                          <div className="mt-1 text-sm text-gray-600">{purchase.supplierInvoiceNumber}</div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            {purchase.supplier?.supplierName || 'Supplier'} | {formatDate(purchase.purchaseDate)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-semibold text-gray-900">{formatAmount(purchase.grandTotal)}</div>
+                          <div className="text-xs text-gray-500">{purchase.items?.length || 0} items</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold text-gray-900">{formatAmount(purchase.grandTotal)}</div>
-                        <div className="text-xs text-gray-500">{purchase.items?.length || 0} items</div>
+                    </button>
+
+                    {activePurchaseId === purchase._id && (
+                      <div className="mt-3 2xl:hidden">
+                        {renderReturnEntryCard()}
                       </div>
-                    </div>
-                  </button>
+                    )}
+                  </div>
                 ))
               )}
             </div>
@@ -494,342 +838,12 @@ export default function PurchaseReturns() {
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <FileText size={18} className="text-violet-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Return Entry</h2>
-            </div>
+        <div className="space-y-6 2xl:hidden">
+          {renderReturnEntryCard()}
+        </div>
 
-            {selectedPurchaseLoading ? (
-              <div className="rounded-xl border border-dashed border-gray-300 px-4 py-12 text-center text-sm text-gray-500">
-                Loading selected purchase...
-              </div>
-            ) : !selectedPurchase ? (
-              <div className="rounded-xl border border-dashed border-gray-300 px-4 py-12 text-center text-sm text-gray-500">
-                Select a purchase from the left to start a purchase return.
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 gap-4 rounded-2xl bg-gray-50 p-4 lg:grid-cols-[1.2fr,0.8fr]">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Package size={15} className="text-gray-400" />
-                      <span className="font-medium">{selectedPurchase.purchaseNumber}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Receipt size={15} className="text-gray-400" />
-                      <span>{selectedPurchase.supplierInvoiceNumber}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Calendar size={15} className="text-gray-400" />
-                      <span>{formatDate(selectedPurchase.purchaseDate)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Truck size={15} className="text-gray-400" />
-                      <span>{selectedPurchase.supplier?.supplierName || 'Supplier'}</span>
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-white p-4">
-                    <div className="text-sm text-gray-500">Original Purchase Amount</div>
-                    <div className="mt-1 text-2xl font-bold text-gray-900">{formatAmount(selectedPurchase.grandTotal)}</div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      Discount: {formatAmount(selectedPurchase.discountAmount)} | GST: {formatAmount(selectedPurchase.totalGst)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200">
-                  <div className="hidden overflow-x-auto lg:block">
-                    <table className="w-full min-w-[1100px]">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Medicine</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Batch</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Qty</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Free</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Returned Qty</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Returned Free</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Remaining Qty</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Remaining Free</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Available</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Return Qty</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Return Free</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Line Value</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {selectedPurchase.items?.map((item, index) => {
-                          const {
-                            alreadyReturnedQuantity,
-                            alreadyReturnedFreeQuantity,
-                            availableQuantity,
-                            remainingQuantity,
-                            remainingFreeQuantity,
-                            requestedQuantity,
-                            requestedFreeQuantity,
-                            maxReturnQuantity,
-                            maxReturnFreeQuantity,
-                            previewAmount
-                          } = getItemReturnState(
-                            item,
-                            index,
-                            returnedByIndex,
-                            returnQuantities,
-                            returnFreeQuantities,
-                            availableByIndex
-                          );
-
-                          return (
-                            <tr key={`${item.medicineName || index}-${item.batchNumber}-${index}`} className="hover:bg-gray-50">
-                              <td className="px-4 py-3">
-                                <div className="font-medium text-gray-900">{item.medicine?.medicineName || item.medicineName}</div>
-                                <div className="text-xs text-gray-500">
-                                  {item.medicine?.brandName || item.brandName || '-'} | Exp {formatExpiry(item.expiryDate)}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{item.batchNumber || '-'}</td>
-                              <td className="px-4 py-3 text-center text-sm text-gray-900">{item.quantity || 0}</td>
-                              <td className="px-4 py-3 text-center text-sm text-gray-900">{item.freeQuantity || 0}</td>
-                              <td className="px-4 py-3 text-center text-sm text-amber-700">{alreadyReturnedQuantity}</td>
-                              <td className="px-4 py-3 text-center text-sm text-amber-700">{alreadyReturnedFreeQuantity}</td>
-                              <td className="px-4 py-3 text-center text-sm font-medium text-emerald-700">{remainingQuantity}</td>
-                              <td className="px-4 py-3 text-center text-sm font-medium text-emerald-700">{remainingFreeQuantity}</td>
-                              <td className="px-4 py-3 text-center text-sm font-medium text-sky-700">{availableQuantity}</td>
-                              <td className="px-4 py-3 text-center">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={maxReturnQuantity}
-                                  value={returnQuantities[index] ?? ''}
-                                  disabled={maxReturnQuantity <= 0}
-                                  onChange={(event) => updateReturnQuantity(index, event.target.value, maxReturnQuantity)}
-                                  className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-                                />
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={maxReturnFreeQuantity}
-                                  value={returnFreeQuantities[index] ?? ''}
-                                  disabled={maxReturnFreeQuantity <= 0}
-                                  onChange={(event) => updateFreeReturnQuantity(index, event.target.value, maxReturnFreeQuantity)}
-                                  className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-                                />
-                              </td>
-                              <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                                {requestedQuantity > 0 || requestedFreeQuantity > 0 ? formatAmount(previewAmount) : '-'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="space-y-3 p-3 lg:hidden">
-                    {selectedPurchase.items?.map((item, index) => {
-                      const {
-                        alreadyReturnedQuantity,
-                        alreadyReturnedFreeQuantity,
-                        availableQuantity,
-                        remainingQuantity,
-                        remainingFreeQuantity,
-                        requestedQuantity,
-                        requestedFreeQuantity,
-                        maxReturnQuantity,
-                        maxReturnFreeQuantity,
-                        previewAmount
-                      } = getItemReturnState(
-                        item,
-                        index,
-                        returnedByIndex,
-                        returnQuantities,
-                        returnFreeQuantities,
-                        availableByIndex
-                      );
-
-                      return (
-                        <div
-                          key={`${item.medicineName || index}-${item.batchNumber}-${index}`}
-                          className="rounded-xl border border-gray-200 p-4"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate font-semibold text-gray-900">{item.medicine?.medicineName || item.medicineName}</div>
-                              <div className="truncate text-sm text-gray-500">{item.medicine?.brandName || item.brandName || '-'}</div>
-                            </div>
-                            <div className="shrink-0 text-right text-sm">
-                              <div className="font-medium text-gray-900">{formatAmount(item.purchasePrice)}</div>
-                              <div className="text-xs text-gray-500">purchase rate</div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <div className="rounded-lg bg-gray-50 p-3">
-                              <div className="text-xs uppercase tracking-wide text-gray-500">Batch</div>
-                              <div className="mt-1 text-sm font-medium text-gray-900">{item.batchNumber || '-'}</div>
-                            </div>
-                            <div className="rounded-lg bg-gray-50 p-3">
-                              <div className="text-xs uppercase tracking-wide text-gray-500">Qty / Free</div>
-                              <div className="mt-1 text-sm font-medium text-gray-900">{item.quantity || 0} / {item.freeQuantity || 0}</div>
-                            </div>
-                            <div className="rounded-lg bg-gray-50 p-3">
-                              <div className="text-xs uppercase tracking-wide text-gray-500">Returned</div>
-                              <div className="mt-1 text-sm font-medium text-amber-700">{alreadyReturnedQuantity} / {alreadyReturnedFreeQuantity}</div>
-                            </div>
-                            <div className="rounded-lg bg-gray-50 p-3">
-                              <div className="text-xs uppercase tracking-wide text-gray-500">Remaining</div>
-                              <div className="mt-1 text-sm font-medium text-emerald-700">{remainingQuantity} / {remainingFreeQuantity}</div>
-                            </div>
-                            <div className="rounded-lg bg-gray-50 p-3">
-                              <div className="text-xs uppercase tracking-wide text-gray-500">Available</div>
-                              <div className="mt-1 text-sm font-medium text-sky-700">{availableQuantity}</div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            <div>
-                              <label className="mb-2 block text-sm font-medium text-gray-700">Return Quantity</label>
-                              <input
-                                type="number"
-                                min="0"
-                                max={maxReturnQuantity}
-                                value={returnQuantities[index] ?? ''}
-                                disabled={maxReturnQuantity <= 0}
-                                onChange={(event) => updateReturnQuantity(index, event.target.value, maxReturnQuantity)}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-2 block text-sm font-medium text-gray-700">Return Free Qty</label>
-                              <input
-                                type="number"
-                                min="0"
-                                max={maxReturnFreeQuantity}
-                                value={returnFreeQuantities[index] ?? ''}
-                                disabled={maxReturnFreeQuantity <= 0}
-                                onChange={(event) => updateFreeReturnQuantity(index, event.target.value, maxReturnFreeQuantity)}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm">
-                            <div className="text-gray-500">Return Value</div>
-                            <div className="mt-1 font-semibold text-emerald-900">
-                              {requestedQuantity > 0 || requestedFreeQuantity > 0 ? formatAmount(previewAmount) : '-'}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr,0.8fr]">
-                  <div className="space-y-4 rounded-2xl border border-gray-200 p-4">
-                    <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                      Free quantity affects stock only. Return value is calculated from paid quantity.
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Return Reason</label>
-                      <input
-                        type="text"
-                        value={reason}
-                        onChange={(event) => setReason(event.target.value)}
-                        placeholder="e.g. Damaged batch, overstock, expiry risk"
-                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Notes</label>
-                      <textarea
-                        rows="4"
-                        value={notes}
-                        onChange={(event) => setNotes(event.target.value)}
-                        placeholder="Optional notes for this purchase return..."
-                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-gray-900 p-5 text-white xl:sticky xl:top-6">
-                    <h3 className="text-lg font-semibold">Return Summary</h3>
-                    <div className="mt-4 space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Selected lines</span>
-                        <span>{returnPreview.lines}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Return qty</span>
-                        <span>{returnPreview.quantity}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Return free qty</span>
-                        <span>{returnPreview.freeQuantity}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Subtotal</span>
-                        <span>{formatAmount(returnPreview.subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">GST</span>
-                        <span>{formatAmount(returnPreview.totalGst)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Discount share</span>
-                        <span>{formatAmount(returnPreview.discountAmount)}</span>
-                      </div>
-                      <div className="flex justify-between border-t border-gray-700 pt-3 text-lg font-semibold">
-                        <span>Return total</span>
-                        <span className="text-emerald-400">{formatAmount(returnPreview.grandTotal)}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleSubmit}
-                      disabled={!hasReturnSelection || saving}
-                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Save size={18} />
-                      {saving ? 'Saving Return...' : 'Save Purchase Return'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 p-4">
-                  <h3 className="text-base font-semibold text-gray-900">Selected Purchase Return History</h3>
-                  <div className="mt-4 space-y-3">
-                    {purchaseReturnHistory.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
-                        No purchase returns have been recorded for this purchase yet.
-                      </div>
-                    ) : (
-                      purchaseReturnHistory.map((entry) => (
-                        <div key={entry._id} className="rounded-xl border border-gray-200 px-4 py-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="font-semibold text-gray-900">{entry.returnNumber}</div>
-                              <div className="mt-1 text-sm text-gray-600">{formatDate(entry.returnDate)}</div>
-                              {entry.reason && (
-                                <div className="mt-1 text-xs text-gray-500">Reason: {entry.reason}</div>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm font-semibold text-emerald-700">{formatAmount(entry.grandTotal)}</div>
-                              <div className="text-xs text-gray-500">{entry.items?.length || 0} lines</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="space-y-6 hidden 2xl:block">
+          {renderReturnEntryCard()}
         </div>
       </div>
     </div>

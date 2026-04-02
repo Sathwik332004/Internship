@@ -312,9 +312,9 @@ export default function SalesReturns() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.05fr,1.35fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr,1.35fr]">
         <div className="space-y-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm xl:block">
             <div className="mb-4 flex items-center gap-2">
               <Search size={18} className="text-emerald-600" />
               <h2 className="text-lg font-semibold text-gray-900">Search Bill</h2>
@@ -594,7 +594,7 @@ export default function SalesReturns() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr,0.8fr]">
+                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.2fr,0.8fr]">
                   <div className="space-y-4 rounded-2xl border border-gray-200 p-4">
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">Return Reason</label>
@@ -618,7 +618,7 @@ export default function SalesReturns() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl bg-gray-900 p-5 text-white xl:sticky xl:top-6">
+                  <div className="rounded-2xl bg-gray-900 p-5 text-white 2xl:sticky 2xl:top-6">
                     <h3 className="text-lg font-semibold">Return Summary</h3>
                     <div className="mt-4 space-y-2 text-sm">
                       <div className="flex justify-between">
@@ -650,7 +650,7 @@ export default function SalesReturns() {
                     <button
                       onClick={handleSubmit}
                       disabled={!hasReturnSelection || saving}
-                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-center font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Save size={18} />
                       {saving ? 'Saving Return...' : 'Save Sales Return'}
@@ -688,6 +688,55 @@ export default function SalesReturns() {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm xl:hidden">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt size={18} className="text-emerald-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Recent Sales Returns</h2>
+              </div>
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="text"
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  placeholder="Search returns..."
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {historyLoading ? (
+                <div className="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
+                  Loading return history...
+                </div>
+              ) : recentReturns.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
+                  No sales returns recorded yet.
+                </div>
+              ) : (
+                recentReturns.map((entry) => (
+                  <div key={entry._id} className="rounded-xl border border-gray-200 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="break-all font-semibold text-gray-900">{entry.returnNumber}</div>
+                        <div className="mt-1 break-all text-sm text-gray-600">{entry.invoiceNumber}</div>
+                        <div className="mt-1 text-xs text-gray-500">
+                          {entry.customerName || 'Walk-in Customer'} â€¢ {formatDate(entry.returnDate)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-emerald-700">{formatAmount(entry.grandTotal)}</div>
+                        <div className="text-xs text-gray-500">{entry.items?.length || 0} lines</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import {
   normalizeTextInput,
   validateMedicineForm
 } from '../utils/validation';
+import { parseBarcode } from '../utils/barcode';
 
 // Unit options for dropdown
 const UNIT_OPTIONS = [
@@ -36,7 +37,6 @@ export default function Medicines() {
     packSize: '',
     manufacturer: '',
     barcode: '',
-    gtin: '',
     defaultSellingPrice: '',
     reorderLevel: 10,
     status: 'ACTIVE',
@@ -94,6 +94,16 @@ export default function Medicines() {
     }
 
     try {
+      const parsedBarcode = parseBarcode(formData.barcode);
+      if (formData.barcode && !parsedBarcode.isValid) {
+        toast.error('Invalid or unsupported barcode');
+        return;
+      }
+
+      if (parsedBarcode.warning) {
+        toast.warn(parsedBarcode.warning);
+      }
+
       // Prepare data - convert empty strings to null for optional fields
       // NOTE: GST fields are NOT sent - they will be handled in Purchase Entry
       const submitData = {
@@ -102,8 +112,8 @@ export default function Medicines() {
         strength: normalizeTextInput(formData.strength).trim() || null,
         packSize: normalizeTextInput(formData.packSize).trim() || null,
         manufacturer: normalizeTextInput(formData.manufacturer).trim() || null,
-        barcode: String(formData.barcode || '').trim() || null,
-        gtin: String(formData.gtin || '').trim() || null,
+        barcode: parsedBarcode.isValid ? parsedBarcode.gtin : null,
+        gtin: parsedBarcode.isValid ? parsedBarcode.gtin : null,
         defaultSellingPrice: formData.defaultSellingPrice === '' ? null : Number(formData.defaultSellingPrice),
         reorderLevel: Number(formData.reorderLevel) || 0,
         status: formData.status,
@@ -156,7 +166,6 @@ export default function Medicines() {
       packSize: medicine.packSize || '',
       manufacturer: medicine.manufacturer || '',
       barcode: medicine.barcode || '',
-      gtin: medicine.gtin || '',
       defaultSellingPrice: medicine.defaultSellingPrice || '',
       reorderLevel: medicine.reorderLevel || 10,
       status: medicine.status || 'ACTIVE',
@@ -191,7 +200,6 @@ export default function Medicines() {
       packSize: '',
       manufacturer: '',
       barcode: '',
-      gtin: '',
       defaultSellingPrice: '',
       reorderLevel: 10,
       status: 'ACTIVE',
@@ -490,26 +498,38 @@ export default function Medicines() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Barcode</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Barcode / GTIN</label>
                     <input
                       type="text"
                       value={formData.barcode}
-                      inputMode="numeric"
-                      maxLength={14}
-                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value.replace(/\D/g, '').slice(0, 14) })}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const result = parseBarcode(e.target.value);
+                          if (result.isValid && result.gtin) {
+                            setFormData({ ...formData, barcode: result.gtin });
+                            if (result.warning) {
+                              toast.warn(result.warning);
+                            }
+                          } else {
+                            toast.error('Invalid or unsupported barcode');
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value;
+                        if (!String(value || '').trim()) {
+                          return;
+                        }
+
+                        const result = parseBarcode(value);
+                        if (result.isValid && result.gtin) {
+                          setFormData((current) => ({ ...current, barcode: result.gtin }));
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">GTIN</label>
-                    <input
-                      type="text"
-                      value={formData.gtin}
-                      inputMode="numeric"
-                      maxLength={14}
-                      onChange={(e) => setFormData({ ...formData, gtin: e.target.value.replace(/\D/g, '').slice(0, 14) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
+                    <p className="mt-1 text-xs text-gray-500">Supports GTIN-13/14, GS1 raw, bracketed GS1, and GS1 Digital Link. Only GTIN-13 is stored.</p>
                   </div>
                 </div>
               </div>

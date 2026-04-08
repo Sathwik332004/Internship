@@ -12,7 +12,8 @@ const {
   getMonthlySales,
   getTopMedicines,
   getDashboardStats,
-  getPendingCustomers
+  getPendingCustomers,
+  handleBillingScan
 } = require('../controllers/billController');
 const { protect } = require('../middleware/auth');
 const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
@@ -44,6 +45,9 @@ router.route('/report/gst')
 
 router.route('/pending-customers')
   .get(getPendingCustomers);
+
+router.route('/scan')
+  .post(handleBillingScan);
 
 router.route('/:id/settle-pending')
   .patch(settlePendingBill);

@@ -1,3 +1,5 @@
+import { parseBarcode } from './barcode';
+
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_REGEX = /^\d{10}$/;
 export const GST_REGEX = /^\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
@@ -189,7 +191,6 @@ export const validateSupplierForm = (formData) => {
 export const validateMedicineForm = (formData, unitOptions = []) => {
   const medicineName = normalizeWhitespace(formData.medicineName);
   const barcode = normalizeWhitespace(formData.barcode);
-  const gtin = normalizeWhitespace(formData.gtin);
   const conversionFactor = Number(formData.conversionFactor);
   const reorderLevel = Number(formData.reorderLevel);
   const defaultSellingPrice = Number(formData.defaultSellingPrice);
@@ -200,12 +201,8 @@ export const validateMedicineForm = (formData, unitOptions = []) => {
     return "Medicine name must be at least 2 characters";
   }
 
-  if (barcode && !isValidBarcode(barcode)) {
-    return "Barcode must be 8 to 14 digits";
-  }
-
-  if (gtin && !isValidGTIN(gtin)) {
-    return "GTIN must be 8 to 14 digits";
+  if (barcode && !parseBarcode(barcode).isValid) {
+    return "Invalid or unsupported barcode";
   }
 
   if ((baseUnit && !sellingUnit) || (!baseUnit && sellingUnit)) {

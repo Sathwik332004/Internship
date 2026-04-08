@@ -4,13 +4,23 @@ const HSN = require('../models/HSN');
 const {
   isNonNegativeInteger,
   isNonNegativeNumber,
-  isValidBarcode,
-  isValidGTIN,
   normalizeOptionalText,
   normalizeWhitespace
 } = require('../utils/validation');
+const { parseBarcode } = require('../utils/barcode');
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeMedicineBarcode = (barcode, gtin) => {
+  const rawValue = barcode ?? gtin ?? '';
+  const parsed = parseBarcode(rawValue);
+
+  return {
+    parsed,
+    normalizedBarcode: parsed.isValid ? parsed.gtin : '',
+    shouldValidate: rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== ''
+  };
+};
 
 // @desc    Get all medicines with stock info
 // @route   GET /api/medicines
@@ -349,8 +359,19 @@ exports.searchAllMedicines = async (req, res) => {
 // @access  Private
 exports.getMedicineByBarcode = async (req, res) => {
   try {
+    const parsedBarcode = parseBarcode(req.params.barcode);
+    if (!parsedBarcode.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or unsupported barcode'
+      });
+    }
+
     const medicine = await Medicine.findOne({
-      barcode: req.params.barcode,
+      $or: [
+        { barcode: parsedBarcode.gtin },
+        { gtin: parsedBarcode.gtin }
+      ],
       isDeleted: false,
       status: 'ACTIVE'
     }).populate('hsnCode', 'hsnCode gstPercent');
@@ -452,8 +473,7 @@ exports.addMedicine = async (req, res) => {
     const normalizedStrength = normalizeOptionalText(strength);
     const normalizedPackSize = normalizeOptionalText(packSize);
     const normalizedManufacturer = normalizeOptionalText(manufacturer);
-    const normalizedBarcode = barcode ? String(barcode).trim() : '';
-    const normalizedGtin = gtin ? String(gtin).trim() : '';
+    const { parsed: parsedBarcode, normalizedBarcode, shouldValidate } = normalizeMedicineBarcode(barcode, gtin);
     const normalizedSalt = normalizeOptionalText(salt);
     const normalizedColorType = normalizeOptionalText(colorType);
     const normalizedPacking = normalizeOptionalText(packing);
@@ -465,17 +485,10 @@ exports.addMedicine = async (req, res) => {
       });
     }
 
-    if (normalizedBarcode && !isValidBarcode(normalizedBarcode)) {
+    if (shouldValidate && !parsedBarcode.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'Barcode must be 8 to 14 digits'
-      });
-    }
-
-    if (normalizedGtin && !isValidGTIN(normalizedGtin)) {
-      return res.status(400).json({
-        success: false,
-        message: 'GTIN must be 8 to 14 digits'
+        message: 'Invalid or unsupported barcode'
       });
     }
 
@@ -509,9 +522,12 @@ exports.addMedicine = async (req, res) => {
     }
 
     // Check for duplicate barcode
-    if (barcode) {
+    if (normalizedBarcode) {
       const existingBarcode = await Medicine.findOne({
-        barcode: normalizedBarcode,
+        $or: [
+          { barcode: normalizedBarcode },
+          { gtin: normalizedBarcode }
+        ],
         isDeleted: false
       });
 
@@ -524,20 +540,6 @@ exports.addMedicine = async (req, res) => {
     }
 
     // Check for duplicate GTIN
-    if (gtin) {
-      const existingGtin = await Medicine.findOne({
-        gtin: normalizedGtin,
-        isDeleted: false
-      });
-
-      if (existingGtin) {
-        return res.status(400).json({
-          success: false,
-          message: 'Medicine with this GTIN already exists'
-        });
-      }
-    }
-
     // If HSN code is provided, fetch and validate
     let hsnRef = null;
     let finalGstPercent = gstPercent || 12;
@@ -561,7 +563,7 @@ exports.addMedicine = async (req, res) => {
       packSize: normalizedPackSize,
       manufacturer: normalizedManufacturer,
       barcode: normalizedBarcode || null,
-      gtin: normalizedGtin || null,
+      gtin: normalizedBarcode || null,
       hsnCode: hsnRef ? hsnRef._id : null,
       hsnCodeString: hsnCodeString || (hsnRef ? hsnRef.hsnCode : null),
       gstPercent: finalGstPercent,
@@ -639,8 +641,9 @@ exports.updateMedicine = async (req, res) => {
     const normalizedStrength = strength !== undefined ? normalizeOptionalText(strength) : undefined;
     const normalizedPackSize = packSize !== undefined ? normalizeOptionalText(packSize) : undefined;
     const normalizedManufacturer = manufacturer !== undefined ? normalizeOptionalText(manufacturer) : undefined;
-    const normalizedBarcode = barcode !== undefined ? String(barcode || '').trim() : undefined;
-    const normalizedGtin = gtin !== undefined ? String(gtin || '').trim() : undefined;
+    const barcodeInputProvided = barcode !== undefined || gtin !== undefined;
+    const { parsed: parsedBarcode, normalizedBarcode } = normalizeMedicineBarcode(barcode, gtin);
+    const normalizedBarcodeValue = barcodeInputProvided ? normalizedBarcode : undefined;
     const normalizedSalt = salt !== undefined ? normalizeOptionalText(salt) : undefined;
     const normalizedColorType = colorType !== undefined ? normalizeOptionalText(colorType) : undefined;
     const normalizedPacking = packing !== undefined ? normalizeOptionalText(packing) : undefined;
@@ -652,17 +655,10 @@ exports.updateMedicine = async (req, res) => {
       });
     }
 
-    if (normalizedBarcode && !isValidBarcode(normalizedBarcode)) {
+    if (barcodeInputProvided && String((barcode ?? gtin) || '').trim() && !parsedBarcode.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'Barcode must be 8 to 14 digits'
-      });
-    }
-
-    if (normalizedGtin && !isValidGTIN(normalizedGtin)) {
-      return res.status(400).json({
-        success: false,
-        message: 'GTIN must be 8 to 14 digits'
+        message: 'Invalid or unsupported barcode'
       });
     }
 
@@ -711,9 +707,12 @@ exports.updateMedicine = async (req, res) => {
     }
 
     // Check for duplicate barcode (excluding current medicine)
-    if (normalizedBarcode && normalizedBarcode !== medicine.barcode) {
+    if (normalizedBarcodeValue && normalizedBarcodeValue !== medicine.barcode) {
       const existingBarcode = await Medicine.findOne({
-        barcode: normalizedBarcode,
+        $or: [
+          { barcode: normalizedBarcodeValue },
+          { gtin: normalizedBarcodeValue }
+        ],
         isDeleted: false,
         _id: { $ne: req.params.id }
       });
@@ -722,21 +721,6 @@ exports.updateMedicine = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'Medicine with this barcode already exists'
-        });
-      }
-    }
-
-    if (normalizedGtin && normalizedGtin !== medicine.gtin) {
-      const existingGtin = await Medicine.findOne({
-        gtin: normalizedGtin,
-        isDeleted: false,
-        _id: { $ne: req.params.id }
-      });
-
-      if (existingGtin) {
-        return res.status(400).json({
-          success: false,
-          message: 'Medicine with this GTIN already exists'
         });
       }
     }
@@ -759,8 +743,8 @@ exports.updateMedicine = async (req, res) => {
     medicine.strength = normalizedStrength !== undefined ? normalizedStrength : medicine.strength;
     medicine.packSize = normalizedPackSize !== undefined ? normalizedPackSize : medicine.packSize;
     medicine.manufacturer = normalizedManufacturer !== undefined ? normalizedManufacturer : medicine.manufacturer;
-    medicine.barcode = normalizedBarcode !== undefined ? (normalizedBarcode || null) : medicine.barcode;
-    medicine.gtin = normalizedGtin !== undefined ? (normalizedGtin || null) : medicine.gtin;
+    medicine.barcode = normalizedBarcodeValue !== undefined ? (normalizedBarcodeValue || null) : medicine.barcode;
+    medicine.gtin = normalizedBarcodeValue !== undefined ? (normalizedBarcodeValue || null) : medicine.gtin;
     medicine.hsnCode = hsnRef ? hsnRef._id : medicine.hsnCode;
     medicine.hsnCodeString = hsnCodeString || (hsnRef ? hsnRef.hsnCode : medicine.hsnCodeString);
     medicine.gstPercent = finalGstPercent;

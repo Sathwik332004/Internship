@@ -8,6 +8,7 @@ import {
   normalizeUppercase,
   validatePurchaseForm
 } from '../utils/validation';
+import { parseBarcode, parsePurchaseBarcode } from '../utils/barcode';
 
 // Unit options for dropdown
 const UNIT_OPTIONS = [
@@ -57,6 +58,18 @@ const GRID_COLUMNS = [
   { key: 'amount', label: 'AMOUNT', className: 'amount-col numeric-col', editable: false, isAmount: true },
   { key: 'actions', label: '', className: 'delete-col', editable: false }
 ];
+
+const parsePurchaseScannerData = (input = "") => {
+  const result = parsePurchaseBarcode(input);
+  if (!result.isValid || !result.gtin) return null;
+
+  return {
+    gtin: result.gtin,
+    batch: result.batch ? normalizeUppercase(result.batch) : null,
+    expiry: result.expiry || null,
+    detectedFormat: result.detectedFormat
+  };
+};
 
 const normalizeExpiryInput = (value = '') => {
   const trimmed = String(value).trim();
@@ -234,6 +247,7 @@ const PurchaseRow = React.memo(({
   const [expiryParts, setExpiryParts] = useState(() => getExpiryParts(item.expiryDate));
   const [isExpiryPickerOpen, setIsExpiryPickerOpen] = useState(false);
   const [expiryPickerYear, setExpiryPickerYear] = useState(initialPickerYear);
+  const [tempScanData, setTempScanData] = useState({ batch: '', expiry: '' });
   const expiryPickerRef = useRef(null);
   const expiryYearInputRef = useRef(null);
   const productSearchContainerRef = useRef(null);
@@ -269,6 +283,14 @@ const PurchaseRow = React.memo(({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isExpiryPickerOpen]);
+
+  useEffect(() => {
+    if (item.medicineId && (tempScanData.batch || tempScanData.expiry)) {
+      if (tempScanData.batch) onUpdateField(index, 'batchNumber', tempScanData.batch);
+      if (tempScanData.expiry) onUpdateField(index, 'expiryDate', tempScanData.expiry);
+      setTempScanData({ batch: '', expiry: '' });
+    }
+  }, [index, item.medicineId, onUpdateField, tempScanData.batch, tempScanData.expiry]);
 
   useEffect(() => {
     if (!(showSearchResults && searchRowIndex === index)) {
@@ -349,6 +371,35 @@ const PurchaseRow = React.memo(({
                 onSetSearchRowIndex(index);
                 onSearchChange(value, index);
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  console.log('Enter pressed');
+                  const scannerInput = e.target.value;
+                  const parsedBarcode = parsePurchaseBarcode(scannerInput);
+                  if (!parsedBarcode.isValid || !parsedBarcode.gtin) {
+                    console.log('No GTIN found, ignoring');
+                    return;
+                  }
+
+                  const gtin = parsedBarcode.gtin;
+                  const batch = parsedBarcode.batch ? normalizeUppercase(parsedBarcode.batch) : '';
+                  const expiry = parsedBarcode.expiry || '';
+
+                  console.log('Batch extracted:', batch);
+                  console.log('Parsed scan', {gtin, batch, expiry});
+
+                  onUpdateField(index, 'medicineName', gtin);
+                  onSetSearchRowIndex(index);
+                  onSearchChange(gtin, index); // call medicine search
+
+                  // Store temporary scan data and update row
+                  setTempScanData({ batch, expiry });
+                  if (batch) onUpdateField(index, 'batchNumber', batch);
+                  if (expiry) onUpdateField(index, 'expiryDate', expiry);
+
+                  e.preventDefault();
+                }
+              }}
               placeholder="Search medicine name, brand or barcode..."
               className="w-full h-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 bg-white"
             />
@@ -363,7 +414,10 @@ const PurchaseRow = React.memo(({
                     <button
                       key={medicine._id}
                       type="button"
-                      onClick={() => onAddMedicine(medicine)}
+                      onClick={() => {
+                        onAddMedicine(medicine, tempScanData);
+                        setTempScanData({ batch: '', expiry: '' });
+                      }}
                       className="w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-emerald-50"
                     >
                       <p className="font-medium text-slate-900">{displayText}</p>
@@ -1037,13 +1091,17 @@ export default function Purchases() {
   };
 
   // Add medicine to purchase (creates new row)
-  const addMedicineToPurchase = async (medicine) => {
+  const addMedicineToPurchase = async (medicine, scanData = {}) => {
     const hsnCode = medicine.hsnCodeString || medicine.hsnCode?.hsnCode;
     const hsnRecord = hsnCodes[hsnCode];
     // GST should only come from HSN selection - no default fallback
     const gstPercent = hsnRecord?.gstPercent || 0;
 
     const lastPrice = await fetchLastPurchasePrice(medicine._id);
+
+    const existingRow = purchaseItems[searchRowIndex] || {};
+    const resolvedBatch = scanData.batch || existingRow.batchNumber || '';
+    const resolvedExpiry = scanData.expiry || existingRow.expiryDate || '';
 
     const newItem = {
       medicineId: medicine._id,
@@ -1055,8 +1113,8 @@ export default function Purchases() {
       baseUnit: medicine.baseUnit || '',
       sellingUnit: medicine.sellingUnit || '',
       conversionFactor: medicine.conversionFactor || 1,
-      batchNumber: '',
-      expiryDate: '',
+      batchNumber: resolvedBatch,
+      expiryDate: resolvedExpiry,
       mrp: lastPrice?.mrp || medicine.defaultSellingPrice || 0,
       purchasePrice: lastPrice?.purchasePrice || medicine.defaultSellingPrice || 0,
       sellingPrice: lastPrice?.sellingPrice || medicine.defaultSellingPrice || 0,
@@ -1079,8 +1137,18 @@ export default function Purchases() {
       newItems = [...purchaseItems];
       newItems[searchRowIndex] = newItem;
     } else {
-      // Add new row
-      newItems = [...purchaseItems, newItem];
+      // Check for duplicate medicine (same batch) and increase qty
+      const existingIndex = purchaseItems.findIndex(item => 
+        item.medicineId === medicine._id && item.batchNumber === (scanData.batch || '')
+      );
+      if (existingIndex >= 0) {
+        newItems = [...purchaseItems];
+        newItems[existingIndex] = { ...newItems[existingIndex], quantity: (newItems[existingIndex].quantity || 0) + 1 };
+        calculateItemTotals(newItems[existingIndex]);
+      } else {
+        // Add new row
+        newItems = [...purchaseItems, newItem];
+      }
     }
     
     setPurchaseItems(newItems);
@@ -1088,10 +1156,10 @@ export default function Purchases() {
     setShowSearchResults(false);
     setSearchRowIndex(-1);
     
-    // Focus on Batch field of the row
+    // Focus on Batch field (scanner auto-filled it, move to qty or next field)
     setTimeout(() => {
       const targetIndex = searchRowIndex >= 0 ? searchRowIndex : newItems.length - 1;
-      setActiveCell({ row: targetIndex, col: 'batch' });
+      setActiveCell({ row: targetIndex, col: scanData.batch ? 'qty' : 'batch' });
     }, 50);
   };
 
@@ -1542,13 +1610,38 @@ export default function Purchases() {
     searchMedicines(value, searchRowIndex >= 0 ? searchRowIndex : purchaseItems.length);
   };
 
+  // Handle scanner input - detect barcode on Enter
+  const handleScannerInput = (input) => {
+    const scanData = parsePurchaseScannerData(input);
+    if (!scanData) return;
+    
+    const found = medicines.find(m => m.barcode === scanData.gtin);
+    if (!found) return;
+    
+    // Replace input with clean GTIN
+    setMedicineSearch(scanData.gtin);
+    
+    addMedicineToPurchase(found, scanData);
+  };
+
   // Handle search key down
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Escape') {
       setShowSearchResults(false);
       setSearchRowIndex(-1);
-    } else if (e.key === 'Enter' && searchResults.length > 0) {
-      addMedicineToPurchase(searchResults[0]);
+    } else if (e.key === 'Enter') {
+      if (searchResults.length > 0) {
+        addMedicineToPurchase(searchResults[0]);
+      } else {
+        const result = parseBarcode(medicineSearch);
+        if (result.isValid && result.gtin) {
+          // Replace input with clean GTIN
+          setMedicineSearch(result.gtin);
+          // Search for medicine using GTIN
+          searchMedicines(result.gtin, searchRowIndex >= 0 ? searchRowIndex : purchaseItems.length);
+        }
+      }
+      e.preventDefault();
     }
   };
 

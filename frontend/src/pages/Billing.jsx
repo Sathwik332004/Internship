@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Search, 
   Trash2, 
@@ -64,6 +64,16 @@ export default function Billing() {
   const [saving, setSaving] = useState(false);
   
   const [shopState, setShopState] = useState('Maharashtra'); // Default shop state
+  const [scannerActive, setScannerActive] = useState(false);
+  const [scannerStream, setScannerStream] = useState('');
+  const [lastAddedItemKey, setLastAddedItemKey] = useState('');
+
+  const scannerInputRef = useRef(null);
+  const lastScanRef = useRef({ value: '', ts: 0 });
+  const highlightTimerRef = useRef(null);
+
+  const getBillItemKey = (item = {}) =>
+    String(item.inventoryBatchId || `${item.medicineId || ''}:${String(item.batchNumber || '').toUpperCase()}`);
 
   const mapInventoryToSearchResults = (inventoryItems = []) => {
     const today = new Date();
@@ -247,7 +257,7 @@ export default function Billing() {
         return;
       }
       
-      updateQuantity(medicine._id, newQty);
+      updateQuantity(getBillItemKey(existingItem), newQty);
       setSearchTerm('');
       setShowSearchResults(false);
       return;
@@ -330,7 +340,7 @@ export default function Billing() {
 
   // Toggle between pack and loose units
   const togglePackUnit = (medicineId) => {
-    const item = billItems.find(i => i.medicineId === medicineId);
+    const item = billItems.find(i => getBillItemKey(i) === medicineId);
     if (!item || item.conversionFactor <= 1 || item.baseUnit === 'ml') {
       if (item?.baseUnit === 'ml') {
         setErrorMessage('Liquid medicines (ml) cannot be toggled to pack/loose. Use ml/bottle quantities directly.');
@@ -358,7 +368,7 @@ export default function Billing() {
     const newAmount = unitMrp * newQty;
     
     setBillItems(billItems.map(i => {
-      if (i.medicineId === medicineId) {
+      if (getBillItemKey(i) === medicineId) {
         return {
           ...i,
           isPack: newIsPack,
@@ -380,7 +390,7 @@ export default function Billing() {
     }
 
     // Find the item and check stock (allow 0 quantity)
-    const item = billItems.find(i => i.medicineId === medicineId);
+    const item = billItems.find(i => getBillItemKey(i) === medicineId);
     if (item && normalizedQuantity > 0) {
       // Convert to base units for comparison (skip for qty=0)
       const baseQty = item.isPack ? normalizedQuantity * item.conversionFactor : normalizedQuantity;
@@ -395,7 +405,7 @@ export default function Billing() {
     
     // Calculate amount based on unit (0 qty = 0 amount)
     setBillItems(billItems.map(item => {
-      if (item.medicineId === medicineId) {
+      if (getBillItemKey(item) === medicineId) {
         const currentUnitMrp = item.isPack ? item.packMrp : item.looseMrp;
         return {
           ...item,
@@ -408,8 +418,106 @@ export default function Billing() {
   };
 
   const removeItem = (medicineId) => {
-    setBillItems(billItems.filter(item => item.medicineId !== medicineId));
+    setBillItems(billItems.filter(item => getBillItemKey(item) !== medicineId));
     setErrorMessage('');
+  };
+
+  const playSuccessBeep = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.08);
+    } catch (error) {
+      // Keep scan flow non-blocking if audio fails.
+    }
+  };
+
+  const upsertScannedItem = (scanItem) => {
+    const conversionFactor = Number(scanItem.conversionFactor) || 1;
+    const baseUnit = scanItem.baseUnit || 'TAB';
+    const sellingUnit = scanItem.sellingUnit || baseUnit;
+    const defaultIsPack = conversionFactor > 1 && baseUnit !== 'ml';
+    const packMrp = Number(scanItem.price || 0);
+    const looseMrp = conversionFactor > 0 ? packMrp / conversionFactor : packMrp;
+    const availableStock = Number(scanItem.availableStock || 0);
+
+    let updatedItemKey = '';
+
+    setBillItems((previousItems) => {
+      const existingIndex = previousItems.findIndex((item) =>
+        item.medicineId === scanItem.medicineId &&
+        String(item.batchNumber || '').toUpperCase() === String(scanItem.batch || '').toUpperCase()
+      );
+
+      if (existingIndex >= 0) {
+        const existingItem = previousItems[existingIndex];
+        updatedItemKey = getBillItemKey(existingItem);
+        const nextQuantity = Number(existingItem.quantity || 0) + 1;
+        const nextBaseQty = existingItem.isPack
+          ? nextQuantity * Number(existingItem.conversionFactor || 1)
+          : nextQuantity;
+
+        if (nextBaseQty > Number(existingItem.availableStock || 0)) {
+          setErrorMessage('Out of stock');
+          toast.error('Out of stock');
+          return previousItems;
+        }
+
+        const unitMrp = existingItem.isPack ? existingItem.packMrp : existingItem.looseMrp;
+        const updated = [...previousItems];
+        updated[existingIndex] = {
+          ...existingItem,
+          quantity: nextQuantity,
+          amount: unitMrp * nextQuantity
+        };
+        return updated;
+      }
+
+        const newItem = {
+        medicineId: scanItem.medicineId,
+        inventoryBatchId: scanItem.inventoryBatchId,
+        gtin: scanItem.gtin,
+        medicineName: scanItem.name,
+        brandName: scanItem.brandName || '',
+        packSize: scanItem.packSize || '',
+        conversionFactor,
+        baseUnit,
+        sellingUnit,
+        isPack: defaultIsPack,
+        batchNumber: String(scanItem.batch || '').toUpperCase(),
+        expiryDate: scanItem.expiry,
+        quantity: 1,
+        availableStock,
+        mrp: packMrp,
+        packMrp,
+        looseMrp,
+        gstPercent: Number(scanItem.gstPercent || 0),
+        hsnCode: scanItem.hsnCode || '',
+        amount: defaultIsPack ? packMrp : looseMrp
+      };
+
+      updatedItemKey = getBillItemKey(newItem);
+      return [...previousItems, newItem];
+    });
+
+    if (updatedItemKey) {
+      setLastAddedItemKey(updatedItemKey);
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = setTimeout(() => {
+        setLastAddedItemKey('');
+      }, 1200);
+    }
   };
 
   // Calculate totals and GST breakdown
@@ -648,10 +756,79 @@ export default function Billing() {
     }
   };
 
-  // Handle QR code scan (placeholder)
-  const handleQRScan = () => {
-    toast.info('QR Code scanning feature - integrate with your QR scanner hardware');
+  const onBarcodeScanned = async (scanInput) => {
+    try {
+      const normalizedInput = String(scanInput || '').trim();
+      if (!normalizedInput) return;
+
+      const now = Date.now();
+      const previous = lastScanRef.current;
+      if (previous.value === normalizedInput && now - previous.ts < 300) {
+        return;
+      }
+      lastScanRef.current = { value: normalizedInput, ts: now };
+
+      const response = await api.post('/bills/scan', { scanInput: normalizedInput });
+      const payload = response.data || {};
+
+      if (!payload.success || !payload.item) {
+        const message = payload.message || 'Invalid barcode';
+        setErrorMessage(message);
+        toast.error(message);
+        return;
+      }
+
+      upsertScannedItem(payload.item);
+      setErrorMessage('');
+      playSuccessBeep();
+
+      if (Array.isArray(payload.warnings)) {
+        payload.warnings.forEach((warning) => {
+          if (warning) toast.warn(warning);
+        });
+      }
+    } catch (error) {
+      const message = error.response?.data?.message || 'Invalid barcode';
+      setErrorMessage(message);
+      toast.error(message);
+    }
   };
+
+  const handleScannerInputKeyDown = (event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    const raw = scannerStream;
+    setScannerStream('');
+    onBarcodeScanned(raw);
+  };
+
+  const handleScannerToggle = () => {
+    setScannerActive((current) => !current);
+    setScannerStream('');
+  };
+
+  useEffect(() => {
+    if (!scannerActive) {
+      return;
+    }
+
+    const focusInput = () => {
+      scannerInputRef.current?.focus();
+    };
+
+    focusInput();
+    const intervalId = setInterval(focusInput, 800);
+    return () => clearInterval(intervalId);
+  }, [scannerActive]);
+
+  useEffect(() => () => {
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4 lg:p-6">
@@ -661,14 +838,41 @@ export default function Billing() {
           <h1 className="text-2xl font-bold text-gray-900">Billing / POS</h1>
           <div className="flex items-center gap-2">
             <button
-              onClick={handleQRScan}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+              onClick={handleScannerToggle}
+              className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg ${
+                scannerActive ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+              }`}
             >
               <QrCode size={20} />
-              Scan
+              {scannerActive ? 'Scanner Active' : 'Start Scanner'}
             </button>
           </div>
         </div>
+
+        {scannerActive && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <p className="text-sm font-medium text-emerald-800">
+              Continuous scan is active. Keep scanning; each scan auto-adds to bill.
+            </p>
+            <input
+              ref={scannerInputRef}
+              type="text"
+              value={scannerStream}
+              onChange={(event) => setScannerStream(event.target.value)}
+              onKeyDown={handleScannerInputKeyDown}
+              onBlur={() => {
+                if (scannerActive) {
+                  setTimeout(() => scannerInputRef.current?.focus(), 0);
+                }
+              }}
+              placeholder="Scanner input stream..."
+              className="mt-2 w-full rounded border border-emerald-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </div>
+        )}
 
         {/* Error Message */}
         {errorMessage && (
@@ -856,7 +1060,10 @@ export default function Billing() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {billItems.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
+                      <tr
+                        key={`${getBillItemKey(item)}-${index}`}
+                        className={`hover:bg-gray-50 ${lastAddedItemKey === getBillItemKey(item) ? 'bg-emerald-100' : ''}`}
+                      >
                         <td className="px-3 py-3">
                           <p className="font-medium text-gray-900">{item.medicineName}</p>
                           <p className="text-xs text-gray-500">{item.brandName}</p>
@@ -867,7 +1074,7 @@ export default function Billing() {
                         <td className="px-3 py-3 text-center">
                           {item.conversionFactor > 1 && item.baseUnit !== 'ml' ? (
                             <button
-                              onClick={() => togglePackUnit(item.medicineId)}
+                              onClick={() => togglePackUnit(getBillItemKey(item))}
                               className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
                                 item.isPack 
                                   ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
@@ -906,17 +1113,17 @@ export default function Billing() {
                               type="number" 
                               min="0"
                               value={item.quantity}
-                              onChange={(e) => updateQuantity(item.medicineId, e.target.value)}
+                              onChange={(e) => updateQuantity(getBillItemKey(item), e.target.value)}
                               className="w-20 text-center font-medium border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               onWheel={(e) => e.preventDefault()}
                             />
                             <button
-                              onClick={() => updateQuantity(item.medicineId, item.quantity - 1)}
+                              onClick={() => updateQuantity(getBillItemKey(item), item.quantity - 1)}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                               disabled={item.quantity <= 0}
                             >-</button>
                             <button
-                              onClick={() => updateQuantity(item.medicineId, item.quantity + 1)}
+                              onClick={() => updateQuantity(getBillItemKey(item), item.quantity + 1)}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                             >+</button>
                           </div>
@@ -947,7 +1154,7 @@ export default function Billing() {
                         </td>
                         <td className="px-3 py-3">
                           <button
-                            onClick={() => removeItem(item.medicineId)}
+                            onClick={() => removeItem(getBillItemKey(item))}
                             className="p-2 text-red-600 hover:bg-red-50 rounded"
                           >
                             <Trash2 size={18} />

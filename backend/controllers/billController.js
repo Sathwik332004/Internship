@@ -4,6 +4,7 @@ const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const HSN = require('../models/HSN');
 const SalesReturn = require('../models/SalesReturn');
+const { parsePurchaseBarcode } = require('../utils/barcode');
 const {
   isNonNegativeNumber,
   isPositiveInteger,
@@ -58,6 +59,9 @@ const createHttpError = (statusCode, message) => {
 };
 
 const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeBatchNumber = (value = '') => String(value).trim().toUpperCase();
 
 const getReturnSummaryMap = async (billIds = []) => {
   if (!billIds.length) {
@@ -436,6 +440,141 @@ const restoreBillInventory = async ({ bill, session }) => {
       inventory.quantityAvailable += Number(item.unitQuantity || 0);
       await inventory.save({ session });
     }
+  }
+};
+
+// @desc    Scan barcode/QR and resolve bill item details
+// @route   POST /api/bills/scan
+// @access  Private
+exports.handleBillingScan = async (req, res) => {
+  try {
+    const scanInput = String(req.body?.scanInput || '').trim();
+
+    const parsed = parsePurchaseBarcode(scanInput);
+    if (!parsed.isValid || !parsed.gtin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid barcode'
+      });
+    }
+
+    const medicine = await Medicine.findOne({
+      isDeleted: false,
+      status: 'ACTIVE',
+      $or: [
+        { barcode: parsed.gtin },
+        { gtin: parsed.gtin }
+      ]
+    });
+
+    if (!medicine) {
+      return res.status(404).json({
+        success: false,
+        message: 'Medicine not found'
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let inventory = null;
+    const requestedBatch = parsed.batch ? normalizeBatchNumber(parsed.batch) : null;
+
+    if (requestedBatch) {
+      const requestedBatchInventory = await Inventory.findOne({
+        medicine: medicine._id,
+        isDeleted: { $ne: true },
+        quantityAvailable: { $gt: 0 },
+        batchNumber: { $regex: new RegExp(`^${escapeRegex(requestedBatch)}$`, 'i') }
+      }).sort({ expiryDate: 1 });
+
+      if (requestedBatchInventory) {
+        if (new Date(requestedBatchInventory.expiryDate) < today) {
+          return res.status(400).json({
+            success: false,
+            message: 'Expired medicine'
+          });
+        }
+        inventory = requestedBatchInventory;
+      }
+    }
+
+    if (!inventory) {
+      inventory = await Inventory.findOne({
+        medicine: medicine._id,
+        isDeleted: { $ne: true },
+        quantityAvailable: { $gt: 0 }
+      }).sort({ expiryDate: 1 });
+    }
+
+    if (!inventory) {
+      return res.status(400).json({
+        success: false,
+        message: 'Out of stock'
+      });
+    }
+
+    if (new Date(inventory.expiryDate) < today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Expired medicine'
+      });
+    }
+
+    const reserveStock = Boolean(req.body?.reserveStock);
+    if (reserveStock) {
+      inventory.quantityAvailable = Math.max(0, Number(inventory.quantityAvailable || 0) - 1);
+      if (inventory.quantityAvailable <= 0) {
+        inventory.status = 'EXHAUSTED';
+      }
+      await inventory.save();
+    }
+
+    const expiryDate = new Date(inventory.expiryDate);
+    const ms30Days = 30 * 24 * 60 * 60 * 1000;
+    const expiryWarning = expiryDate.getTime() - Date.now() <= ms30Days;
+    const lowStockWarning = Number(inventory.quantityAvailable || 0) <= 5;
+
+    const payloadItem = {
+      medicineId: medicine._id,
+      inventoryBatchId: inventory._id,
+      gtin: parsed.gtin,
+      name: medicine.medicineName,
+      brandName: medicine.brandName || '',
+      packSize: medicine.packSize || '',
+      conversionFactor: Number(medicine.conversionFactor) || 1,
+      baseUnit: medicine.baseUnit || 'TAB',
+      sellingUnit: medicine.sellingUnit || medicine.baseUnit || 'TAB',
+      price: Number(inventory.mrp || medicine.defaultSellingPrice || 0),
+      batch: normalizeBatchNumber(inventory.batchNumber),
+      expiry: expiryDate.toISOString(),
+      quantity: 1,
+      availableStock: Number(inventory.quantityAvailable || 0),
+      gstPercent: Number(inventory.gstPercent || medicine.gstPercent || 0),
+      hsnCode: inventory.hsnCodeString || medicine.hsnCodeString || ''
+    };
+
+    const warnings = [];
+    if (parsed.warning) warnings.push(parsed.warning);
+    if (expiryWarning) warnings.push('Batch expires within 30 days');
+    if (lowStockWarning) warnings.push('Low stock for selected batch');
+
+    return res.status(200).json({
+      success: true,
+      item: payloadItem,
+      warnings,
+      meta: {
+        detectedFormat: parsed.detectedFormat,
+        requestedBatch: requestedBatch || null
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error processing billing scan',
+      error: error.message
+    });
   }
 };
 

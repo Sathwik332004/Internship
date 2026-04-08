@@ -43,6 +43,8 @@ const DEFAULT_QUICK_HSN_FORM = {
   gstPercent: '12'
 };
 
+const PURCHASE_DRAFT_STORAGE_KEY = 'purchase-entry-draft-v1';
+
 // Column configuration for grid - ERP Style with fixed column widths
 const GRID_COLUMNS = [
   { key: 'product', label: 'PRODUCT', className: 'product-col', editable: true, isSearch: true },
@@ -794,6 +796,8 @@ export default function Purchases() {
   const inputRefs = useRef({});
   const searchInputRef = useRef(null);
   const productSearchRef = useRef(null);
+  const purchaseDraftHydratedRef = useRef(false);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
 
   // Column order for keyboard navigation (MRP comes before Rate)
   const columnOrder = ['product', 'pack', 'batch', 'expiry', 'qty', 'free', 'mrp', 'rate', 'hsn', 'disc', 'amount'];
@@ -811,6 +815,59 @@ export default function Purchases() {
     }
   }, [showAddModal]);
 
+  useEffect(() => {
+    if (!showAddModal) {
+      purchaseDraftHydratedRef.current = false;
+      return;
+    }
+
+    if (editingPurchaseId) {
+      purchaseDraftHydratedRef.current = true;
+      return;
+    }
+
+    if (purchaseDraftHydratedRef.current) {
+      return;
+    }
+
+    purchaseDraftHydratedRef.current = true;
+
+    if (typeof window === 'undefined') {
+      if (purchaseItems.length === 0) {
+        addEmptyRow();
+      }
+      return;
+    }
+
+    try {
+      const savedDraft = window.localStorage.getItem(PURCHASE_DRAFT_STORAGE_KEY);
+      if (!savedDraft) {
+        setHasSavedDraft(false);
+        if (purchaseItems.length === 0) {
+          addEmptyRow();
+        }
+        return;
+      }
+
+      const draft = JSON.parse(savedDraft);
+      setSelectedSupplier(draft.selectedSupplier || '');
+      setPurchaseDate(draft.purchaseDate || new Date().toISOString().split('T')[0]);
+      setSupplierInvoiceNumber(draft.supplierInvoiceNumber || '');
+      setPaymentMode(draft.paymentMode || 'CASH');
+      setMiscellaneousAmount(Number(draft.miscellaneousAmount) || 0);
+      setNotes(draft.notes || '');
+      setPurchaseItems(Array.isArray(draft.purchaseItems) ? draft.purchaseItems : []);
+      setHasSavedDraft(true);
+    } catch (error) {
+      console.error('Error restoring purchase draft:', error);
+      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
+      setHasSavedDraft(false);
+      if (purchaseItems.length === 0) {
+        addEmptyRow();
+      }
+    }
+  }, [editingPurchaseId, purchaseItems.length, showAddModal]);
+
   // Focus search input when search row changes
   useEffect(() => {
     if (searchRowIndex >= 0) {
@@ -821,15 +878,61 @@ export default function Purchases() {
     }
   }, [searchRowIndex]);
 
-  // Auto-focus product search when modal opens
   useEffect(() => {
-    if (showAddModal && purchaseItems.length === 0) {
-      // Add first empty row and focus on it
-      setTimeout(() => {
-        addEmptyRow();
-      }, 100);
+    if (!showAddModal || editingPurchaseId || typeof window === 'undefined') {
+      return;
     }
-  }, [showAddModal]);
+
+    const hasMeaningfulItems = purchaseItems.some((item) => (
+      !!item?.medicineId
+      || !!String(item?.medicineName || '').trim()
+      || !!String(item?.batchNumber || '').trim()
+      || !!String(item?.expiryDate || '').trim()
+      || Number(item?.mrp || 0) > 0
+      || Number(item?.purchasePrice || 0) > 0
+      || Number(item?.sellingPrice || 0) > 0
+      || Number(item?.freeQuantity || 0) > 0
+      || Number(item?.discountPercent || 0) > 0
+      || Number(item?.discountAmount || 0) > 0
+    ));
+
+    const hasContent = !!selectedSupplier
+      || !!supplierInvoiceNumber.trim()
+      || paymentMode !== 'CASH'
+      || Number(miscellaneousAmount) !== 0
+      || !!notes.trim()
+      || purchaseDate !== new Date().toISOString().split('T')[0]
+      || hasMeaningfulItems;
+
+    if (!hasContent) {
+      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
+      setHasSavedDraft(false);
+      return;
+    }
+
+    const draft = {
+      selectedSupplier,
+      purchaseDate,
+      supplierInvoiceNumber,
+      paymentMode,
+      miscellaneousAmount,
+      notes,
+      purchaseItems
+    };
+
+    window.localStorage.setItem(PURCHASE_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    setHasSavedDraft(true);
+  }, [
+    editingPurchaseId,
+    miscellaneousAmount,
+    notes,
+    paymentMode,
+    purchaseDate,
+    purchaseItems,
+    selectedSupplier,
+    showAddModal,
+    supplierInvoiceNumber
+  ]);
 
   const generatePurchaseNumber = async () => {
     try {
@@ -1468,6 +1571,10 @@ export default function Purchases() {
         : await api.post('/purchases', purchaseData);
       if (response.data.success) {
         toast.success(editingPurchaseId ? 'Purchase updated successfully!' : 'Purchase created successfully!');
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
+        }
+        setHasSavedDraft(false);
         setShowAddModal(false);
         resetForm();
         fetchPurchases();
@@ -1500,6 +1607,20 @@ export default function Purchases() {
     setBatchWarnings({});
     setActiveCell(null);
     setSearchRowIndex(-1);
+  };
+
+  const clearSavedPurchaseDraft = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
+    }
+    setHasSavedDraft(false);
+    resetForm();
+    if (showAddModal) {
+      setTimeout(() => {
+        addEmptyRow();
+      }, 50);
+    }
+    toast.info('Saved purchase draft cleared.');
   };
 
   const handleEditPurchase = async (purchaseId) => {
@@ -2299,6 +2420,15 @@ export default function Purchases() {
               </div>
 
               <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                {!editingPurchaseId && (
+                  <button
+                    onClick={clearSavedPurchaseDraft}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700 transition-colors hover:bg-slate-50"
+                  >
+                    <RotateCcw size={18} />
+                    Clear Saved Draft
+                  </button>
+                )}
                 <button onClick={() => {
                   setShowAddModal(false);
                   resetForm();

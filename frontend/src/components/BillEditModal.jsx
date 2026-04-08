@@ -184,8 +184,8 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
     };
   }, [searchTerm]);
 
-  const getAllocatableBatchForMedicine = async (medicine) => {
-    const medicineLines = items.filter((item) => item.medicineId === medicine._id);
+  const getAllocatableBatchForMedicine = async (medicine, currentItems = items, preferredIsPack) => {
+    const medicineLines = currentItems.filter((item) => item.medicineId === medicine._id);
     let batches = Array.isArray(medicine.inventoryBatches) ? [...medicine.inventoryBatches] : [];
 
     if (!batches.length || medicineLines.length > 0) {
@@ -205,6 +205,13 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
       })
       .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
 
+    const conversionFactor = Number(medicine.conversionFactor) || 1;
+    const baseUnit = medicine.baseUnit || 'TAB';
+    const targetIsPack = typeof preferredIsPack === 'boolean'
+      ? preferredIsPack
+      : (conversionFactor > 1 && baseUnit !== 'ml');
+    const requiredBaseQty = targetIsPack ? conversionFactor : 1;
+
     for (const batch of validBatches) {
       const batchKey = getBatchKey(batch);
       const existingLine = medicineLines.find((item) => getBatchKey(item) === batchKey);
@@ -213,12 +220,90 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
         : Number(batch.quantityAvailable || 0) + Number(originalBatchRestoration[batchKey] || 0);
       const allocatedQuantity = existingLine ? getItemBaseQuantity(existingLine) : 0;
 
-      if (allocatedQuantity < batchCapacity) {
+      if ((batchCapacity - allocatedQuantity) >= requiredBaseQty) {
         return { validBatches, selectedBatch: batch, existingLine, batchCapacity };
       }
     }
 
     return { validBatches, selectedBatch: null, existingLine: null, batchCapacity: 0 };
+  };
+
+  const allocateAdditionalUnits = async (medicine, unitCount, preferredIsPack, currentItems = items) => {
+    if (!medicine?._id || unitCount <= 0) {
+      return false;
+    }
+
+    let nextItems = [...currentItems];
+
+    for (let index = 0; index < unitCount; index += 1) {
+      const medicineLines = nextItems.filter((item) => item.medicineId === medicine._id);
+      const { validBatches } = await getAllocatableBatchForMedicine(medicine, nextItems, preferredIsPack);
+      const conversionFactor = Number(medicine.conversionFactor) || 1;
+      const baseUnit = medicine.baseUnit || 'TAB';
+      const targetIsPack = typeof preferredIsPack === 'boolean'
+        ? preferredIsPack
+        : (conversionFactor > 1 && baseUnit !== 'ml');
+      const requiredBaseQty = targetIsPack ? conversionFactor : 1;
+
+      let nextAllocation = null;
+      for (const batch of validBatches) {
+        const batchKey = getBatchKey(batch);
+        const existingLine = medicineLines.find((item) => getBatchKey(item) === batchKey);
+        const batchCapacity = existingLine
+          ? Number(existingLine.availableStock || 0)
+          : Number(batch.quantityAvailable || 0) + Number(originalBatchRestoration[batchKey] || 0);
+        const allocatedQuantity = existingLine ? getItemBaseQuantity(existingLine) : 0;
+        const remainingBaseQty = batchCapacity - allocatedQuantity;
+
+        if (remainingBaseQty >= requiredBaseQty) {
+          nextAllocation = { batch, existingLine, batchCapacity };
+          break;
+        }
+      }
+
+      if (!nextAllocation?.batch) {
+        setError(`Insufficient stock for ${medicine.medicineName}`);
+        return false;
+      }
+
+      if (nextAllocation.existingLine) {
+        nextItems = nextItems.map((item) => {
+          if (getLineKey(item) !== getLineKey(nextAllocation.existingLine)) {
+            return item;
+          }
+
+          return {
+            ...item,
+            quantity: Number(item.quantity || 0) + 1
+          };
+        });
+        continue;
+      }
+
+      const packMrp = Number(nextAllocation.batch.mrp || medicine.defaultSellingPrice || 0);
+      const looseMrp = conversionFactor > 0 ? packMrp / conversionFactor : packMrp;
+
+      nextItems.push({
+        medicineId: medicine._id,
+        medicineName: medicine.medicineName,
+        brandName: medicine.brandName,
+        batchNumber: nextAllocation.batch.batchNumber,
+        expiryDate: nextAllocation.batch.expiryDate,
+        baseUnit,
+        conversionFactor,
+        isPack: targetIsPack,
+        quantity: 1,
+        packMrp,
+        looseMrp,
+        gstPercent: Number(nextAllocation.batch.gstPercent || medicine.gstPercent || 0),
+        availableStock: nextAllocation.batchCapacity,
+        inventoryBatchId: nextAllocation.batch._id
+      });
+    }
+
+    setItems(nextItems);
+    setError('');
+    return true;
   };
 
   const addMedicine = async (medicine) => {
@@ -261,13 +346,33 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
     setShowSearch(false);
   };
 
-  const updateQuantity = (lineKey, value) => {
+  const updateQuantity = async (lineKey, value) => {
     const next = Math.max(0, Number(value));
     if (!Number.isFinite(next)) return;
     const current = items.find((item) => getLineKey(item) === lineKey);
     if (current) {
       const baseQty = current.isPack ? next * current.conversionFactor : next;
       if (baseQty > current.availableStock) {
+        const additionalUnitsNeeded = next - Number(current.quantity || 0);
+        if (additionalUnitsNeeded > 0) {
+          const cappedQuantity = current.isPack
+            ? Math.floor(Number(current.availableStock || 0) / Number(current.conversionFactor || 1))
+            : Number(current.availableStock || 0);
+          const cappedItems = items.map((item) => (
+            getLineKey(item) === lineKey ? { ...item, quantity: cappedQuantity } : item
+          ));
+          setItems(cappedItems);
+          await allocateAdditionalUnits({
+            _id: current.medicineId,
+            medicineName: current.medicineName,
+            brandName: current.brandName,
+            conversionFactor: current.conversionFactor,
+            baseUnit: current.baseUnit,
+            defaultSellingPrice: current.packMrp,
+            gstPercent: current.gstPercent
+          }, additionalUnitsNeeded, current.isPack, cappedItems);
+          return;
+        }
         setError(`Insufficient stock for ${current.medicineName}`);
         return;
       }

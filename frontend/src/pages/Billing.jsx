@@ -4,6 +4,7 @@ import {
   Trash2, 
   Save, 
   Printer,
+  RotateCcw,
   X,
   User,
   ShoppingCart,
@@ -36,6 +37,8 @@ const SHOP_INFO = {
   state: 'Maharashtra'
 };
 
+const BILLING_DRAFT_STORAGE_KEY = 'billing-entry-draft-v1';
+
 export default function Billing() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -60,6 +63,7 @@ export default function Billing() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountAmountInput, setDiscountAmountInput] = useState(0);
   const [lastSavedBill, setLastSavedBill] = useState(null);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
   
   const [saving, setSaving] = useState(false);
   
@@ -71,6 +75,41 @@ export default function Billing() {
   const scannerInputRef = useRef(null);
   const lastScanRef = useRef({ value: '', ts: 0 });
   const highlightTimerRef = useRef(null);
+
+  const getEmptyCustomerDetails = () => ({
+    name: '',
+    phone: '',
+    state: '',
+    address: '',
+    doctorName: '',
+    doctorRegNo: ''
+  });
+
+  const clearBillingFormState = () => {
+    setBillItems([]);
+    setCustomerDetails(getEmptyCustomerDetails());
+    setPaymentMode('CASH');
+    setDiscountType('PERCENT');
+    setDiscountPercent(0);
+    setDiscountAmountInput(0);
+    setAmountPaid('');
+    setErrorMessage('');
+  };
+
+  const removeBillingDraft = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.removeItem(BILLING_DRAFT_STORAGE_KEY);
+    setHasSavedDraft(false);
+  };
+
+  const clearSavedBillingDraft = () => {
+    removeBillingDraft();
+    clearBillingFormState();
+    toast.info('Saved billing draft cleared.');
+  };
 
   const getBillItemKey = (item = {}) =>
     String(item.inventoryBatchId || `${item.medicineId || ''}:${String(item.batchNumber || '').toUpperCase()}`);
@@ -139,6 +178,70 @@ export default function Billing() {
       .sort((a, b) => (a.medicineName || '').localeCompare(b.medicineName || ''))
       .slice(0, 10);
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const savedDraft = window.localStorage.getItem(BILLING_DRAFT_STORAGE_KEY);
+      if (!savedDraft) {
+        setHasSavedDraft(false);
+        return;
+      }
+
+      const draft = JSON.parse(savedDraft);
+      setCustomerDetails({
+        ...getEmptyCustomerDetails(),
+        ...(draft.customerDetails || {})
+      });
+      setBillItems(Array.isArray(draft.billItems) ? draft.billItems : []);
+      setPaymentMode(draft.paymentMode || 'CASH');
+      setAmountPaid(draft.amountPaid || '');
+      setDiscountType(draft.discountType === 'AMOUNT' ? 'AMOUNT' : 'PERCENT');
+      setDiscountPercent(Number(draft.discountPercent) || 0);
+      setDiscountAmountInput(Number(draft.discountAmountInput) || 0);
+      setHasSavedDraft(true);
+    } catch (error) {
+      console.error('Error restoring billing draft:', error);
+      window.localStorage.removeItem(BILLING_DRAFT_STORAGE_KEY);
+      setHasSavedDraft(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const hasContent = billItems.length > 0
+      || Object.values(customerDetails).some((value) => String(value || '').trim() !== '')
+      || paymentMode !== 'CASH'
+      || String(amountPaid || '').trim() !== ''
+      || discountType !== 'PERCENT'
+      || Number(discountPercent) !== 0
+      || Number(discountAmountInput) !== 0;
+
+    if (!hasContent) {
+      window.localStorage.removeItem(BILLING_DRAFT_STORAGE_KEY);
+      setHasSavedDraft(false);
+      return;
+    }
+
+    const draft = {
+      customerDetails,
+      billItems,
+      paymentMode,
+      amountPaid,
+      discountType,
+      discountPercent,
+      discountAmountInput
+    };
+
+    window.localStorage.setItem(BILLING_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    setHasSavedDraft(true);
+  }, [amountPaid, billItems, customerDetails, discountAmountInput, discountPercent, discountType, paymentMode]);
 
   // Search medicines from backend so stock is sourced from inventory, not a stale preload
   useEffect(() => {
@@ -226,6 +329,125 @@ export default function Billing() {
     }
   };
 
+  const findAllocatableBatchForMedicine = async (medicine, currentItems = billItems, preferredIsPack) => {
+    const medicineLines = currentItems.filter((item) => item.medicineId === medicine._id);
+    let batches = Array.isArray(medicine.inventoryBatches) ? [...medicine.inventoryBatches] : [];
+
+    if (!batches.length || medicineLines.length > 0) {
+      batches = await fetchInventoryBatches(medicine._id);
+    } else {
+      const now = new Date();
+      batches = batches
+        .filter((batch) => {
+          const expiry = new Date(batch.expiryDate);
+          expiry.setHours(23, 59, 59, 999);
+          return expiry >= now && Number(batch.quantityAvailable || 0) > 0;
+        })
+        .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+    }
+
+    const conversionFactor = Number(medicine.conversionFactor) || 1;
+    const baseUnit = medicine.baseUnit || 'TAB';
+    const defaultIsPack = conversionFactor > 1 && baseUnit !== 'ml';
+    const targetIsPack = typeof preferredIsPack === 'boolean' ? preferredIsPack : defaultIsPack;
+    const requiredBaseQty = targetIsPack ? conversionFactor : 1;
+
+    for (const batch of batches) {
+      const existingLine = medicineLines.find((item) => item.inventoryBatchId === batch._id);
+      const batchCapacity = Number(existingLine?.availableStock || batch.quantityAvailable || 0);
+      const allocatedBaseQty = existingLine
+        ? (existingLine.isPack
+          ? Number(existingLine.quantity || 0) * Number(existingLine.conversionFactor || 1)
+          : Number(existingLine.quantity || 0))
+        : 0;
+      const remainingBaseQty = batchCapacity - allocatedBaseQty;
+
+      if (remainingBaseQty >= requiredBaseQty) {
+        return {
+          batch,
+          existingLine,
+          batchCapacity,
+          targetIsPack,
+          conversionFactor,
+          baseUnit
+        };
+      }
+    }
+
+    return {
+      batch: null,
+      existingLine: null,
+      batchCapacity: 0,
+      targetIsPack,
+      conversionFactor,
+      baseUnit
+    };
+  };
+
+  const allocateAdditionalUnits = async (medicine, unitCount, preferredIsPack, currentItems = billItems) => {
+    if (!medicine?._id || unitCount <= 0) {
+      return false;
+    }
+
+    let nextItems = [...currentItems];
+
+    for (let index = 0; index < unitCount; index += 1) {
+      const allocation = await findAllocatableBatchForMedicine(medicine, nextItems, preferredIsPack);
+
+      if (!allocation.batch) {
+        setErrorMessage(`Insufficient stock for ${medicine.medicineName}`);
+        return false;
+      }
+
+      if (allocation.existingLine) {
+        nextItems = nextItems.map((item) => {
+          if (getBillItemKey(item) !== getBillItemKey(allocation.existingLine)) {
+            return item;
+          }
+
+          const nextQuantity = Number(item.quantity || 0) + 1;
+          const unitMrp = item.isPack ? item.packMrp : item.looseMrp;
+          return {
+            ...item,
+            quantity: nextQuantity,
+            amount: unitMrp * nextQuantity
+          };
+        });
+        continue;
+      }
+
+      const packMrp = Number(allocation.batch.mrp || medicine.defaultSellingPrice || 0);
+      const looseMrp = allocation.conversionFactor > 0 ? packMrp / allocation.conversionFactor : packMrp;
+      const defaultQty = 1;
+
+      nextItems.push({
+        medicineId: medicine._id,
+        medicineName: medicine.medicineName,
+        brandName: medicine.brandName,
+        packSize: medicine.packSize || '1',
+        conversionFactor: allocation.conversionFactor,
+        baseUnit: allocation.baseUnit,
+        sellingUnit: medicine.sellingUnit || allocation.baseUnit,
+        isPack: allocation.targetIsPack,
+        batchNumber: String(allocation.batch.batchNumber || '').toUpperCase(),
+        expiryDate: allocation.batch.expiryDate,
+        quantity: defaultQty,
+        availableStock: allocation.batchCapacity,
+        mrp: allocation.batch.mrp,
+        packMrp,
+        looseMrp,
+        gstPercent: allocation.batch.gstPercent || 12,
+        hsnCode: allocation.batch.hsnCodeString || medicine.hsnCodeString || medicine.hsnCode || '',
+        inventoryBatchId: allocation.batch._id,
+        amount: (allocation.targetIsPack ? packMrp : looseMrp) * defaultQty
+      });
+    }
+
+    setBillItems(nextItems);
+    setErrorMessage('');
+    return true;
+  };
+
   // Add medicine to bill with FIFO batch selection
   const addToBill = async (medicine) => {
     // Clear previous error
@@ -240,24 +462,9 @@ export default function Billing() {
     // Determine default unit (prefer pack if conversionFactor > 1, never for liquids)
     const defaultIsPack = conversionFactor > 1 && baseUnit !== 'ml';
     
-    // Check if already in bill - if so, just increment quantity
     const existingItem = billItems.find(item => item.medicineId === medicine._id);
     if (existingItem) {
-      // Determine increment based on current unit
-      const increment = 1;
-      const newQty = existingItem.quantity + increment;
-      
-      // Validate stock (convert to base units for comparison)
-      const newBaseQty = existingItem.isPack 
-        ? newQty * conversionFactor 
-        : newQty;
-      
-      if (newBaseQty > existingItem.availableStock) {
-        setErrorMessage(`Insufficient stock for ${medicine.medicineName}. Available: ${existingItem.availableStock} ${baseUnit}`);
-        return;
-      }
-      
-      updateQuantity(getBillItemKey(existingItem), newQty);
+      await allocateAdditionalUnits(medicine, 1, existingItem.isPack);
       setSearchTerm('');
       setShowSearchResults(false);
       return;
@@ -292,19 +499,13 @@ export default function Billing() {
       return;
     }
 
-    // Select FIFO batch (earliest expiry)
-    const fifoBatch = batches[0];
-    
-    // Validate stock - use base unit quantity
-    const availableBaseQty = fifoBatch.quantityAvailable;
-    const minQty = defaultIsPack ? conversionFactor : 1;
-    
-    if (availableBaseQty < minQty) {
+    const allocation = await findAllocatableBatchForMedicine({ ...medicine, inventoryBatches: batches }, billItems, defaultIsPack);
+
+    if (!allocation.batch) {
       setErrorMessage(`Insufficient stock for ${medicine.medicineName}`);
       return;
     }
 
-    // Calculate default quantity based on unit
     const defaultQty = 1;
     const newItem = {
       medicineId: medicine._id,
@@ -315,22 +516,18 @@ export default function Billing() {
       baseUnit: baseUnit,
       sellingUnit: sellingUnit,
       // Unit selection (pack or loose)
-      isPack: defaultIsPack,
-      // Batch info from FIFO
-      batchNumber: fifoBatch.batchNumber.toUpperCase(),
-      expiryDate: fifoBatch.expiryDate,
+      isPack: allocation.targetIsPack,
+      batchNumber: allocation.batch.batchNumber.toUpperCase(),
+      expiryDate: allocation.batch.expiryDate,
       quantity: defaultQty,
-      // Stock in base units
-      availableStock: availableBaseQty,
-      mrp: fifoBatch.mrp,
-      // MRP for both pack and loose
-      packMrp: fifoBatch.mrp,
-      looseMrp: conversionFactor > 0 ? fifoBatch.mrp / conversionFactor : fifoBatch.mrp,
-      gstPercent: fifoBatch.gstPercent || 12,
-      hsnCode: fifoBatch.hsnCodeString || medicine.hsnCodeString || medicine.hsnCode || '',
-      inventoryBatchId: fifoBatch._id,
-      // Calculate amount: MRP * Qty (respecting pack/loose)
-      amount: (defaultIsPack ? fifoBatch.mrp : fifoBatch.mrp / conversionFactor) * defaultQty
+      availableStock: allocation.batchCapacity,
+      mrp: allocation.batch.mrp,
+      packMrp: allocation.batch.mrp,
+      looseMrp: conversionFactor > 0 ? allocation.batch.mrp / conversionFactor : allocation.batch.mrp,
+      gstPercent: allocation.batch.gstPercent || 12,
+      hsnCode: allocation.batch.hsnCodeString || medicine.hsnCodeString || medicine.hsnCode || '',
+      inventoryBatchId: allocation.batch._id,
+      amount: (allocation.targetIsPack ? allocation.batch.mrp : allocation.batch.mrp / conversionFactor) * defaultQty
     };
 
     setBillItems([...billItems, newItem]);
@@ -382,28 +579,50 @@ export default function Billing() {
   };
 
   // Update quantity with stock validation
-  const updateQuantity = (medicineId, newQuantity) => {
+  const updateQuantity = async (medicineId, newQuantity) => {
     const normalizedQuantity = Math.max(0, Number(newQuantity));
 
     if (!Number.isFinite(normalizedQuantity)) {
       return;
     }
 
-    // Find the item and check stock (allow 0 quantity)
     const item = billItems.find(i => getBillItemKey(i) === medicineId);
-    if (item && normalizedQuantity > 0) {
-      // Convert to base units for comparison (skip for qty=0)
-      const baseQty = item.isPack ? normalizedQuantity * item.conversionFactor : normalizedQuantity;
-      
-      if (baseQty > item.availableStock) {
-        setErrorMessage(`Insufficient stock for ${item.medicineName}. Available: ${item.availableStock} ${item.baseUnit}`);
-        return;
-      }
+    if (!item) {
+      return;
     }
-    
+
+    const nextBaseQty = item.isPack ? normalizedQuantity * Number(item.conversionFactor || 1) : normalizedQuantity;
+
+    if (nextBaseQty > Number(item.availableStock || 0)) {
+      const medicine = {
+        _id: item.medicineId,
+        medicineName: item.medicineName,
+        brandName: item.brandName,
+        packSize: item.packSize,
+        conversionFactor: item.conversionFactor,
+        baseUnit: item.baseUnit,
+        sellingUnit: item.sellingUnit,
+        defaultSellingPrice: item.packMrp,
+        hsnCodeString: item.hsnCode
+      };
+      const additionalUnitsNeeded = normalizedQuantity - Number(item.quantity || 0);
+      if (additionalUnitsNeeded > 0) {
+        const baseLineQuantity = item.isPack
+          ? Math.floor(Number(item.availableStock || 0) / Number(item.conversionFactor || 1))
+          : Number(item.availableStock || 0);
+        const cappedItems = billItems.map((entry) => (
+          getBillItemKey(entry) === medicineId
+            ? { ...entry, quantity: baseLineQuantity, amount: (entry.isPack ? entry.packMrp : entry.looseMrp) * baseLineQuantity }
+            : entry
+        ));
+        setBillItems(cappedItems);
+        await allocateAdditionalUnits(medicine, additionalUnitsNeeded, item.isPack, cappedItems);
+      }
+      return;
+    }
+
     setErrorMessage('');
-    
-    // Calculate amount based on unit (0 qty = 0 amount)
+
     setBillItems(billItems.map(item => {
       if (getBillItemKey(item) === medicineId) {
         const currentUnitMrp = item.isPack ? item.packMrp : item.looseMrp;
@@ -441,7 +660,7 @@ export default function Billing() {
     }
   };
 
-  const upsertScannedItem = (scanItem) => {
+  const upsertScannedItem = async (scanItem) => {
     const conversionFactor = Number(scanItem.conversionFactor) || 1;
     const baseUnit = scanItem.baseUnit || 'TAB';
     const sellingUnit = scanItem.sellingUnit || baseUnit;
@@ -449,40 +668,63 @@ export default function Billing() {
     const packMrp = Number(scanItem.price || 0);
     const looseMrp = conversionFactor > 0 ? packMrp / conversionFactor : packMrp;
     const availableStock = Number(scanItem.availableStock || 0);
-
     let updatedItemKey = '';
 
-    setBillItems((previousItems) => {
-      const existingIndex = previousItems.findIndex((item) =>
-        item.medicineId === scanItem.medicineId &&
-        String(item.batchNumber || '').toUpperCase() === String(scanItem.batch || '').toUpperCase()
-      );
+    const existingItem = billItems.find((item) =>
+      item.medicineId === scanItem.medicineId &&
+      String(item.batchNumber || '').toUpperCase() === String(scanItem.batch || '').toUpperCase()
+    );
 
-      if (existingIndex >= 0) {
-        const existingItem = previousItems[existingIndex];
+    if (existingItem) {
+      const nextQuantity = Number(existingItem.quantity || 0) + 1;
+      const nextBaseQty = existingItem.isPack
+        ? nextQuantity * Number(existingItem.conversionFactor || 1)
+        : nextQuantity;
+
+      if (nextBaseQty <= Number(existingItem.availableStock || 0)) {
+        const unitMrp = existingItem.isPack ? existingItem.packMrp : existingItem.looseMrp;
+        const updatedItems = billItems.map((item) => (
+          getBillItemKey(item) === getBillItemKey(existingItem)
+            ? {
+              ...item,
+              quantity: nextQuantity,
+              amount: unitMrp * nextQuantity
+            }
+            : item
+        ));
+        setBillItems(updatedItems);
         updatedItemKey = getBillItemKey(existingItem);
-        const nextQuantity = Number(existingItem.quantity || 0) + 1;
-        const nextBaseQty = existingItem.isPack
-          ? nextQuantity * Number(existingItem.conversionFactor || 1)
-          : nextQuantity;
+      } else {
+        const allocated = await allocateAdditionalUnits({
+          _id: scanItem.medicineId,
+          medicineName: scanItem.name,
+          brandName: scanItem.brandName || '',
+          packSize: scanItem.packSize || '',
+          conversionFactor,
+          baseUnit,
+          sellingUnit,
+          defaultSellingPrice: packMrp,
+          hsnCodeString: scanItem.hsnCode || '',
+          inventoryBatches: [{
+            _id: scanItem.inventoryBatchId,
+            batchNumber: scanItem.batch,
+            expiryDate: scanItem.expiry,
+            quantityAvailable: availableStock,
+            mrp: packMrp,
+            gstPercent: Number(scanItem.gstPercent || 0),
+            hsnCodeString: scanItem.hsnCode || ''
+          }]
+        }, 1, existingItem.isPack);
 
-        if (nextBaseQty > Number(existingItem.availableStock || 0)) {
-          setErrorMessage('Out of stock');
+        if (!allocated) {
           toast.error('Out of stock');
-          return previousItems;
+          return;
         }
 
-        const unitMrp = existingItem.isPack ? existingItem.packMrp : existingItem.looseMrp;
-        const updated = [...previousItems];
-        updated[existingIndex] = {
-          ...existingItem,
-          quantity: nextQuantity,
-          amount: unitMrp * nextQuantity
-        };
-        return updated;
+        updatedItemKey = String(scanItem.inventoryBatchId || `${scanItem.medicineId}:${String(scanItem.batch || '').toUpperCase()}`);
       }
-
-        const newItem = {
+    } else {
+      const newItem = {
         medicineId: scanItem.medicineId,
         inventoryBatchId: scanItem.inventoryBatchId,
         gtin: scanItem.gtin,
@@ -504,10 +746,9 @@ export default function Billing() {
         hsnCode: scanItem.hsnCode || '',
         amount: defaultIsPack ? packMrp : looseMrp
       };
-
       updatedItemKey = getBillItemKey(newItem);
-      return [...previousItems, newItem];
-    });
+      setBillItems((previousItems) => [...previousItems, newItem]);
+    }
 
     if (updatedItemKey) {
       setLastAddedItemKey(updatedItemKey);
@@ -729,15 +970,10 @@ export default function Billing() {
       const response = await api.post('/bills', billData);
       const createdBill = response.data?.data || null;
       setLastSavedBill(createdBill);
+      removeBillingDraft();
       
       // Reset form
-      setBillItems([]);
-      setCustomerDetails({ name: '', phone: '', state: '', address: '', doctorName: '', doctorRegNo: '' });
-      setDiscountType('PERCENT');
-      setDiscountPercent(0);
-      setDiscountAmountInput(0);
-      setAmountPaid('');
-      setErrorMessage('');
+      clearBillingFormState();
       toast.success(shouldPrint ? 'Bill saved. Print dialog opened.' : 'Bill saved successfully!');
 
       if (shouldPrint && createdBill) {
@@ -1331,6 +1567,14 @@ export default function Billing() {
 
             {/* Action Buttons */}
             <div className="space-y-2 border-t border-black p-4">
+              <button
+                onClick={clearSavedBillingDraft}
+                disabled={!hasSavedDraft && billItems.length === 0}
+                className="w-full flex items-center justify-center gap-2 bg-white text-gray-900 py-3 border border-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+              >
+                <RotateCcw size={18} />
+                Clear Saved Draft
+              </button>
               <button
                 onClick={() => handleSaveBill(false)}
                 disabled={saving || billItems.length === 0}

@@ -42,6 +42,63 @@ const DEFAULT_QUICK_HSN_FORM = {
   gstPercent: '12'
 };
 
+const PURCHASE_DRAFT_STORAGE_KEY = 'purchase-entry-draft-v1';
+
+const getTodayDate = () => new Date().toISOString().split('T')[0];
+
+const createEmptyPurchaseItem = () => ({
+  medicineId: null,
+  medicineName: '',
+  brandName: '',
+  hsnCode: '',
+  gstPercent: 0,
+  unit: '',
+  baseUnit: '',
+  sellingUnit: '',
+  conversionFactor: 1,
+  batchNumber: '',
+  expiryDate: '',
+  mrp: 0,
+  purchasePrice: 0,
+  sellingPrice: 0,
+  quantity: 1,
+  freeQuantity: 0,
+  discountType: 'PERCENT',
+  discountPercent: 0,
+  discountAmount: 0,
+  subtotal: 0,
+  taxableAmount: 0,
+  gstAmount: 0,
+  cgstAmount: 0,
+  sgstAmount: 0,
+  totalAmount: 0
+});
+
+const isMeaningfulPurchaseItem = (item = {}) => Boolean(
+  item.medicineId
+  || String(item.medicineName || '').trim()
+  || String(item.brandName || '').trim()
+  || String(item.hsnCode || '').trim()
+  || String(item.batchNumber || '').trim()
+  || String(item.expiryDate || '').trim()
+  || Number(item.mrp || 0) > 0
+  || Number(item.purchasePrice || 0) > 0
+  || Number(item.sellingPrice || 0) > 0
+  || Number(item.freeQuantity || 0) > 0
+  || Number(item.discountAmount || 0) > 0
+  || (String(item.discountType || 'PERCENT') === 'PERCENT' && Number(item.discountPercent || 0) > 0)
+);
+
+const hasPurchaseDraftData = (draft = {}) => Boolean(
+  draft.editingPurchaseId
+  || String(draft.selectedSupplier || '').trim()
+  || String(draft.supplierInvoiceNumber || '').trim()
+  || String(draft.notes || '').trim()
+  || Number(draft.miscellaneousAmount || 0) > 0
+  || (draft.paymentMode && draft.paymentMode !== 'CASH')
+  || (Array.isArray(draft.purchaseItems) && draft.purchaseItems.some(isMeaningfulPurchaseItem))
+);
+
 // Column configuration for grid - ERP Style with fixed column widths
 const GRID_COLUMNS = [
   { key: 'product', label: 'PRODUCT', className: 'product-col', editable: true, isSearch: true },
@@ -705,11 +762,12 @@ export default function Purchases() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);
+  const [purchaseDraftHydrated, setPurchaseDraftHydrated] = useState(false);
 
   // Form state
   const [purchaseNumber, setPurchaseNumber] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [purchaseDate, setPurchaseDate] = useState(getTodayDate());
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState('');
   const [paymentMode, setPaymentMode] = useState('CASH');
   const [miscellaneousAmount, setMiscellaneousAmount] = useState(0);
@@ -752,10 +810,91 @@ export default function Purchases() {
   }, [currentPage, searchTerm]);
 
   useEffect(() => {
-    if (showAddModal && !purchaseNumber) {
+    if (purchaseDraftHydrated && showAddModal && !purchaseNumber && !editingPurchaseId) {
       generatePurchaseNumber();
     }
-  }, [showAddModal]);
+  }, [editingPurchaseId, purchaseDraftHydrated, purchaseNumber, showAddModal]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setPurchaseDraftHydrated(true);
+      return;
+    }
+
+    try {
+      const savedDraft = window.localStorage.getItem(PURCHASE_DRAFT_STORAGE_KEY);
+
+      if (!savedDraft) {
+        return;
+      }
+
+      const parsedDraft = JSON.parse(savedDraft);
+      const restoredItems = Array.isArray(parsedDraft.purchaseItems)
+        ? parsedDraft.purchaseItems.map((item) => calculateItemTotals({
+            ...createEmptyPurchaseItem(),
+            ...item
+          }))
+        : [];
+
+      setEditingPurchaseId(parsedDraft.editingPurchaseId || null);
+      setPurchaseNumber(parsedDraft.purchaseNumber || '');
+      setSelectedSupplier(parsedDraft.selectedSupplier || '');
+      setPurchaseDate(parsedDraft.purchaseDate || getTodayDate());
+      setSupplierInvoiceNumber(parsedDraft.supplierInvoiceNumber || '');
+      setPaymentMode(parsedDraft.paymentMode || 'CASH');
+      setMiscellaneousAmount(Number(parsedDraft.miscellaneousAmount) || 0);
+      setNotes(parsedDraft.notes || '');
+      setPurchaseItems(restoredItems);
+      setShowAddModal(
+        typeof parsedDraft.showAddModal === 'boolean'
+          ? parsedDraft.showAddModal
+          : hasPurchaseDraftData({ ...parsedDraft, purchaseItems: restoredItems })
+      );
+    } catch (error) {
+      console.error('Error restoring purchase draft:', error);
+      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
+    } finally {
+      setPurchaseDraftHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!purchaseDraftHydrated || typeof window === 'undefined') {
+      return;
+    }
+
+    const draftPayload = {
+      showAddModal,
+      editingPurchaseId,
+      purchaseNumber,
+      selectedSupplier,
+      purchaseDate,
+      supplierInvoiceNumber,
+      paymentMode,
+      miscellaneousAmount,
+      notes,
+      purchaseItems
+    };
+
+    if (hasPurchaseDraftData(draftPayload)) {
+      window.localStorage.setItem(PURCHASE_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+      return;
+    }
+
+    window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
+  }, [
+    purchaseDraftHydrated,
+    showAddModal,
+    editingPurchaseId,
+    purchaseNumber,
+    selectedSupplier,
+    purchaseDate,
+    supplierInvoiceNumber,
+    paymentMode,
+    miscellaneousAmount,
+    notes,
+    purchaseItems
+  ]);
 
   // Focus search input when search row changes
   useEffect(() => {
@@ -1046,6 +1185,7 @@ export default function Purchases() {
     const lastPrice = await fetchLastPurchasePrice(medicine._id);
 
     const newItem = {
+      ...createEmptyPurchaseItem(),
       medicineId: medicine._id,
       medicineName: medicine.medicineName,
       brandName: medicine.brandName,
@@ -1055,20 +1195,9 @@ export default function Purchases() {
       baseUnit: medicine.baseUnit || '',
       sellingUnit: medicine.sellingUnit || '',
       conversionFactor: medicine.conversionFactor || 1,
-      batchNumber: '',
-      expiryDate: '',
       mrp: lastPrice?.mrp || medicine.defaultSellingPrice || 0,
       purchasePrice: lastPrice?.purchasePrice || medicine.defaultSellingPrice || 0,
-      sellingPrice: lastPrice?.sellingPrice || medicine.defaultSellingPrice || 0,
-      quantity: 1,
-      freeQuantity: 0,
-      discountType: 'PERCENT',
-      discountPercent: 0,
-      discountAmount: 0,
-      subtotal: 0,
-      taxableAmount: 0,
-      gstAmount: 0,
-      totalAmount: 0
+      sellingPrice: lastPrice?.sellingPrice || medicine.defaultSellingPrice || 0
     };
     
     calculateItemTotals(newItem);
@@ -1299,31 +1428,7 @@ export default function Purchases() {
 
   // Add empty row
   const addEmptyRow = () => {
-    const newItem = {
-      medicineId: null,
-      medicineName: '',
-      brandName: '',
-      hsnCode: '',
-      gstPercent: 0,
-      unit: '',
-      baseUnit: '',
-      sellingUnit: '',
-      conversionFactor: 1,
-      batchNumber: '',
-      expiryDate: '',
-      mrp: 0,
-      purchasePrice: 0,
-      sellingPrice: 0,
-      quantity: 1,
-      freeQuantity: 0,
-      discountType: 'PERCENT',
-      discountPercent: 0,
-      discountAmount: 0,
-      subtotal: 0,
-      taxableAmount: 0,
-      gstAmount: 0,
-      totalAmount: 0
-    };
+    const newItem = createEmptyPurchaseItem();
     
     const newItems = [...purchaseItems, newItem];
     setPurchaseItems(newItems);
@@ -1400,8 +1505,7 @@ export default function Purchases() {
         : await api.post('/purchases', purchaseData);
       if (response.data.success) {
         toast.success(editingPurchaseId ? 'Purchase updated successfully!' : 'Purchase created successfully!');
-        setShowAddModal(false);
-        resetForm();
+        clearPurchaseDraft(false);
         fetchPurchases();
       }
     } catch (error) {
@@ -1417,7 +1521,7 @@ export default function Purchases() {
     setEditingPurchaseId(null);
     setPurchaseNumber('');
     setSelectedSupplier('');
-    setPurchaseDate(new Date().toISOString().split('T')[0]);
+    setPurchaseDate(getTodayDate());
     setSupplierInvoiceNumber('');
     setPaymentMode('CASH');
     setMiscellaneousAmount(0);
@@ -1429,6 +1533,8 @@ export default function Purchases() {
     setQuickHsnRowIndex(-1);
     setQuickHsnForm(DEFAULT_QUICK_HSN_FORM);
     setMedicineSearch('');
+    setSearchResults([]);
+    setShowSearchResults(false);
     setBatchWarnings({});
     setActiveCell(null);
     setSearchRowIndex(-1);
@@ -1557,6 +1663,54 @@ export default function Purchases() {
     setSearchRowIndex(-1);
   }, []);
 
+  const closePurchaseModal = useCallback(() => {
+    setShowAddModal(false);
+    setShowQuickSupplierForm(false);
+    setShowQuickHsnForm(false);
+    setQuickHsnRowIndex(-1);
+    setMedicineSearch('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setBatchWarnings({});
+    setActiveCell(null);
+    setSearchRowIndex(-1);
+  }, []);
+
+  const clearPurchaseDraft = useCallback((keepModalOpen = true) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
+    }
+
+    resetForm();
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setShowAddModal(keepModalOpen);
+  }, []);
+
+  const openPurchaseModal = useCallback(() => {
+    if (!hasPurchaseDraftData({
+      editingPurchaseId,
+      selectedSupplier,
+      supplierInvoiceNumber,
+      paymentMode,
+      miscellaneousAmount,
+      notes,
+      purchaseItems
+    })) {
+      resetForm();
+    }
+
+    setShowAddModal(true);
+  }, [
+    editingPurchaseId,
+    miscellaneousAmount,
+    notes,
+    paymentMode,
+    purchaseItems,
+    selectedSupplier,
+    supplierInvoiceNumber
+  ]);
+
   return (
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.10),_transparent_30%),linear-gradient(180deg,_#fbfcf8_0%,_#f3f7ef_100%)] p-3 sm:p-4 lg:p-6">
       {/* Header */}
@@ -1573,10 +1727,7 @@ export default function Purchases() {
             <RotateCcw size={18} />
             Purchase Return
           </button>
-          <button onClick={() => {
-            resetForm();
-            setShowAddModal(true);
-          }} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">
+          <button onClick={openPurchaseModal} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">
             <Plus size={20} />
             New Purchase
           </button>
@@ -1880,12 +2031,9 @@ export default function Purchases() {
                   {editingPurchaseId ? 'Editing' : 'New Entry'}
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">{editingPurchaseId ? 'Edit Purchase Order' : 'New Purchase Order'}</h2>
-                <p className="text-sm text-slate-500">ERP mode - Tab/Enter to navigate | Enter in Amount adds new row</p>
+                <p className="text-sm text-slate-500">ERP mode - Tab/Enter to navigate | Draft saves automatically while you type</p>
               </div>
-              <button onClick={() => {
-                setShowAddModal(false);
-                resetForm();
-              }} className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700">
+              <button onClick={closePurchaseModal} className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700">
                 <X size={24} />
               </button>
             </div>
@@ -2205,15 +2353,24 @@ export default function Purchases() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button onClick={() => {
-                  setShowAddModal(false);
-                  resetForm();
-                }} className="rounded-lg border border-slate-400 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-slate-50">Cancel</button>
-                <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-lg border border-emerald-700 bg-emerald-700 px-6 py-2 text-white transition-colors hover:bg-emerald-800 disabled:opacity-50">
-                  <Save size={20} />
-                  {saving ? 'Saving...' : editingPurchaseId ? 'Update Purchase' : 'Save Purchase'}
-                </button>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500">Unsaved purchase details stay on this device until you clear them or save successfully.</p>
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <button
+                    onClick={() => {
+                      clearPurchaseDraft(true);
+                      toast.success('Purchase draft cleared.');
+                    }}
+                    className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-rose-700 transition-colors hover:bg-rose-100"
+                  >
+                    Clear Saved Draft
+                  </button>
+                  <button onClick={closePurchaseModal} className="rounded-lg border border-slate-400 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-slate-50">Close</button>
+                  <button onClick={handleSavePurchase} disabled={saving || purchaseItems.length === 0} className="flex items-center gap-2 rounded-lg border border-emerald-700 bg-emerald-700 px-6 py-2 text-white transition-colors hover:bg-emerald-800 disabled:opacity-50">
+                    <Save size={20} />
+                    {saving ? 'Saving...' : editingPurchaseId ? 'Update Purchase' : 'Save Purchase'}
+                  </button>
+                </div>
               </div>
             </div>
             </div>

@@ -36,6 +36,43 @@ const SHOP_INFO = {
   state: 'Maharashtra'
 };
 
+const getBatchKey = (value) => String(
+  value?.inventoryBatchId
+  || value?._id
+  || String(value?.batchNumber || '').trim().toUpperCase()
+);
+
+const getLineKey = (item) => String(
+  item.inventoryBatchId
+  || `${item.medicineId}-${String(item.batchNumber || '').trim().toUpperCase()}`
+);
+
+const getItemBaseQuantity = (item) => (
+  item.isPack
+    ? Number(item.quantity || 0) * Number(item.conversionFactor || 1)
+    : Number(item.quantity || 0)
+);
+
+const BILLING_DRAFT_STORAGE_KEY = 'billing-entry-draft-v1';
+
+const DEFAULT_CUSTOMER_DETAILS = {
+  name: '',
+  phone: '',
+  state: '',
+  address: '',
+  doctorName: '',
+  doctorRegNo: ''
+};
+
+const hasBillingDraftData = (draft = {}) => Boolean(
+  (Array.isArray(draft.billItems) && draft.billItems.length > 0)
+  || Object.values({ ...DEFAULT_CUSTOMER_DETAILS, ...(draft.customerDetails || {}) }).some((value) => String(value || '').trim())
+  || (draft.paymentMode && draft.paymentMode !== 'CASH')
+  || String(draft.amountPaid || '').trim()
+  || (draft.discountType === 'AMOUNT' && Number(draft.discountAmountInput || 0) > 0)
+  || (draft.discountType !== 'AMOUNT' && Number(draft.discountPercent || 0) > 0)
+);
+
 export default function Billing() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -43,15 +80,9 @@ export default function Billing() {
   const [searchingMedicines, setSearchingMedicines] = useState(false);
   const [loadingBatches, setLoadingBatches] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
+  const [billingDraftHydrated, setBillingDraftHydrated] = useState(false);
   
-  const [customerDetails, setCustomerDetails] = useState({
-    name: '',
-    phone: '',
-    state: '',
-    address: '',
-    doctorName: '',
-    doctorRegNo: ''
-  });
+  const [customerDetails, setCustomerDetails] = useState(DEFAULT_CUSTOMER_DETAILS);
   
   const [billItems, setBillItems] = useState([]);
   const [paymentMode, setPaymentMode] = useState('CASH');
@@ -64,6 +95,67 @@ export default function Billing() {
   const [saving, setSaving] = useState(false);
   
   const [shopState, setShopState] = useState('Maharashtra'); // Default shop state
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setBillingDraftHydrated(true);
+      return;
+    }
+
+    try {
+      const savedDraft = window.localStorage.getItem(BILLING_DRAFT_STORAGE_KEY);
+
+      if (!savedDraft) {
+        return;
+      }
+
+      const parsedDraft = JSON.parse(savedDraft);
+      setCustomerDetails({ ...DEFAULT_CUSTOMER_DETAILS, ...(parsedDraft.customerDetails || {}) });
+      setBillItems(Array.isArray(parsedDraft.billItems) ? parsedDraft.billItems : []);
+      setPaymentMode(parsedDraft.paymentMode || 'CASH');
+      setAmountPaid(parsedDraft.amountPaid ?? '');
+      setDiscountType(parsedDraft.discountType === 'AMOUNT' ? 'AMOUNT' : 'PERCENT');
+      setDiscountPercent(Number(parsedDraft.discountPercent) || 0);
+      setDiscountAmountInput(Number(parsedDraft.discountAmountInput) || 0);
+    } catch (error) {
+      console.error('Error restoring billing draft:', error);
+      window.localStorage.removeItem(BILLING_DRAFT_STORAGE_KEY);
+    } finally {
+      setBillingDraftHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!billingDraftHydrated || typeof window === 'undefined') {
+      return;
+    }
+
+    const draftPayload = {
+      customerDetails,
+      billItems,
+      paymentMode,
+      amountPaid,
+      discountType,
+      discountPercent,
+      discountAmountInput
+    };
+
+    if (hasBillingDraftData(draftPayload)) {
+      window.localStorage.setItem(BILLING_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+      return;
+    }
+
+    window.localStorage.removeItem(BILLING_DRAFT_STORAGE_KEY);
+  }, [
+    billingDraftHydrated,
+    customerDetails,
+    billItems,
+    paymentMode,
+    amountPaid,
+    discountType,
+    discountPercent,
+    discountAmountInput
+  ]);
 
   const mapInventoryToSearchResults = (inventoryItems = []) => {
     const today = new Date();
@@ -216,6 +308,44 @@ export default function Billing() {
     }
   };
 
+  const getAllocatableBatchForMedicine = async (medicine) => {
+    const medicineLines = billItems.filter((item) => item.medicineId === medicine._id);
+    let batches = Array.isArray(medicine.inventoryBatches) ? [...medicine.inventoryBatches] : [];
+
+    if (batches.length === 0 || medicineLines.length > 0) {
+      setLoadingBatches(prev => ({ ...prev, [medicine._id]: true }));
+      batches = await fetchInventoryBatches(medicine._id);
+      setLoadingBatches(prev => ({ ...prev, [medicine._id]: false }));
+    } else {
+      batches = batches
+        .filter((batch) => {
+          const expiry = new Date(batch.expiryDate);
+          expiry.setHours(23, 59, 59, 999);
+          return expiry >= new Date() && Number(batch.quantityAvailable || 0) > 0;
+        })
+        .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+    }
+
+    if (!batches.length) {
+      return { batches: [], selectedBatch: null, existingLine: null, batchCapacity: 0 };
+    }
+
+    for (const batch of batches) {
+      const batchKey = getBatchKey(batch);
+      const existingLine = medicineLines.find((item) => getBatchKey(item) === batchKey);
+      const batchCapacity = existingLine
+        ? Number(existingLine.availableStock || 0)
+        : Number(batch.quantityAvailable || 0);
+      const allocatedQuantity = existingLine ? getItemBaseQuantity(existingLine) : 0;
+
+      if (allocatedQuantity < batchCapacity) {
+        return { batches, selectedBatch: batch, existingLine, batchCapacity };
+      }
+    }
+
+    return { batches, selectedBatch: null, existingLine: null, batchCapacity: 0 };
+  };
+
   // Add medicine to bill with FIFO batch selection
   const addToBill = async (medicine) => {
     // Clear previous error
@@ -230,39 +360,7 @@ export default function Billing() {
     // Determine default unit (prefer pack if conversionFactor > 1, never for liquids)
     const defaultIsPack = conversionFactor > 1 && baseUnit !== 'ml';
     
-    // Check if already in bill - if so, just increment quantity
-    const existingItem = billItems.find(item => item.medicineId === medicine._id);
-    if (existingItem) {
-      // Determine increment based on current unit
-      const increment = 1;
-      const newQty = existingItem.quantity + increment;
-      
-      // Validate stock (convert to base units for comparison)
-      const newBaseQty = existingItem.isPack 
-        ? newQty * conversionFactor 
-        : newQty;
-      
-      if (newBaseQty > existingItem.availableStock) {
-        setErrorMessage(`Insufficient stock for ${medicine.medicineName}. Available: ${existingItem.availableStock} ${baseUnit}`);
-        return;
-      }
-      
-      updateQuantity(medicine._id, newQty);
-      setSearchTerm('');
-      setShowSearchResults(false);
-      return;
-    }
-
-    // Fetch FIFO batches for this medicine
-    let batches = medicine.inventoryBatches || [];
-
-    if (batches.length === 0) {
-      setLoadingBatches(prev => ({ ...prev, [medicine._id]: true }));
-      batches = await fetchInventoryBatches(medicine._id);
-      setLoadingBatches(prev => ({ ...prev, [medicine._id]: false }));
-    } else {
-      batches = [...batches].sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
-    }
+    const { batches, selectedBatch, existingLine, batchCapacity } = await getAllocatableBatchForMedicine(medicine);
 
     if (batches.length === 0) {
       let backendStock = 0;
@@ -282,14 +380,21 @@ export default function Billing() {
       return;
     }
 
-    // Select FIFO batch (earliest expiry)
-    const fifoBatch = batches[0];
-    
-    // Validate stock - use base unit quantity
-    const availableBaseQty = fifoBatch.quantityAvailable;
+    if (existingLine) {
+      updateQuantity(getLineKey(existingLine), existingLine.quantity + 1);
+      setSearchTerm('');
+      setShowSearchResults(false);
+      return;
+    }
+
+    if (!selectedBatch) {
+      setErrorMessage(`Insufficient stock for ${medicine.medicineName}`);
+      return;
+    }
+
     const minQty = defaultIsPack ? conversionFactor : 1;
     
-    if (availableBaseQty < minQty) {
+    if (batchCapacity < minQty) {
       setErrorMessage(`Insufficient stock for ${medicine.medicineName}`);
       return;
     }
@@ -307,20 +412,20 @@ export default function Billing() {
       // Unit selection (pack or loose)
       isPack: defaultIsPack,
       // Batch info from FIFO
-      batchNumber: fifoBatch.batchNumber.toUpperCase(),
-      expiryDate: fifoBatch.expiryDate,
+      batchNumber: selectedBatch.batchNumber.toUpperCase(),
+      expiryDate: selectedBatch.expiryDate,
       quantity: defaultQty,
       // Stock in base units
-      availableStock: availableBaseQty,
-      mrp: fifoBatch.mrp,
+      availableStock: batchCapacity,
+      mrp: selectedBatch.mrp,
       // MRP for both pack and loose
-      packMrp: fifoBatch.mrp,
-      looseMrp: conversionFactor > 0 ? fifoBatch.mrp / conversionFactor : fifoBatch.mrp,
-      gstPercent: fifoBatch.gstPercent || 12,
-      hsnCode: fifoBatch.hsnCodeString || medicine.hsnCodeString || medicine.hsnCode || '',
-      inventoryBatchId: fifoBatch._id,
+      packMrp: selectedBatch.mrp,
+      looseMrp: conversionFactor > 0 ? selectedBatch.mrp / conversionFactor : selectedBatch.mrp,
+      gstPercent: selectedBatch.gstPercent || 12,
+      hsnCode: selectedBatch.hsnCodeString || medicine.hsnCodeString || medicine.hsnCode || '',
+      inventoryBatchId: selectedBatch._id,
       // Calculate amount: MRP * Qty (respecting pack/loose)
-      amount: (defaultIsPack ? fifoBatch.mrp : fifoBatch.mrp / conversionFactor) * defaultQty
+      amount: (defaultIsPack ? selectedBatch.mrp : selectedBatch.mrp / conversionFactor) * defaultQty
     };
 
     setBillItems([...billItems, newItem]);
@@ -329,8 +434,8 @@ export default function Billing() {
   };
 
   // Toggle between pack and loose units
-  const togglePackUnit = (medicineId) => {
-    const item = billItems.find(i => i.medicineId === medicineId);
+  const togglePackUnit = (lineKey) => {
+    const item = billItems.find(i => getLineKey(i) === lineKey);
     if (!item || item.conversionFactor <= 1 || item.baseUnit === 'ml') {
       if (item?.baseUnit === 'ml') {
         setErrorMessage('Liquid medicines (ml) cannot be toggled to pack/loose. Use ml/bottle quantities directly.');
@@ -358,7 +463,7 @@ export default function Billing() {
     const newAmount = unitMrp * newQty;
     
     setBillItems(billItems.map(i => {
-      if (i.medicineId === medicineId) {
+      if (getLineKey(i) === lineKey) {
         return {
           ...i,
           isPack: newIsPack,
@@ -372,7 +477,7 @@ export default function Billing() {
   };
 
   // Update quantity with stock validation
-  const updateQuantity = (medicineId, newQuantity) => {
+  const updateQuantity = (lineKey, newQuantity) => {
     const normalizedQuantity = Math.max(0, Number(newQuantity));
 
     if (!Number.isFinite(normalizedQuantity)) {
@@ -380,7 +485,7 @@ export default function Billing() {
     }
 
     // Find the item and check stock (allow 0 quantity)
-    const item = billItems.find(i => i.medicineId === medicineId);
+    const item = billItems.find(i => getLineKey(i) === lineKey);
     if (item && normalizedQuantity > 0) {
       // Convert to base units for comparison (skip for qty=0)
       const baseQty = item.isPack ? normalizedQuantity * item.conversionFactor : normalizedQuantity;
@@ -395,7 +500,7 @@ export default function Billing() {
     
     // Calculate amount based on unit (0 qty = 0 amount)
     setBillItems(billItems.map(item => {
-      if (item.medicineId === medicineId) {
+      if (getLineKey(item) === lineKey) {
         const currentUnitMrp = item.isPack ? item.packMrp : item.looseMrp;
         return {
           ...item,
@@ -407,8 +512,8 @@ export default function Billing() {
     }));
   };
 
-  const removeItem = (medicineId) => {
-    setBillItems(billItems.filter(item => item.medicineId !== medicineId));
+  const removeItem = (lineKey) => {
+    setBillItems(billItems.filter(item => getLineKey(item) !== lineKey));
     setErrorMessage('');
   };
 
@@ -541,6 +646,30 @@ export default function Billing() {
     window.print();
   };
 
+  const clearBillingDraft = (clearPreview = false) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(BILLING_DRAFT_STORAGE_KEY);
+    }
+
+    setSearchTerm('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setSearchingMedicines(false);
+    setLoadingBatches({});
+    setErrorMessage('');
+    setCustomerDetails({ ...DEFAULT_CUSTOMER_DETAILS });
+    setBillItems([]);
+    setPaymentMode('CASH');
+    setAmountPaid('');
+    setDiscountType('PERCENT');
+    setDiscountPercent(0);
+    setDiscountAmountInput(0);
+
+    if (clearPreview) {
+      setLastSavedBill(null);
+    }
+  };
+
   // Save bill
   const handleSaveBill = async (shouldPrint = false) => {
     const validationError = validateBillingForm({
@@ -623,13 +752,7 @@ export default function Billing() {
       setLastSavedBill(createdBill);
       
       // Reset form
-      setBillItems([]);
-      setCustomerDetails({ name: '', phone: '', state: '', address: '', doctorName: '', doctorRegNo: '' });
-      setDiscountType('PERCENT');
-      setDiscountPercent(0);
-      setDiscountAmountInput(0);
-      setAmountPaid('');
-      setErrorMessage('');
+      clearBillingDraft();
       toast.success(shouldPrint ? 'Bill saved. Print dialog opened.' : 'Bill saved successfully!');
 
       if (shouldPrint && createdBill) {
@@ -653,6 +776,16 @@ export default function Billing() {
     toast.info('QR Code scanning feature - integrate with your QR scanner hardware');
   };
 
+  const hasUnsavedBillingDraft = hasBillingDraftData({
+    customerDetails,
+    billItems,
+    paymentMode,
+    amountPaid,
+    discountType,
+    discountPercent,
+    discountAmountInput
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4 lg:p-6">
       <div className="no-print">
@@ -660,6 +793,17 @@ export default function Billing() {
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Billing / POS</h1>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                clearBillingDraft();
+                toast.success('Billing draft cleared.');
+              }}
+              disabled={!hasUnsavedBillingDraft}
+              className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 size={18} />
+              Clear Saved Draft
+            </button>
             <button
               onClick={handleQRScan}
               className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
@@ -855,8 +999,8 @@ export default function Billing() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {billItems.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
+                    {billItems.map((item) => (
+                      <tr key={getLineKey(item)} className="hover:bg-gray-50">
                         <td className="px-3 py-3">
                           <p className="font-medium text-gray-900">{item.medicineName}</p>
                           <p className="text-xs text-gray-500">{item.brandName}</p>
@@ -867,7 +1011,7 @@ export default function Billing() {
                         <td className="px-3 py-3 text-center">
                           {item.conversionFactor > 1 && item.baseUnit !== 'ml' ? (
                             <button
-                              onClick={() => togglePackUnit(item.medicineId)}
+                              onClick={() => togglePackUnit(getLineKey(item))}
                               className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
                                 item.isPack 
                                   ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
@@ -906,17 +1050,17 @@ export default function Billing() {
                               type="number" 
                               min="0"
                               value={item.quantity}
-                              onChange={(e) => updateQuantity(item.medicineId, e.target.value)}
+                              onChange={(e) => updateQuantity(getLineKey(item), e.target.value)}
                               className="w-20 text-center font-medium border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               onWheel={(e) => e.preventDefault()}
                             />
                             <button
-                              onClick={() => updateQuantity(item.medicineId, item.quantity - 1)}
+                              onClick={() => updateQuantity(getLineKey(item), item.quantity - 1)}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                               disabled={item.quantity <= 0}
                             >-</button>
                             <button
-                              onClick={() => updateQuantity(item.medicineId, item.quantity + 1)}
+                              onClick={() => updateQuantity(getLineKey(item), item.quantity + 1)}
                               className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
                             >+</button>
                           </div>
@@ -947,7 +1091,7 @@ export default function Billing() {
                         </td>
                         <td className="px-3 py-3">
                           <button
-                            onClick={() => removeItem(item.medicineId)}
+                            onClick={() => removeItem(getLineKey(item))}
                             className="p-2 text-red-600 hover:bg-red-50 rounded"
                           >
                             <Trash2 size={18} />
@@ -1124,6 +1268,7 @@ export default function Billing() {
 
             {/* Action Buttons */}
             <div className="space-y-2 border-t border-black p-4">
+              <p className="text-xs text-gray-500">Billing details save automatically in this browser while you type.</p>
               <button
                 onClick={() => handleSaveBill(false)}
                 disabled={saving || billItems.length === 0}

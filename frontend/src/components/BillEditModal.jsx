@@ -6,6 +6,20 @@ import { normalizePhone, normalizeTextInput, validateBillingForm } from '../util
 const SHOP_STATE = 'Maharashtra';
 const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(value || 0));
 const medId = (value) => (typeof value === 'string' ? value : value?._id || '');
+const getBatchKey = (value) => String(
+  value?.inventoryBatchId
+  || value?._id
+  || String(value?.batchNumber || '').trim().toUpperCase()
+);
+const getLineKey = (item) => String(
+  item.inventoryBatchId
+  || `${item.medicineId}-${String(item.batchNumber || '').trim().toUpperCase()}`
+);
+const getItemBaseQuantity = (item) => (
+  item.isPack
+    ? Number(item.quantity || 0) * Number(item.conversionFactor || 1)
+    : Number(item.quantity || 0)
+);
 
 export default function BillEditModal({ bill, onClose, onSaved }) {
   const [loading, setLoading] = useState(true);
@@ -21,6 +35,11 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
+  const originalBatchRestoration = (bill.items || []).reduce((acc, item) => {
+    const batchKey = getBatchKey({ inventoryBatchId: item.inventoryBatchId, batchNumber: item.batchNumber });
+    acc[batchKey] = (acc[batchKey] || 0) + Number(item.unitQuantity || 0);
+    return acc;
+  }, {});
 
   const enrichItem = async (item) => {
     const medicineId = medId(item.medicine);
@@ -38,6 +57,8 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
     const inferredFactor = isPack && quantity > 0 ? Math.max(1, Number(item.unitQuantity || 0) / quantity) : 1;
     const conversionFactor = Number(medicine.conversionFactor) || inferredFactor || 1;
     const rate = Number(item.rate || 0);
+    const batchKey = getBatchKey({ _id: batch?._id || item.inventoryBatchId, batchNumber: item.batchNumber });
+    const restoredQuantity = Number(originalBatchRestoration[batchKey] || 0);
 
     return {
       medicineId,
@@ -52,7 +73,7 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
       packMrp: isPack ? rate : rate * conversionFactor,
       looseMrp: isPack ? rate / conversionFactor : rate,
       gstPercent: Number(item.gstPercent || batch?.gstPercent || medicine.gstPercent || 0),
-      availableStock: Number(batch?.quantityAvailable || 0) + Number(item.unitQuantity || 0),
+      availableStock: Number(batch?.quantityAvailable || 0) + restoredQuantity,
       inventoryBatchId: batch?._id || item.inventoryBatchId || null
     };
   };
@@ -163,50 +184,87 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
     };
   }, [searchTerm]);
 
+  const getAllocatableBatchForMedicine = async (medicine) => {
+    const medicineLines = items.filter((item) => item.medicineId === medicine._id);
+    let batches = Array.isArray(medicine.inventoryBatches) ? [...medicine.inventoryBatches] : [];
+
+    if (!batches.length || medicineLines.length > 0) {
+      const response = await api.get(`/inventory/medicine/${medicine._id}`, {
+        params: { includeZeroStock: true }
+      });
+      batches = response.data?.data || [];
+    }
+
+    const validBatches = batches
+      .filter((batch) => {
+        const expiry = new Date(batch.expiryDate);
+        expiry.setHours(23, 59, 59, 999);
+        const batchKey = getBatchKey(batch);
+        const totalEditableStock = Number(batch.quantityAvailable || 0) + Number(originalBatchRestoration[batchKey] || 0);
+        return expiry >= new Date() && totalEditableStock > 0;
+      })
+      .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+    for (const batch of validBatches) {
+      const batchKey = getBatchKey(batch);
+      const existingLine = medicineLines.find((item) => getBatchKey(item) === batchKey);
+      const batchCapacity = existingLine
+        ? Number(existingLine.availableStock || 0)
+        : Number(batch.quantityAvailable || 0) + Number(originalBatchRestoration[batchKey] || 0);
+      const allocatedQuantity = existingLine ? getItemBaseQuantity(existingLine) : 0;
+
+      if (allocatedQuantity < batchCapacity) {
+        return { validBatches, selectedBatch: batch, existingLine, batchCapacity };
+      }
+    }
+
+    return { validBatches, selectedBatch: null, existingLine: null, batchCapacity: 0 };
+  };
+
   const addMedicine = async (medicine) => {
-    const existing = items.find((item) => item.medicineId === medicine._id);
-    if (existing) {
-      updateQuantity(medicine._id, existing.quantity + 1);
+    const { validBatches, selectedBatch, existingLine, batchCapacity } = await getAllocatableBatchForMedicine(medicine);
+
+    if (!validBatches.length || !selectedBatch) {
+      setError(`No stock available for ${medicine.medicineName}`);
+      return;
+    }
+
+    if (existingLine) {
+      updateQuantity(getLineKey(existingLine), existingLine.quantity + 1);
       setSearchTerm('');
       setShowSearch(false);
       return;
     }
 
-    const batch = medicine.inventoryBatches?.[0] || (await api.get(`/inventory/medicine/${medicine._id}`)).data?.data?.[0];
-    if (!batch || Number(batch.quantityAvailable || 0) <= 0) {
-      setError(`No stock available for ${medicine.medicineName}`);
-      return;
-    }
-
     const conversionFactor = Number(medicine.conversionFactor) || 1;
     const isPack = conversionFactor > 1 && medicine.baseUnit !== 'ml';
-    const packMrp = Number(batch.mrp || medicine.defaultSellingPrice || 0);
+    const packMrp = Number(selectedBatch.mrp || medicine.defaultSellingPrice || 0);
     const looseMrp = conversionFactor > 0 ? packMrp / conversionFactor : packMrp;
 
     setItems((prev) => [...prev, {
       medicineId: medicine._id,
       medicineName: medicine.medicineName,
       brandName: medicine.brandName,
-      batchNumber: batch.batchNumber,
-      expiryDate: batch.expiryDate,
+      batchNumber: selectedBatch.batchNumber,
+      expiryDate: selectedBatch.expiryDate,
       baseUnit: medicine.baseUnit || 'TAB',
       conversionFactor,
       isPack,
       quantity: 1,
       packMrp,
       looseMrp,
-      gstPercent: Number(batch.gstPercent || medicine.gstPercent || 0),
-      availableStock: Number(batch.quantityAvailable || 0),
-      inventoryBatchId: batch._id
+      gstPercent: Number(selectedBatch.gstPercent || medicine.gstPercent || 0),
+      availableStock: batchCapacity,
+      inventoryBatchId: selectedBatch._id
     }]);
     setSearchTerm('');
     setShowSearch(false);
   };
 
-  const updateQuantity = (medicineId, value) => {
+  const updateQuantity = (lineKey, value) => {
     const next = Math.max(0, Number(value));
     if (!Number.isFinite(next)) return;
-    const current = items.find((item) => item.medicineId === medicineId);
+    const current = items.find((item) => getLineKey(item) === lineKey);
     if (current) {
       const baseQty = current.isPack ? next * current.conversionFactor : next;
       if (baseQty > current.availableStock) {
@@ -215,12 +273,12 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
       }
     }
     setError('');
-    setItems((prev) => prev.map((item) => item.medicineId === medicineId ? { ...item, quantity: next } : item));
+    setItems((prev) => prev.map((item) => getLineKey(item) === lineKey ? { ...item, quantity: next } : item));
   };
 
-  const toggleUnit = (medicineId) => {
+  const toggleUnit = (lineKey) => {
     setItems((prev) => prev.map((item) => {
-      if (item.medicineId !== medicineId || item.conversionFactor <= 1 || item.baseUnit === 'ml') return item;
+      if (getLineKey(item) !== lineKey || item.conversionFactor <= 1 || item.baseUnit === 'ml') return item;
       const nextIsPack = !item.isPack;
       const currentBaseQty = item.isPack ? item.quantity * item.conversionFactor : item.quantity;
       const nextQty = nextIsPack ? Math.ceil(currentBaseQty / item.conversionFactor) : currentBaseQty;
@@ -366,14 +424,14 @@ export default function BillEditModal({ bill, onClose, onSaved }) {
                       {items.map((item) => {
                         const rate = item.isPack ? item.packMrp : item.looseMrp;
                         return (
-                          <tr key={`${item.medicineId}-${item.batchNumber}`}>
+                          <tr key={getLineKey(item)}>
                             <td className="px-3 py-3"><p className="font-medium text-gray-900">{item.medicineName}</p><p className="text-xs text-gray-500">{item.brandName}</p><p className="text-xs text-gray-400">Stock: {item.availableStock} {item.baseUnit}</p></td>
                             <td className="px-3 py-3 text-center text-sm text-gray-600">{item.batchNumber}</td>
-                            <td className="px-3 py-3 text-center">{item.conversionFactor > 1 && item.baseUnit !== 'ml' ? <button onClick={() => toggleUnit(item.medicineId)} className="rounded border border-gray-300 px-2 py-1 text-xs">{item.isPack ? 'Pack' : 'Loose'}</button> : <span className="text-xs text-gray-400">Fixed</span>}</td>
-                            <td className="px-3 py-3"><div className="flex items-center justify-center gap-2"><button onClick={() => updateQuantity(item.medicineId, item.quantity - 1)} className="h-8 w-8 rounded bg-gray-100">-</button><input type="number" min="0" value={item.quantity} onChange={(e) => updateQuantity(item.medicineId, e.target.value)} className="w-20 rounded border border-gray-300 px-2 py-1 text-center" /><button onClick={() => updateQuantity(item.medicineId, item.quantity + 1)} className="h-8 w-8 rounded bg-gray-100">+</button></div></td>
+                            <td className="px-3 py-3 text-center">{item.conversionFactor > 1 && item.baseUnit !== 'ml' ? <button onClick={() => toggleUnit(getLineKey(item))} className="rounded border border-gray-300 px-2 py-1 text-xs">{item.isPack ? 'Pack' : 'Loose'}</button> : <span className="text-xs text-gray-400">Fixed</span>}</td>
+                            <td className="px-3 py-3"><div className="flex items-center justify-center gap-2"><button onClick={() => updateQuantity(getLineKey(item), item.quantity - 1)} className="h-8 w-8 rounded bg-gray-100">-</button><input type="number" min="0" value={item.quantity} onChange={(e) => updateQuantity(getLineKey(item), e.target.value)} className="w-20 rounded border border-gray-300 px-2 py-1 text-center" /><button onClick={() => updateQuantity(getLineKey(item), item.quantity + 1)} className="h-8 w-8 rounded bg-gray-100">+</button></div></td>
                             <td className="px-3 py-3 text-right text-sm font-medium">{money(rate)}</td>
                             <td className="px-3 py-3 text-right text-sm font-semibold">{money(rate * item.quantity)}</td>
-                            <td className="px-3 py-3 text-right"><button onClick={() => setItems((prev) => prev.filter((entry) => entry.medicineId !== item.medicineId))} className="rounded p-2 text-red-600 hover:bg-red-50"><Trash2 size={16} /></button></td>
+                            <td className="px-3 py-3 text-right"><button onClick={() => setItems((prev) => prev.filter((entry) => getLineKey(entry) !== getLineKey(item)))} className="rounded p-2 text-red-600 hover:bg-red-50"><Trash2 size={16} /></button></td>
                           </tr>
                         );
                       })}

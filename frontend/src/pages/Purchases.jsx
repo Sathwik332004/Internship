@@ -769,6 +769,8 @@ export default function Purchases() {
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState('');
   const [paymentMode, setPaymentMode] = useState('CASH');
   const [miscellaneousAmount, setMiscellaneousAmount] = useState(0);
+  const [handlingCharges, setHandlingCharges] = useState(0);
+  const [deliveryCharges, setDeliveryCharges] = useState(0);
   const [notes, setNotes] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([]);
   const [showQuickSupplierForm, setShowQuickSupplierForm] = useState(false);
@@ -855,6 +857,8 @@ export default function Purchases() {
       setSupplierInvoiceNumber(draft.supplierInvoiceNumber || '');
       setPaymentMode(draft.paymentMode || 'CASH');
       setMiscellaneousAmount(Number(draft.miscellaneousAmount) || 0);
+      setHandlingCharges(Number(draft.handlingCharges) || 0);
+      setDeliveryCharges(Number(draft.deliveryCharges) || 0);
       setNotes(draft.notes || '');
       setPurchaseItems(Array.isArray(draft.purchaseItems) ? draft.purchaseItems : []);
       setHasSavedDraft(true);
@@ -900,6 +904,8 @@ export default function Purchases() {
       || !!supplierInvoiceNumber.trim()
       || paymentMode !== 'CASH'
       || Number(miscellaneousAmount) !== 0
+      || Number(handlingCharges) !== 0
+      || Number(deliveryCharges) !== 0
       || !!notes.trim()
       || purchaseDate !== new Date().toISOString().split('T')[0]
       || hasMeaningfulItems;
@@ -916,6 +922,8 @@ export default function Purchases() {
       supplierInvoiceNumber,
       paymentMode,
       miscellaneousAmount,
+      handlingCharges,
+      deliveryCharges,
       notes,
       purchaseItems
     };
@@ -924,6 +932,8 @@ export default function Purchases() {
     setHasSavedDraft(true);
   }, [
     editingPurchaseId,
+    deliveryCharges,
+    handlingCharges,
     miscellaneousAmount,
     notes,
     paymentMode,
@@ -1363,7 +1373,10 @@ export default function Purchases() {
     const totalGst = purchaseItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
     const totalCgst = purchaseItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
     const totalSgst = purchaseItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
-    const extraAmount = parseFloat(miscellaneousAmount) || 0;
+    const normalizedMiscellaneousAmount = parseFloat(miscellaneousAmount) || 0;
+    const normalizedHandlingCharges = parseFloat(handlingCharges) || 0;
+    const normalizedDeliveryCharges = parseFloat(deliveryCharges) || 0;
+    const extraAmount = normalizedMiscellaneousAmount + normalizedHandlingCharges + normalizedDeliveryCharges;
     const grandTotal = subtotal + totalGst - itemDiscountTotal + extraAmount;
     return {
       subtotal,
@@ -1372,10 +1385,13 @@ export default function Purchases() {
       totalGst,
       totalCgst,
       totalSgst,
-      miscellaneousAmount: extraAmount,
+      miscellaneousAmount: normalizedMiscellaneousAmount,
+      handlingCharges: normalizedHandlingCharges,
+      deliveryCharges: normalizedDeliveryCharges,
+      extraCharges: extraAmount,
       grandTotal
     };
-  }, [miscellaneousAmount, purchaseItems]);
+  }, [deliveryCharges, handlingCharges, miscellaneousAmount, purchaseItems]);
 
   // Memoized totals
   const totals = useMemo(() => calculateTotals(), [calculateTotals]);
@@ -1515,6 +1531,8 @@ export default function Purchases() {
       purchaseDate,
       supplierInvoiceNumber,
       miscellaneousAmount,
+      handlingCharges,
+      deliveryCharges,
       purchaseItems
     });
 
@@ -1561,6 +1579,8 @@ export default function Purchases() {
         discountPercent: 0,
         discountAmount: totals.totalDiscount,
         miscellaneousAmount: totals.miscellaneousAmount,
+        handlingCharges: totals.handlingCharges,
+        deliveryCharges: totals.deliveryCharges,
         grandTotal: totals.grandTotal,
         paymentMode: paymentMode,
         notes: normalizeTextInput(notes).trim()
@@ -1596,6 +1616,8 @@ export default function Purchases() {
     setSupplierInvoiceNumber('');
     setPaymentMode('CASH');
     setMiscellaneousAmount(0);
+    setHandlingCharges(0);
+    setDeliveryCharges(0);
     setNotes('');
     setPurchaseItems([]);
     setShowQuickSupplierForm(false);
@@ -1639,7 +1661,9 @@ export default function Purchases() {
       setPurchaseDate(purchase.purchaseDate ? new Date(purchase.purchaseDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
       setSupplierInvoiceNumber(purchase.supplierInvoiceNumber || '');
       setPaymentMode(purchase.paymentMode || 'CASH');
-      setMiscellaneousAmount(purchase.miscellaneousAmount || 0);
+      setMiscellaneousAmount(Number(purchase.miscellaneousAmount) || 0);
+      setHandlingCharges(Number(purchase.handlingCharges) || 0);
+      setDeliveryCharges(Number(purchase.deliveryCharges) || 0);
       setNotes(purchase.notes || '');
       const mappedItems = (purchase.items || []).map((item) => {
           const mappedDiscountPercent = Number(item.discountPercent || 0);
@@ -1981,6 +2005,18 @@ export default function Purchases() {
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Miscellaneous:</td>
                                     <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {(purchase.miscellaneousAmount || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Handling Charges:</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {(purchase.handlingCharges || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Delivery Charges:</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {(purchase.deliveryCharges || 0).toFixed(2)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="7" className="px-4 py-2 text-right text-sm font-medium text-gray-600">Extra Charges:</td>
+                                    <td className="px-4 py-2 text-sm font-medium text-gray-900">Rs. {((purchase.miscellaneousAmount || 0) + (purchase.handlingCharges || 0) + (purchase.deliveryCharges || 0)).toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan="7" className="px-4 py-2 text-right text-sm font-bold text-gray-900">Grand Total:</td>
@@ -2340,17 +2376,43 @@ export default function Purchases() {
                       Discount is applied per medicine row using the selector in the Discount column (% or Rs). No extra total purchase discount is applied.
                     </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Miscellaneous Amount</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={miscellaneousAmount}
-                      onChange={(e) => setMiscellaneousAmount(parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="w-full rounded-lg border border-slate-500 bg-white px-3 py-2 focus:border-slate-700 focus:ring-0"
-                    />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Miscellaneous Amount</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={miscellaneousAmount}
+                        onChange={(e) => setMiscellaneousAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full rounded-lg border border-slate-500 bg-white px-3 py-2 focus:border-slate-700 focus:ring-0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Handling Charges</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={handlingCharges}
+                        onChange={(e) => setHandlingCharges(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full rounded-lg border border-slate-500 bg-white px-3 py-2 focus:border-slate-700 focus:ring-0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Delivery Charges</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={deliveryCharges}
+                        onChange={(e) => setDeliveryCharges(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full rounded-lg border border-slate-500 bg-white px-3 py-2 focus:border-slate-700 focus:ring-0"
+                      />
+                    </div>
                   </div>
                   <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
                     <div className="border-b border-slate-300 bg-slate-100 px-4 py-2">
@@ -2373,9 +2435,21 @@ export default function Purchases() {
                         <span className="font-medium">Item Discount Saved</span>
                         <span className="text-emerald-700">Rs. {totals.itemDiscountTotal.toFixed(2)}</span>
                       </div>
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Miscellaneous</span>
+                        <span>Rs. {totals.miscellaneousAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Handling Charges</span>
+                        <span>Rs. {totals.handlingCharges.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Delivery Charges</span>
+                        <span>Rs. {totals.deliveryCharges.toFixed(2)}</span>
+                      </div>
                       <div className="flex items-center justify-between px-4 py-2">
                         <span className="font-medium">Extra Charges</span>
-                        <span>Rs. {totals.miscellaneousAmount.toFixed(2)}</span>
+                        <span>Rs. {totals.extraCharges.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -2409,6 +2483,18 @@ export default function Purchases() {
                       <div className="flex justify-between border-b border-slate-200 px-4 py-2">
                         <span className="font-medium">Miscellaneous</span>
                         <span>Rs. {totals.miscellaneousAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Handling Charges</span>
+                        <span>Rs. {totals.handlingCharges.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Delivery Charges</span>
+                        <span>Rs. {totals.deliveryCharges.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Extra Charges</span>
+                        <span>Rs. {totals.extraCharges.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between bg-slate-900 px-4 py-3 text-2xl font-bold text-white">
                         <span className="tracking-wide">Grand Total</span>

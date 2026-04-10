@@ -360,6 +360,8 @@ export const validatePurchaseForm = ({
   purchaseDate,
   supplierInvoiceNumber,
   miscellaneousAmount,
+  handlingCharges,
+  deliveryCharges,
   purchaseItems
 }) => {
   if (!selectedSupplier) {
@@ -380,6 +382,14 @@ export const validatePurchaseForm = ({
 
   if (!isNonNegativeNumber(miscellaneousAmount || 0)) {
     return { error: "Miscellaneous amount must be 0 or higher" };
+  }
+
+  if (!isNonNegativeNumber(handlingCharges || 0)) {
+    return { error: "Handling charges must be 0 or higher" };
+  }
+
+  if (!isNonNegativeNumber(deliveryCharges || 0)) {
+    return { error: "Delivery charges must be 0 or higher" };
   }
 
   if (!purchaseItems.length) {

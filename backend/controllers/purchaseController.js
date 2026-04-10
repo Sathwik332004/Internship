@@ -401,6 +401,8 @@ exports.addPurchase = async (req, res) => {
       totalGst,
       discountPercent,
       discountAmount,
+      handlingCharges,
+      deliveryCharges,
       miscellaneousAmount,
       grandTotal,
       paymentMode,
@@ -441,11 +443,27 @@ exports.addPurchase = async (req, res) => {
       });
     }
 
+    if (handlingCharges !== undefined && !isNonNegativeNumber(handlingCharges)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Handling charges must be 0 or higher'
+      });
+    }
+
+    if (deliveryCharges !== undefined && !isNonNegativeNumber(deliveryCharges)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery charges must be 0 or higher'
+      });
+    }
+
     if (miscellaneousAmount !== undefined && !isNonNegativeNumber(miscellaneousAmount)) {
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
-        message: 'Miscellaneous amount must be 0 or higher'
+        message: 'Extra charges must be 0 or higher'
       });
     }
 
@@ -675,9 +693,17 @@ exports.addPurchase = async (req, res) => {
     }
 
     const calculatedDiscountAmount = calculatedDiscount;
-    const calculatedMiscellaneousAmount = miscellaneousAmount || 0;
+    const calculatedMiscellaneousAmount = Number(miscellaneousAmount || 0);
+    const calculatedHandlingCharges = Number(handlingCharges || 0);
+    const calculatedDeliveryCharges = Number(deliveryCharges || 0);
 
-    const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount + calculatedMiscellaneousAmount;
+    const finalGrandTotal =
+      calculatedSubtotal +
+      calculatedGst -
+      calculatedDiscountAmount +
+      calculatedMiscellaneousAmount +
+      calculatedHandlingCharges +
+      calculatedDeliveryCharges;
 
     // Create purchase record with new fields
     const purchase = new Purchase({
@@ -693,6 +719,8 @@ exports.addPurchase = async (req, res) => {
       totalIgst: 0,
       discountPercent: 0,
       discountAmount: calculatedDiscountAmount,
+      handlingCharges: calculatedHandlingCharges,
+      deliveryCharges: calculatedDeliveryCharges,
       miscellaneousAmount: calculatedMiscellaneousAmount,
       grandTotal: finalGrandTotal,
       paymentMode: paymentMode || 'CASH',
@@ -820,6 +848,8 @@ exports.updatePurchase = async (req, res) => {
       items,
       discountPercent,
       discountAmount,
+      handlingCharges,
+      deliveryCharges,
       miscellaneousAmount,
       paymentMode,
       notes
@@ -843,8 +873,16 @@ exports.updatePurchase = async (req, res) => {
       throw new Error('At least one purchase item is required');
     }
 
+    if (handlingCharges !== undefined && !isNonNegativeNumber(handlingCharges)) {
+      throw new Error('Handling charges must be 0 or higher');
+    }
+
+    if (deliveryCharges !== undefined && !isNonNegativeNumber(deliveryCharges)) {
+      throw new Error('Delivery charges must be 0 or higher');
+    }
+
     if (miscellaneousAmount !== undefined && !isNonNegativeNumber(miscellaneousAmount)) {
-      throw new Error('Miscellaneous amount must be 0 or higher');
+      throw new Error('Extra charges must be 0 or higher');
     }
 
     if (paymentMode && !['CASH', 'UPI', 'CARD', 'CREDIT'].includes(paymentMode)) {
@@ -1002,8 +1040,16 @@ exports.updatePurchase = async (req, res) => {
     }
 
     const calculatedDiscountAmount = calculatedDiscount;
-    const calculatedMiscellaneousAmount = miscellaneousAmount || 0;
-    const finalGrandTotal = calculatedSubtotal + calculatedGst - calculatedDiscountAmount + calculatedMiscellaneousAmount;
+    const calculatedMiscellaneousAmount = Number(miscellaneousAmount || 0);
+    const calculatedHandlingCharges = Number(handlingCharges || 0);
+    const calculatedDeliveryCharges = Number(deliveryCharges || 0);
+    const finalGrandTotal =
+      calculatedSubtotal +
+      calculatedGst -
+      calculatedDiscountAmount +
+      calculatedMiscellaneousAmount +
+      calculatedHandlingCharges +
+      calculatedDeliveryCharges;
 
     purchase.supplierInvoiceNumber = normalizedInvoiceNumber;
     purchase.supplier = supplier;
@@ -1016,6 +1062,8 @@ exports.updatePurchase = async (req, res) => {
     purchase.totalIgst = 0;
     purchase.discountPercent = 0;
     purchase.discountAmount = calculatedDiscountAmount;
+    purchase.handlingCharges = calculatedHandlingCharges;
+    purchase.deliveryCharges = calculatedDeliveryCharges;
     purchase.miscellaneousAmount = calculatedMiscellaneousAmount;
     purchase.grandTotal = finalGrandTotal;
     purchase.paymentMode = paymentMode || 'CASH';

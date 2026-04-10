@@ -182,6 +182,16 @@ const purchaseSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  handlingCharges: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  deliveryCharges: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   miscellaneousAmount: {
     type: Number,
     default: 0,

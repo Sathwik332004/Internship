@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
+  Search,
   Moon,
   Pill, 
   ShoppingCart, 
@@ -54,7 +55,7 @@ const Layout = () => {
   ];
 
   return (
-    <div className="min-h-screen medical-grid">
+    <div className="app-shell min-h-screen medical-grid">
 
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
@@ -65,35 +66,35 @@ const Layout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 z-50 h-full w-[86vw] max-w-[320px] border-r border-white/10 bg-[#161a1f] text-slate-100 shadow-2xl transform transition-transform duration-300 ease-in-out sm:max-w-[360px] lg:w-72 lg:max-w-none lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`app-sidebar fixed top-0 left-0 z-50 h-full w-[86vw] max-w-[320px] transform transition-transform duration-300 ease-in-out sm:max-w-[360px] lg:w-72 lg:max-w-none lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
         <div className="flex flex-col h-full">
 
           {/* Logo */}
-          <div className="flex items-start justify-between px-5 py-5 border-b border-white/10">
+          <div className="flex items-start justify-between border-b border-gray-200 px-5 py-5">
             <BrandLogo compact onDark />
-            <button onClick={() => setSidebarOpen(false)} className="rounded-xl p-2 text-slate-300 hover:bg-white/10 lg:hidden">
+            <button onClick={() => setSidebarOpen(false)} className="rounded-xl p-2 text-slate-500 hover:bg-white/60 lg:hidden">
               <X className="w-6 h-6" />
             </button>
           </div>
 
           {/* Navigation */}
           <nav className="mt-4 px-3 overflow-auto flex-1">
-            <p className="px-4 pb-3 text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-500">Workspace</p>
+            <p className="px-4 pb-3 text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-500">Main Menu</p>
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `group mb-1.5 flex items-center gap-3 rounded-2xl px-4 py-3 transition-all ${
+                  `app-nav-item group mb-1.5 flex items-center gap-3 rounded-2xl px-4 py-3 transition-all ${
                     isActive
-                      ? 'bg-[#1c2127] text-[#abf7b1] ring-1 ring-inset ring-[#31363d] shadow-[0_12px_28px_rgba(0,0,0,0.28)]'
-                      : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                      ? 'active'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`
                 }
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 ring-1 ring-inset ring-white/10 group-hover:bg-white/10">
+                <span className="app-nav-icon flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset">
                   <item.icon className="h-5 w-5" />
                 </span>
                 {item.label}
@@ -106,17 +107,17 @@ const Layout = () => {
 
             <div
               onClick={() => navigate('/profile')}
-              className="mb-4 flex items-center cursor-pointer rounded-3xl border border-white/10 bg-white/5 p-3"
+              className="mb-4 flex cursor-pointer items-center rounded-[24px] border border-gray-200 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)]"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1c2127] text-[#abf7b1] ring-1 ring-inset ring-white/10 shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171717] text-white shadow-sm">
                 <span className="font-semibold">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
               </div>
 
               <div className="ml-3">
-                <p className="text-sm font-semibold text-white">{user?.name}</p>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-300">{user?.role}</p>
+                <p className="text-sm font-semibold text-slate-900">{user?.name}</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{user?.role}</p>
               </div>
 
             </div>
@@ -124,7 +125,7 @@ const Layout = () => {
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="flex w-full items-center rounded-2xl px-4 py-3 text-sm font-medium text-rose-200 transition-colors hover:bg-rose-500/20 hover:text-rose-100"
+              className="flex w-full items-center rounded-2xl px-4 py-3 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:text-rose-800"
             >
               <LogOut className="w-4 h-4 mr-3" />
               Logout
@@ -141,27 +142,31 @@ const Layout = () => {
 
         {/* Header */}
         <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 lg:px-6 lg:pt-4">
-          <div className="flex min-h-[72px] flex-col justify-between gap-3 rounded-[22px] border border-slate-300/70 bg-white/90 px-4 py-3 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur sm:flex-row sm:items-center sm:px-5">
+          <div className="app-topbar flex min-h-[80px] flex-col justify-between gap-3 rounded-[24px] px-4 py-3 sm:flex-row sm:items-center sm:px-5">
           
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="rounded-2xl p-3 text-slate-700 hover:bg-slate-100 lg:hidden"
+                className="rounded-2xl p-3 text-slate-700 hover:bg-white/70 lg:hidden"
               >
                 <Menu className="w-6 h-6" />
               </button>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#abf7b1]">Bhagya Medicals Workspace</p>
+              <div className="hidden min-w-[320px] items-center gap-3 rounded-full border border-gray-200 bg-[#fbfbf8] px-4 py-3 md:flex">
+                <Search className="h-4 w-4 text-slate-400" />
+                <span className="text-sm text-slate-400">Search records, medicines, reports...</span>
+              </div>
+              <div className="md:hidden">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#0e444a]">Bhagya Medicals Workspace</p>
               </div>
             </div>
 
             <div className="ml-0 flex items-center gap-3 sm:ml-auto">
-              <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 md:flex">
-                {isDark ? <Moon className="h-4 w-4 text-[#abf7b1]" /> : <SunMedium className="h-4 w-4 text-[#abf7b1]" />}
+              <div className="hidden items-center gap-2 rounded-full border border-gray-200 bg-[#fbfbf8] px-3 py-2 text-xs font-medium text-slate-600 md:flex">
+                {isDark ? <Moon className="h-4 w-4 text-[#18c34a]" /> : <SunMedium className="h-4 w-4 text-[#18c34a]" />}
                 <span>{isDark ? 'Dark theme' : 'Light theme'}</span>
               </div>
               <ThemeToggle compact />
-              <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-right sm:block">
+              <div className="hidden rounded-[20px] border border-gray-200 bg-[#fbfbf8] px-4 py-2 text-right sm:block">
                 <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Signed in as</p>
                 <span className="text-sm font-semibold text-slate-900">{user?.name}</span>
               </div>
@@ -171,7 +176,7 @@ const Layout = () => {
 
         {/* Page Content */}
         <main className="p-3 sm:p-4 lg:p-6">
-          <div className="mx-auto max-w-[1600px]">
+          <div className="app-content-shell mx-auto max-w-[1600px]">
             <Outlet />
           </div>
         </main>

@@ -146,24 +146,22 @@ export default function Reports() {
 
   return (
     <div className="p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-sm text-gray-600">View and analyze your store data</p>
+          <h1 className="text-3xl font-semibold text-gray-900">Reports</h1>
+          <p className="text-sm text-gray-600">Professional reporting across sales, GST, inventory, and expiry trends</p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex overflow-x-auto gap-2 mb-6 pb-2">
+      <div className="mb-6 flex overflow-x-auto gap-2 rounded-[22px] border border-gray-200 bg-white p-2 shadow-sm">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+            className={`flex items-center gap-2 whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? 'bg-emerald-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                ? 'bg-[#171717] text-white'
+                : 'bg-transparent text-gray-700 hover:bg-gray-50'
             }`}
           >
             <tab.icon size={18} />
@@ -172,17 +170,16 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* Date Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+      <div className="mb-6 rounded-[24px] border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-4 items-end">
           <div className="flex gap-2">
             {['today', 'week', 'month', 'year', 'custom'].map((range) => (
               <button
                 key={range}
                 onClick={() => setDateRange(range)}
-                className={`px-3 py-2 rounded-lg text-sm ${
+                className={`rounded-2xl px-3 py-2 text-sm font-medium ${
                   dateRange === range
-                    ? 'bg-emerald-100 text-emerald-700'
+                    ? 'bg-[#f2f8de] text-[#0fa23a]'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -199,7 +196,7 @@ export default function Reports() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-gray-300 rounded-2xl text-sm"
                 />
               </div>
               <div>
@@ -208,7 +205,7 @@ export default function Reports() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-gray-300 rounded-2xl text-sm"
                 />
               </div>
             </div>

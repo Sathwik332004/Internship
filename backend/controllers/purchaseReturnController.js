@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Inventory = require('../models/Inventory');
 const Purchase = require('../models/Purchase');
 const PurchaseReturn = require('../models/PurchaseReturn');
+const Supplier = require('../models/Supplier');
 const {
   isNonNegativeInteger,
   normalizeOptionalText
@@ -348,6 +349,17 @@ exports.createPurchaseReturn = async (req, res) => {
     );
 
     const returnNumber = await PurchaseReturn.generateReturnNumber();
+    const adjustmentAmount = roundCurrency(totals.grandTotal);
+    const supplierDoc = await Supplier.findById(purchase.supplier?._id || purchase.supplier).session(session);
+
+    if (!supplierDoc) {
+      throw createHttpError(404, 'Supplier not found for purchase return');
+    }
+
+    supplierDoc.adjustmentBalance = roundCurrency(
+      Number(supplierDoc.adjustmentBalance || 0) + adjustmentAmount
+    );
+    await supplierDoc.save({ session });
 
     const [createdPurchaseReturn] = await PurchaseReturn.create(
       [
@@ -368,6 +380,7 @@ exports.createPurchaseReturn = async (req, res) => {
           totalSgst: roundCurrency(totals.totalSgst),
           totalIgst: roundCurrency(totals.totalIgst),
           discountAmount: roundCurrency(totals.discountAmount),
+          adjustmentAmount,
           grandTotal: roundCurrency(totals.grandTotal),
           createdBy: req.user.id
         }

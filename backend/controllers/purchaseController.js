@@ -18,6 +18,7 @@ const {
 } = require('../utils/validation');
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 const getExpiryYearMonth = (expiryDate) => {
   if (!expiryDate) {
@@ -404,6 +405,7 @@ exports.addPurchase = async (req, res) => {
       handlingCharges,
       deliveryCharges,
       miscellaneousAmount,
+      supplierAdjustmentAmount,
       grandTotal,
       paymentMode,
       notes
@@ -464,6 +466,14 @@ exports.addPurchase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Extra charges must be 0 or higher'
+      });
+    }
+
+    if (supplierAdjustmentAmount !== undefined && !isNonNegativeNumber(supplierAdjustmentAmount)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'Supplier adjust amount must be 0 or higher'
       });
     }
 
@@ -569,7 +579,7 @@ exports.addPurchase = async (req, res) => {
     }
 
     // Validate supplier
-    const supplierDoc = await Supplier.findById(supplier);
+    const supplierDoc = await Supplier.findById(supplier).session(session);
     if (!supplierDoc) {
       await session.abortTransaction();
       return res.status(404).json({
@@ -696,14 +706,29 @@ exports.addPurchase = async (req, res) => {
     const calculatedMiscellaneousAmount = Number(miscellaneousAmount || 0);
     const calculatedHandlingCharges = Number(handlingCharges || 0);
     const calculatedDeliveryCharges = Number(deliveryCharges || 0);
-
-    const finalGrandTotal =
+    const grossGrandTotal = roundCurrency(
       calculatedSubtotal +
       calculatedGst -
       calculatedDiscountAmount +
       calculatedMiscellaneousAmount +
       calculatedHandlingCharges +
-      calculatedDeliveryCharges;
+      calculatedDeliveryCharges
+    );
+    const requestedSupplierAdjustmentAmount = Number(supplierAdjustmentAmount || 0);
+    const availableSupplierAdjustmentAmount = Number(supplierDoc.adjustmentBalance || 0);
+
+    if (requestedSupplierAdjustmentAmount > availableSupplierAdjustmentAmount) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: `Supplier adjust amount cannot exceed available balance of ${availableSupplierAdjustmentAmount.toFixed(2)}`
+      });
+    }
+
+    const appliedSupplierAdjustmentAmount = roundCurrency(
+      Math.min(requestedSupplierAdjustmentAmount, grossGrandTotal)
+    );
+    const finalGrandTotal = roundCurrency(grossGrandTotal - appliedSupplierAdjustmentAmount);
 
     // Create purchase record with new fields
     const purchase = new Purchase({
@@ -722,11 +747,18 @@ exports.addPurchase = async (req, res) => {
       handlingCharges: calculatedHandlingCharges,
       deliveryCharges: calculatedDeliveryCharges,
       miscellaneousAmount: calculatedMiscellaneousAmount,
+      supplierAdjustmentAmount: appliedSupplierAdjustmentAmount,
+      grossGrandTotal,
       grandTotal: finalGrandTotal,
       paymentMode: paymentMode || 'CASH',
       notes: normalizedNotes,
       createdBy: req.user.id
     });
+
+    supplierDoc.adjustmentBalance = roundCurrency(
+      Math.max(0, availableSupplierAdjustmentAmount - appliedSupplierAdjustmentAmount)
+    );
+    await supplierDoc.save({ session });
 
     await purchase.save({ session });
 
@@ -851,6 +883,7 @@ exports.updatePurchase = async (req, res) => {
       handlingCharges,
       deliveryCharges,
       miscellaneousAmount,
+      supplierAdjustmentAmount,
       paymentMode,
       notes
     } = req.body;
@@ -883,6 +916,10 @@ exports.updatePurchase = async (req, res) => {
 
     if (miscellaneousAmount !== undefined && !isNonNegativeNumber(miscellaneousAmount)) {
       throw new Error('Extra charges must be 0 or higher');
+    }
+
+    if (supplierAdjustmentAmount !== undefined && !isNonNegativeNumber(supplierAdjustmentAmount)) {
+      throw new Error('Supplier adjust amount must be 0 or higher');
     }
 
     if (paymentMode && !['CASH', 'UPI', 'CARD', 'CREDIT'].includes(paymentMode)) {
@@ -944,10 +981,24 @@ exports.updatePurchase = async (req, res) => {
       }
     }
 
+    const existingSupplierDoc = await Supplier.findById(purchase.supplier).session(session);
+    if (!existingSupplierDoc) {
+      throw new Error('Existing supplier not found');
+    }
+
     const supplierDoc = await Supplier.findById(supplier).session(session);
     if (!supplierDoc) {
       throw new Error('Supplier not found');
     }
+
+    existingSupplierDoc.adjustmentBalance = roundCurrency(
+      Number(existingSupplierDoc.adjustmentBalance || 0) + Number(purchase.supplierAdjustmentAmount || 0)
+    );
+
+    const requestedSupplierAdjustmentAmount = Number(supplierAdjustmentAmount || 0);
+    const availableSupplierAdjustmentAmount = purchase.supplier.toString() === supplierDoc._id.toString()
+      ? Number(existingSupplierDoc.adjustmentBalance || 0)
+      : Number(supplierDoc.adjustmentBalance || 0);
 
     await restorePurchaseInventory(purchase, session);
 
@@ -1043,13 +1094,36 @@ exports.updatePurchase = async (req, res) => {
     const calculatedMiscellaneousAmount = Number(miscellaneousAmount || 0);
     const calculatedHandlingCharges = Number(handlingCharges || 0);
     const calculatedDeliveryCharges = Number(deliveryCharges || 0);
-    const finalGrandTotal =
+    const grossGrandTotal = roundCurrency(
       calculatedSubtotal +
       calculatedGst -
       calculatedDiscountAmount +
       calculatedMiscellaneousAmount +
       calculatedHandlingCharges +
-      calculatedDeliveryCharges;
+      calculatedDeliveryCharges
+    );
+
+    if (requestedSupplierAdjustmentAmount > availableSupplierAdjustmentAmount) {
+      throw new Error(`Supplier adjust amount cannot exceed available balance of ${availableSupplierAdjustmentAmount.toFixed(2)}`);
+    }
+
+    const appliedSupplierAdjustmentAmount = roundCurrency(
+      Math.min(requestedSupplierAdjustmentAmount, grossGrandTotal)
+    );
+    const finalGrandTotal = roundCurrency(grossGrandTotal - appliedSupplierAdjustmentAmount);
+
+    if (purchase.supplier.toString() === supplierDoc._id.toString()) {
+      const nextAdjustmentBalance = roundCurrency(
+        Math.max(0, Number(existingSupplierDoc.adjustmentBalance || 0) - appliedSupplierAdjustmentAmount)
+      );
+      existingSupplierDoc.adjustmentBalance = nextAdjustmentBalance;
+      supplierDoc.adjustmentBalance = nextAdjustmentBalance;
+    } else {
+      existingSupplierDoc.adjustmentBalance = roundCurrency(Number(existingSupplierDoc.adjustmentBalance || 0));
+      supplierDoc.adjustmentBalance = roundCurrency(
+        Math.max(0, Number(supplierDoc.adjustmentBalance || 0) - appliedSupplierAdjustmentAmount)
+      );
+    }
 
     purchase.supplierInvoiceNumber = normalizedInvoiceNumber;
     purchase.supplier = supplier;
@@ -1065,9 +1139,16 @@ exports.updatePurchase = async (req, res) => {
     purchase.handlingCharges = calculatedHandlingCharges;
     purchase.deliveryCharges = calculatedDeliveryCharges;
     purchase.miscellaneousAmount = calculatedMiscellaneousAmount;
+    purchase.supplierAdjustmentAmount = appliedSupplierAdjustmentAmount;
+    purchase.grossGrandTotal = grossGrandTotal;
     purchase.grandTotal = finalGrandTotal;
     purchase.paymentMode = paymentMode || 'CASH';
     purchase.notes = normalizedNotes;
+
+    await existingSupplierDoc.save({ session });
+    if (existingSupplierDoc._id.toString() !== supplierDoc._id.toString()) {
+      await supplierDoc.save({ session });
+    }
 
     await purchase.save({ session });
 

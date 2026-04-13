@@ -201,6 +201,11 @@ const purchaseReturnSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    adjustmentAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     grandTotal: {
       type: Number,
       required: true,

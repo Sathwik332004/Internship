@@ -761,6 +761,8 @@ export default function Purchases() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);
+  const [editingInitialSupplierId, setEditingInitialSupplierId] = useState('');
+  const [editingInitialSupplierAdjustmentAmount, setEditingInitialSupplierAdjustmentAmount] = useState(0);
 
   // Form state
   const [purchaseNumber, setPurchaseNumber] = useState('');
@@ -771,6 +773,8 @@ export default function Purchases() {
   const [miscellaneousAmount, setMiscellaneousAmount] = useState(0);
   const [handlingCharges, setHandlingCharges] = useState(0);
   const [deliveryCharges, setDeliveryCharges] = useState(0);
+  const [supplierAdjustmentBalance, setSupplierAdjustmentBalance] = useState(0);
+  const [supplierAdjustmentAmount, setSupplierAdjustmentAmount] = useState(0);
   const [notes, setNotes] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([]);
   const [showQuickSupplierForm, setShowQuickSupplierForm] = useState(false);
@@ -859,6 +863,7 @@ export default function Purchases() {
       setMiscellaneousAmount(Number(draft.miscellaneousAmount) || 0);
       setHandlingCharges(Number(draft.handlingCharges) || 0);
       setDeliveryCharges(Number(draft.deliveryCharges) || 0);
+      setSupplierAdjustmentAmount(Number(draft.supplierAdjustmentAmount) || 0);
       setNotes(draft.notes || '');
       setPurchaseItems(Array.isArray(draft.purchaseItems) ? draft.purchaseItems : []);
       setHasSavedDraft(true);
@@ -906,6 +911,7 @@ export default function Purchases() {
       || Number(miscellaneousAmount) !== 0
       || Number(handlingCharges) !== 0
       || Number(deliveryCharges) !== 0
+      || Number(supplierAdjustmentAmount) !== 0
       || !!notes.trim()
       || purchaseDate !== new Date().toISOString().split('T')[0]
       || hasMeaningfulItems;
@@ -924,6 +930,7 @@ export default function Purchases() {
       miscellaneousAmount,
       handlingCharges,
       deliveryCharges,
+      supplierAdjustmentAmount,
       notes,
       purchaseItems
     };
@@ -939,6 +946,7 @@ export default function Purchases() {
     paymentMode,
     purchaseDate,
     purchaseItems,
+    supplierAdjustmentAmount,
     selectedSupplier,
     showAddModal,
     supplierInvoiceNumber
@@ -983,6 +991,37 @@ export default function Purchases() {
       console.error('Error fetching suppliers:', error);
     }
   };
+
+  useEffect(() => {
+    if (!showAddModal || !selectedSupplier) {
+      setSupplierAdjustmentBalance(0);
+      return;
+    }
+
+    const reservedAdjustmentAmount = editingPurchaseId && selectedSupplier === editingInitialSupplierId
+      ? Number(editingInitialSupplierAdjustmentAmount || 0)
+      : 0;
+
+    const fallbackSupplier = suppliers.find((supplier) => supplier._id === selectedSupplier);
+    if (fallbackSupplier) {
+      setSupplierAdjustmentBalance(
+        Number(fallbackSupplier.adjustmentBalance || 0) + reservedAdjustmentAmount
+      );
+    }
+
+    const loadSupplierDetails = async () => {
+      try {
+        const response = await api.get(`/suppliers/${selectedSupplier}`);
+        setSupplierAdjustmentBalance(
+          Number(response.data?.data?.adjustmentBalance || 0) + reservedAdjustmentAmount
+        );
+      } catch (error) {
+        console.error('Error fetching supplier adjustment balance:', error);
+      }
+    };
+
+    loadSupplierDetails();
+  }, [editingInitialSupplierAdjustmentAmount, editingInitialSupplierId, editingPurchaseId, selectedSupplier, showAddModal, suppliers]);
 
   const fetchMedicines = async () => {
     try {
@@ -1377,7 +1416,12 @@ export default function Purchases() {
     const normalizedHandlingCharges = parseFloat(handlingCharges) || 0;
     const normalizedDeliveryCharges = parseFloat(deliveryCharges) || 0;
     const extraAmount = normalizedMiscellaneousAmount + normalizedHandlingCharges + normalizedDeliveryCharges;
-    const grandTotal = subtotal + totalGst - itemDiscountTotal + extraAmount;
+    const grossGrandTotal = subtotal + totalGst - itemDiscountTotal + extraAmount;
+    const appliedSupplierAdjustmentAmount = Math.max(
+      0,
+      Math.min(parseFloat(supplierAdjustmentAmount) || 0, supplierAdjustmentBalance, grossGrandTotal)
+    );
+    const grandTotal = grossGrandTotal - appliedSupplierAdjustmentAmount;
     return {
       subtotal,
       itemDiscountTotal,
@@ -1389,12 +1433,26 @@ export default function Purchases() {
       handlingCharges: normalizedHandlingCharges,
       deliveryCharges: normalizedDeliveryCharges,
       extraCharges: extraAmount,
+      grossGrandTotal,
+      supplierAdjustmentAmount: appliedSupplierAdjustmentAmount,
+      supplierAdjustmentBalance,
       grandTotal
     };
-  }, [deliveryCharges, handlingCharges, miscellaneousAmount, purchaseItems]);
+  }, [deliveryCharges, handlingCharges, miscellaneousAmount, purchaseItems, supplierAdjustmentAmount, supplierAdjustmentBalance]);
 
   // Memoized totals
   const totals = useMemo(() => calculateTotals(), [calculateTotals]);
+
+  useEffect(() => {
+    const normalizedAdjustmentAmount = Math.max(
+      0,
+      Math.min(parseFloat(supplierAdjustmentAmount) || 0, supplierAdjustmentBalance, totals.grossGrandTotal)
+    );
+
+    if (normalizedAdjustmentAmount !== Number(supplierAdjustmentAmount || 0)) {
+      setSupplierAdjustmentAmount(normalizedAdjustmentAmount);
+    }
+  }, [supplierAdjustmentAmount, supplierAdjustmentBalance, totals.grossGrandTotal]);
 
   // Handle cell focus
   const handleCellFocus = (row, col) => {
@@ -1544,6 +1602,16 @@ export default function Purchases() {
       return;
     }
 
+    if ((parseFloat(supplierAdjustmentAmount) || 0) < 0) {
+      toast.error('Supplier adjust amount must be 0 or higher.');
+      return;
+    }
+
+    if ((parseFloat(supplierAdjustmentAmount) || 0) > supplierAdjustmentBalance) {
+      toast.error(`Supplier adjust amount cannot exceed available balance of Rs. ${supplierAdjustmentBalance.toFixed(2)}.`);
+      return;
+    }
+
     try {
       setSaving(true);
       const purchaseData = {
@@ -1581,6 +1649,7 @@ export default function Purchases() {
         miscellaneousAmount: totals.miscellaneousAmount,
         handlingCharges: totals.handlingCharges,
         deliveryCharges: totals.deliveryCharges,
+        supplierAdjustmentAmount: totals.supplierAdjustmentAmount,
         grandTotal: totals.grandTotal,
         paymentMode: paymentMode,
         notes: normalizeTextInput(notes).trim()
@@ -1610,6 +1679,8 @@ export default function Purchases() {
   // Reset form
   const resetForm = () => {
     setEditingPurchaseId(null);
+    setEditingInitialSupplierId('');
+    setEditingInitialSupplierAdjustmentAmount(0);
     setPurchaseNumber('');
     setSelectedSupplier('');
     setPurchaseDate(new Date().toISOString().split('T')[0]);
@@ -1618,6 +1689,8 @@ export default function Purchases() {
     setMiscellaneousAmount(0);
     setHandlingCharges(0);
     setDeliveryCharges(0);
+    setSupplierAdjustmentBalance(0);
+    setSupplierAdjustmentAmount(0);
     setNotes('');
     setPurchaseItems([]);
     setShowQuickSupplierForm(false);
@@ -1656,6 +1729,8 @@ export default function Purchases() {
       }
 
       setEditingPurchaseId(purchase._id);
+      setEditingInitialSupplierId(purchase.supplier?._id || '');
+      setEditingInitialSupplierAdjustmentAmount(Number(purchase.supplierAdjustmentAmount || 0));
       setPurchaseNumber(purchase.purchaseNumber || '');
       setSelectedSupplier(purchase.supplier?._id || '');
       setPurchaseDate(purchase.purchaseDate ? new Date(purchase.purchaseDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
@@ -1664,6 +1739,10 @@ export default function Purchases() {
       setMiscellaneousAmount(Number(purchase.miscellaneousAmount) || 0);
       setHandlingCharges(Number(purchase.handlingCharges) || 0);
       setDeliveryCharges(Number(purchase.deliveryCharges) || 0);
+      setSupplierAdjustmentBalance(
+        Number(purchase.supplier?.adjustmentBalance || 0) + Number(purchase.supplierAdjustmentAmount || 0)
+      );
+      setSupplierAdjustmentAmount(Number(purchase.supplierAdjustmentAmount || 0));
       setNotes(purchase.notes || '');
       const mappedItems = (purchase.items || []).map((item) => {
           const mappedDiscountPercent = Number(item.discountPercent || 0);
@@ -2153,7 +2232,20 @@ export default function Purchases() {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Supplier *</label>
                   <div className="flex gap-2">
-                    <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" required>
+                    <select
+                      value={selectedSupplier}
+                      onChange={(e) => {
+                        const nextSupplierId = e.target.value;
+                        const nextSupplier = suppliers.find((supplier) => supplier._id === nextSupplierId);
+                        const nextAvailableAdjustment = Number(nextSupplier?.adjustmentBalance || 0);
+
+                        setSelectedSupplier(nextSupplierId);
+                        setSupplierAdjustmentBalance(nextAvailableAdjustment);
+                        setSupplierAdjustmentAmount(Math.min(nextAvailableAdjustment, totals.grossGrandTotal));
+                      }}
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+                      required
+                    >
                       <option value="">Select</option>
                       {suppliers.map(s => (<option key={s._id} value={s._id}>{s.supplierName}</option>))}
                     </select>
@@ -2376,7 +2468,7 @@ export default function Purchases() {
                       Discount is applied per medicine row using the selector in the Discount column (% or Rs). No extra total purchase discount is applied.
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Miscellaneous Amount</label>
                       <input
@@ -2409,6 +2501,27 @@ export default function Purchases() {
                         step="0.01"
                         value={deliveryCharges}
                         onChange={(e) => setDeliveryCharges(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full rounded-lg border border-slate-500 bg-white px-3 py-2 focus:border-slate-700 focus:ring-0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Supplier Adjust Balance</label>
+                      <input
+                        type="number"
+                        value={supplierAdjustmentBalance.toFixed(2)}
+                        readOnly
+                        className="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Adjust Amount</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={supplierAdjustmentAmount}
+                        onChange={(e) => setSupplierAdjustmentAmount(parseFloat(e.target.value) || 0)}
                         placeholder="0.00"
                         className="w-full rounded-lg border border-slate-500 bg-white px-3 py-2 focus:border-slate-700 focus:ring-0"
                       />
@@ -2447,9 +2560,17 @@ export default function Purchases() {
                         <span className="font-medium">Delivery Charges</span>
                         <span>Rs. {totals.deliveryCharges.toFixed(2)}</span>
                       </div>
-                      <div className="flex items-center justify-between px-4 py-2">
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
                         <span className="font-medium">Extra Charges</span>
                         <span>Rs. {totals.extraCharges.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Supplier Adjust Balance</span>
+                        <span>Rs. {totals.supplierAdjustmentBalance.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-2">
+                        <span className="font-medium">Adjust Amount Used</span>
+                        <span className="text-emerald-700">Rs. {totals.supplierAdjustmentAmount.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -2495,6 +2616,14 @@ export default function Purchases() {
                       <div className="flex justify-between border-b border-slate-200 px-4 py-2">
                         <span className="font-medium">Extra Charges</span>
                         <span>Rs. {totals.extraCharges.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Gross Grand Total</span>
+                        <span>Rs. {totals.grossGrandTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-200 px-4 py-2">
+                        <span className="font-medium">Supplier Adjust Amount</span>
+                        <span className="text-emerald-700">-Rs. {totals.supplierAdjustmentAmount.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between bg-slate-900 px-4 py-3 text-2xl font-bold text-white">
                         <span className="tracking-wide">Grand Total</span>

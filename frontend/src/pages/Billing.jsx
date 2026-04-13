@@ -15,7 +15,11 @@ import {
   QrCode,
   AlertCircle,
   Boxes,
-  Pill
+  Pill,
+  Receipt,
+  ShieldCheck,
+  Package2,
+  BadgePercent
 } from 'lucide-react';
 import api from '../services/api';
 import BillPrintDocument from '../components/BillPrintDocument';
@@ -1066,29 +1070,150 @@ export default function Billing() {
     }
   }, []);
 
+  const billingStats = [
+    {
+      label: 'Items',
+      value: billItems.length,
+      tone: 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    },
+    {
+      label: 'Draft',
+      value: hasSavedDraft ? 'Saved' : 'Live',
+      tone: hasSavedDraft ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-100 text-slate-700'
+    },
+    {
+      label: 'Payment',
+      value: paymentMode,
+      tone: 'border-sky-200 bg-sky-50 text-sky-700'
+    }
+  ];
+
+  const paymentModes = [
+    { value: 'CASH', icon: Banknote, label: 'Cash' },
+    { value: 'UPI', icon: Smartphone, label: 'UPI' },
+    { value: 'CARD', icon: CreditCard, label: 'Card' },
+    { value: 'BANK', icon: Landmark, label: 'Bank' }
+  ];
+
+  const totalUnits = billItems.reduce((sum, item) => sum + (Number(item.quantity || 0) || 0), 0);
+  const nearExpiryItems = billItems.filter((item) => (
+    new Date(item.expiryDate) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+  )).length;
+
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 lg:p-6">
+    <div className="min-h-screen bg-transparent p-3 sm:p-4 lg:p-6">
       <div className="no-print">
-        {/* Header */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Billing / POS</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleScannerToggle}
-              className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg ${
-                scannerActive ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
-              }`}
-            >
-              <QrCode size={20} />
-              {scannerActive ? 'Scanner Active' : 'Start Scanner'}
-            </button>
+        <div className="mb-6 overflow-hidden rounded-[34px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_24px_56px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="relative overflow-hidden border-b border-[color:var(--border)] bg-[linear-gradient(135deg,#101827_0%,#172033_45%,#143228_100%)] px-5 py-5 text-white sm:px-6 lg:px-7 lg:py-6">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,242,92,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.14),transparent_22%)]" />
+            <div className="relative flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100">
+                <ShieldCheck size={14} />
+                Pharmacy Billing Desk
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-[2.15rem]">Billing / POS</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                A cleaner, dispense-inspired workspace with stronger customer context, sharper item handling, and a modern payment handoff.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {billingStats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${stat.tone}`}
+                  >
+                    <span className="uppercase tracking-[0.18em]">{stat.label}</span>
+                    <span>{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:w-[360px] xl:grid-cols-1">
+              <div className="rounded-[26px] border border-white/10 bg-white/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-100/80">Current Invoice</p>
+                    <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{formatCurrency(totals.grandTotal)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-2 text-right">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Collected</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(effectiveAmountPaid)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Lines</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{billItems.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Units</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{totalUnits}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Due</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(Math.abs(balanceAmount))}</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleScannerToggle}
+                className={`inline-flex items-center justify-center gap-2 rounded-[24px] px-4 py-4 text-sm font-semibold text-white shadow-sm transition-colors ${
+                  scannerActive ? 'bg-[#18c34a] hover:bg-[#0fa23a]' : 'bg-white/10 hover:bg-white/15'
+                }`}
+              >
+                <QrCode size={18} />
+                {scannerActive ? 'Scanner Active' : 'Start Scanner'}
+              </button>
+            </div>
+          </div>
+          </div>
+
+          <div className="grid gap-3 bg-gradient-to-r from-[#f8fbf3] via-white to-[#f3fbfb] px-5 py-4 sm:grid-cols-3 sm:px-6 lg:px-7">
+            <div className="rounded-[22px] border border-white/80 bg-white/80 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                  <Receipt size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Invoice Value</p>
+                  <p className="text-lg font-semibold text-slate-900">{formatCurrency(totals.subtotal)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-white/80 bg-white/80 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                  <Package2 size={20} />
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Dispense Queue</p>
+                    <p className="text-lg font-semibold text-slate-900">{totalUnits} units across {billItems.length} lines</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-white/80 bg-white/80 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <BadgePercent size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">GST / Attention</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {formatCurrency(totals.totalGst)}
+                    {totals.discountAmount > 0 ? ` • -${formatCurrency(totals.discountAmount)}` : ''}
+                    </p>
+                    <p className="text-xs text-slate-500">{nearExpiryItems} near-expiry item{nearExpiryItems === 1 ? '' : 's'} in bill</p>
+                  </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {scannerActive && (
-          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <div className="mb-4 rounded-[24px] border border-emerald-200 bg-gradient-to-r from-emerald-50 to-lime-50 px-4 py-4 shadow-sm">
             <p className="text-sm font-medium text-emerald-800">
-              Continuous scan is active. Keep scanning; each scan auto-adds to bill.
+              Continuous scan is active. Keep scanning to auto-add medicines directly into the active bill.
             </p>
             <input
               ref={scannerInputRef}
@@ -1102,7 +1227,7 @@ export default function Billing() {
                 }
               }}
               placeholder="Scanner input stream..."
-              className="mt-2 w-full rounded border border-emerald-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+              className="mt-3 w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-inner outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
@@ -1112,7 +1237,7 @@ export default function Billing() {
 
         {/* Error Message */}
         {errorMessage && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <div className="mb-4 flex items-center gap-2 rounded-[24px] border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
             <AlertCircle size={20} />
             {errorMessage}
             <button onClick={() => setErrorMessage('')} className="ml-auto text-red-500 hover:text-red-700">
@@ -1121,28 +1246,56 @@ export default function Billing() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         {/* Left Column - Search and Items */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="space-y-5 xl:col-span-8">
           {/* Customer Details */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <User size={20} /> Customer Details
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] p-5 shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text)]">
+                  <User size={20} /> Customer Details
+                </h2>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">Patient and prescriber details for invoice and compliance records.</p>
+              </div>
+              {totals.isInterstate && (
+                <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                  Interstate billing: IGST applied
+                </div>
+              )}
+            </div>
+            <div className="mb-5 grid gap-3 rounded-[24px] border border-slate-200/80 bg-[linear-gradient(135deg,#f8fafc_0%,#ffffff_60%,#effcf4_100%)] p-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Counter Context</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Keep customer identity, doctor details, and state selection visible upfront so GST treatment and print output stay clear before items are finalized.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white bg-white/90 px-3 py-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Customer</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{customerDetails.name || 'Walk-in customer'}</p>
+                </div>
+                <div className="rounded-2xl border border-white bg-white/90 px-3 py-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Doctor</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{customerDetails.doctorName || 'Not added'}</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Customer Name</label>
                 <input
                   type="text"
                   value={customerDetails.name}
                   maxLength={80}
                   onChange={(e) => setCustomerDetails({...customerDetails, name: normalizeTextInput(e.target.value)})}
                   placeholder="Enter customer name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Phone Number</label>
                 <input
                   type="tel"
                   value={customerDetails.phone}
@@ -1150,93 +1303,104 @@ export default function Billing() {
                   maxLength={10}
                   onChange={(e) => setCustomerDetails({...customerDetails, phone: normalizePhone(e.target.value)})}
                   placeholder="Enter phone number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Customer State
-                  {totals.isInterstate && <span className="text-xs text-amber-600 ml-2">(Interstate - IGST)</span>}
-                </label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Customer State</label>
                 <input
                   type="text"
                   value={customerDetails.state}
                   maxLength={50}
                   onChange={(e) => setCustomerDetails({...customerDetails, state: normalizeTextInput(e.target.value)})}
                   placeholder="e.g., Maharashtra, Karnataka"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Patient Address</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Patient Address</label>
                 <input
                   type="text"
                   value={customerDetails.address}
                   maxLength={150}
                   onChange={(e) => setCustomerDetails({...customerDetails, address: normalizeTextInput(e.target.value)})}
                   placeholder="Enter patient address"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Doctor Name</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Doctor Name</label>
                 <input
                   type="text"
                   value={customerDetails.doctorName}
                   maxLength={80}
                   onChange={(e) => setCustomerDetails({...customerDetails, doctorName: normalizeTextInput(e.target.value)})}
                   placeholder="Enter doctor name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Doctor Reg No.</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Doctor Reg No.</label>
                 <input
                   type="text"
                   value={customerDetails.doctorRegNo}
                   maxLength={40}
                   onChange={(e) => setCustomerDetails({...customerDetails, doctorRegNo: normalizeTextInput(e.target.value)})}
                   placeholder="Enter registration number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
             </div>
           </div>
 
           {/* Medicine Search */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Search size={20} /> Search Medicines
-            </h2>
+          <div className="rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] p-5 shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text)]">
+                  <Search size={20} /> Search Medicines
+                </h2>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">Find by medicine name, brand, strength, or scanned barcode.</p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">Stock-aware search</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">Expiry-safe batches</span>
+              </div>
+            </div>
+            <div className="rounded-[24px] border border-slate-200 bg-[linear-gradient(135deg,#fffdf8_0%,#ffffff_58%,#f1fbf8_100%)] p-3 sm:p-4">
             <div className="relative">
+              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 z-[1] -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, brand, or barcode..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-32 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
               />
+              <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 sm:block">
+                Enter 2+ chars
+              </div>
               {showSearchResults && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+                <div className="absolute z-10 mt-3 max-h-72 w-full overflow-auto rounded-[24px] border border-slate-200 bg-white shadow-[0_22px_50px_rgba(15,23,42,0.12)]">
                   {searchingMedicines ? (
-                    <div className="px-4 py-3 text-sm text-gray-500">Searching medicines...</div>
+                    <div className="px-4 py-4 text-sm text-gray-500">Searching medicines...</div>
                   ) : searchResults.length > 0 ? (
                     searchResults.map((medicine) => (
                       <button
                         key={medicine._id}
                         onClick={() => addToBill(medicine)}
                         disabled={loadingBatches[medicine._id]}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 disabled:opacity-50"
+                        className="w-full border-b border-slate-100 px-4 py-4 text-left transition hover:bg-emerald-50/60 last:border-b-0 disabled:opacity-50"
                       >
-                        <div className="flex justify-between items-center">
+                        <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-medium text-gray-900">{medicine.medicineName}</p>
-                            <p className="text-sm text-gray-500">{medicine.brandName} | {medicine.strength}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="font-semibold text-slate-900">{medicine.medicineName}</p>
+                            <p className="text-sm text-slate-500">{medicine.brandName} | {medicine.strength}</p>
+                            <p className="mt-1 text-xs text-slate-500">
                               Stock: {medicine.quantity || 0} {medicine.baseUnit || ''}
                             </p>
                             {medicine.conversionFactor > 1 && (
-                              <p className="text-xs text-emerald-600">
+                              <p className="mt-1 text-xs font-medium text-emerald-600">
                                 Pack: {medicine.conversionFactor} {medicine.baseUnit || 'units'}
                               </p>
                             )}
@@ -1245,11 +1409,11 @@ export default function Billing() {
                             {loadingBatches[medicine._id] ? (
                               <span className="text-xs text-gray-500 italic">Loading stock & price...</span>
                             ) : (
-                              <div className="text-right space-y-0.5">
-                                <p className="text-sm font-bold text-gray-900">
+                              <div className="space-y-1 text-right">
+                                <p className="text-sm font-bold text-slate-900">
                                   {formatCurrency(medicine.defaultSellingPrice || medicine.inventoryBatches?.[0]?.mrp || 0)}
                                 </p>
-                                <p className="text-xs text-emerald-600 font-medium">Qty: 1</p>
+                                <p className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">Add Qty: 1</p>
                               </div>
                             )}
                           </div>
@@ -1257,61 +1421,93 @@ export default function Billing() {
                       </button>
                     ))
                   ) : (
-                    <div className="px-4 py-3 text-sm text-gray-500">No medicines with available stock found.</div>
+                    <div className="px-4 py-4 text-sm text-gray-500">No medicines with available stock found.</div>
                   )}
                 </div>
               )}
             </div>
+            </div>
           </div>
 
           {/* Bill Items Table */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <ShoppingCart size={20} /> Bill Items ({billItems.length})
-            </h2>
+          <div className="overflow-hidden rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
+            <div className="border-b border-[color:var(--border)] bg-[linear-gradient(135deg,#0f172a_0%,#162033_58%,#18283d_100%)] px-5 py-5 text-white">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+                  <ShoppingCart size={20} /> Bill Items ({billItems.length})
+                </h2>
+                <p className="mt-1 text-sm text-slate-300">Review batches, quantity, unit type, and invoice totals before save.</p>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200">
+                Live dispense table
+              </div>
+            </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-[22px] border border-white/10 bg-white/10 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Line Items</p>
+                  <p className="mt-1 text-xl font-semibold text-white">{billItems.length}</p>
+                </div>
+                <div className="rounded-[22px] border border-white/10 bg-white/10 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Units</p>
+                  <p className="mt-1 text-xl font-semibold text-white">{totalUnits}</p>
+                </div>
+                <div className="rounded-[22px] border border-white/10 bg-white/10 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Payable</p>
+                  <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(totals.grandTotal)}</p>
+                </div>
+              </div>
+            </div>
             
             {billItems.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="py-16 text-center text-gray-500">
                 <ShoppingCart size={48} className="mx-auto mb-4 text-gray-300" />
                 <p>No items added yet. Search for medicines above.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-3 py-3 sm:px-4">
+                <table className="w-full min-w-[1120px] overflow-hidden rounded-[22px]">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Pack</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Unit</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Batch</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">HSN</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Expiry</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">MRP</th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">CGST</th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">SGST</th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                    <tr className="bg-[#eef3f8]">
+                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Item</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pack</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Unit</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Batch</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">HSN</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Expiry</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Qty</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">MRP</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">CGST</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">SGST</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Amount</th>
                       <th className="px-3 py-3"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-slate-100 overflow-hidden rounded-b-[22px] bg-white">
                     {billItems.map((item, index) => (
                       <tr
                         key={`${getBillItemKey(item)}-${index}`}
-                        className={`hover:bg-gray-50 ${lastAddedItemKey === getBillItemKey(item) ? 'bg-emerald-100' : ''}`}
+                        className={`transition hover:bg-slate-50 ${lastAddedItemKey === getBillItemKey(item) ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-100' : ''}`}
                       >
                         <td className="px-3 py-3">
-                          <p className="font-medium text-gray-900">{item.medicineName}</p>
-                          <p className="text-xs text-gray-500">{item.brandName}</p>
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                              <Pill size={16} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-900">{item.medicineName}</p>
+                              <p className="text-xs text-slate-500">{item.brandName}</p>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-3 py-3 text-center">
-                          <span className="text-sm text-gray-600">{item.packSize}</span>
+                          <span className="text-sm text-slate-600">{item.packSize}</span>
                         </td>
                         <td className="px-3 py-3 text-center">
                           {item.conversionFactor > 1 && item.baseUnit !== 'ml' ? (
                             <button
                               onClick={() => togglePackUnit(getBillItemKey(item))}
-                              className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
                                 item.isPack 
                                   ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
                                   : 'bg-orange-100 text-orange-700 border border-orange-300'
@@ -1333,13 +1529,13 @@ export default function Billing() {
                           )}
                         </td>
                         <td className="px-3 py-3 text-center">
-                          <span className="text-sm font-mono text-gray-600">{item.batchNumber}</span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-sm font-mono text-slate-600">{item.batchNumber}</span>
                         </td>
                         <td className="px-3 py-3 text-center">
-                          <span className="text-sm text-gray-600">{item.hsnCode || '-'}</span>
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">{item.hsnCode || '-'}</span>
                         </td>
                         <td className="px-3 py-3 text-center">
-                          <span className={`text-sm ${new Date(item.expiryDate) < new Date(Date.now() + 90*24*60*60*1000) ? 'text-orange-600' : 'text-gray-600'}`}>
+                          <span className={`text-sm font-medium ${new Date(item.expiryDate) < new Date(Date.now() + 90*24*60*60*1000) ? 'text-orange-600' : 'text-slate-600'}`}>
                             {formatDate(item.expiryDate)}
                           </span>
                         </td>
@@ -1350,48 +1546,48 @@ export default function Billing() {
                               min="0"
                               value={item.quantity}
                               onChange={(e) => updateQuantity(getBillItemKey(item), e.target.value)}
-                              className="w-20 text-center font-medium border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-20 rounded-xl border border-slate-200 px-2 py-1.5 text-center font-medium outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               onWheel={(e) => e.preventDefault()}
                             />
                             <button
                               onClick={() => updateQuantity(getBillItemKey(item), item.quantity - 1)}
-                              className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                              className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
                               disabled={item.quantity <= 0}
                             >-</button>
                             <button
                               onClick={() => updateQuantity(getBillItemKey(item), item.quantity + 1)}
-                              className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                              className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
                             >+</button>
                           </div>
-                          <p className="text-xs text-center text-gray-400 mt-1">
+                          <p className="mt-1 text-center text-xs text-slate-400">
                             Stock: {item.availableStock} {item.baseUnit}
                           </p>
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="font-medium">{formatCurrency(item.isPack ? item.packMrp : item.looseMrp)}</span>
+                          <span className="font-medium text-slate-900">{formatCurrency(item.isPack ? item.packMrp : item.looseMrp)}</span>
                           {item.conversionFactor > 1 && (
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-slate-400">
                               ({item.isPack ? '1' : item.conversionFactor} {item.baseUnit})
                             </p>
                           )}
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-slate-700">
                             {(Number(item.gstPercent || 0) / 2).toFixed(2)}%
                           </span>
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-slate-700">
                             {(Number(item.gstPercent || 0) / 2).toFixed(2)}%
                           </span>
                         </td>
                         <td className="px-3 py-3 text-right">
-                          <span className="font-bold text-lg">{formatCurrency(item.amount)}</span>
+                          <span className="text-lg font-bold text-slate-900">{formatCurrency(item.amount)}</span>
                         </td>
                         <td className="px-3 py-3">
                           <button
                             onClick={() => removeItem(getBillItemKey(item))}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded"
+                            className="rounded-xl p-2 text-red-600 transition hover:bg-red-50"
                           >
                             <Trash2 size={18} />
                           </button>
@@ -1400,37 +1596,47 @@ export default function Billing() {
                     ))}
                   </tbody>
                 </table>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Prepared Lines</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{billItems.length} rows ready</p>
+                  </div>
+                  <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">GST Captured</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{formatCurrency(totals.totalGst)}</p>
+                  </div>
+                  <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Bill Total</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{formatCurrency(totals.grandTotal)}</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Right Column - Summary */}
-        <div className="space-y-4">
+        <div className="space-y-5 xl:col-span-4">
           {/* Payment Details */}
-          <div className="bg-white border border-black">
-            <div className="border-b border-black px-4 py-2">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-black">Payment</h2>
+          <div className="overflow-hidden rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900">Payment</h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">Choose a payment mode and confirm received amount.</p>
             </div>
-            <div className="p-4">
+            <div className="space-y-5 p-5">
             
             {/* Payment Mode */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-2">Mode</label>
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Mode</label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[
-                  { value: 'CASH', icon: Banknote, label: 'Cash' },
-                  { value: 'UPI', icon: Smartphone, label: 'UPI' },
-                  { value: 'CARD', icon: CreditCard, label: 'Card' },
-                  { value: 'BANK', icon: Landmark, label: 'Bank' }
-                ].map(({ value, icon: Icon, label }) => (
+                {paymentModes.map(({ value, icon: Icon, label }) => (
                   <button
                     key={value}
                     onClick={() => setPaymentMode(value)}
-                    className={`px-2 py-2 border flex flex-col items-center gap-1 text-xs ${
+                    className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-xs font-semibold transition ${
                       paymentMode === value
-                        ? 'bg-black text-white border-black'
-                        : 'bg-white text-gray-700 border-black hover:bg-gray-50'
+                        ? 'border-[#171717] bg-[#171717] text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <Icon size={18} />
@@ -1441,8 +1647,8 @@ export default function Billing() {
             </div>
 
             {/* Amount Paid */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-1">Amount Paid</label>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Amount Paid</label>
               <input
                 type="number"
                 value={amountPaid}
@@ -1450,21 +1656,21 @@ export default function Billing() {
                 placeholder="Leave blank for full payment"
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-black focus:ring-0"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
 
             {/* Bill Discount */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-1">Bill Discount</label>
-              <div className="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Bill Discount</label>
+              <div className="mb-2 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setDiscountType('PERCENT');
                     setDiscountAmountInput(0);
                   }}
-                  className={`border px-2 py-2 text-xs font-semibold ${discountType === 'PERCENT' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-black hover:bg-gray-50'}`}
+                  className={`rounded-2xl border px-2 py-2 text-xs font-semibold transition ${discountType === 'PERCENT' ? 'border-[#171717] bg-[#171717] text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
                 >
                   Percent
                 </button>
@@ -1474,7 +1680,7 @@ export default function Billing() {
                     setDiscountType('AMOUNT');
                     setDiscountPercent(0);
                   }}
-                  className={`border px-2 py-2 text-xs font-semibold ${discountType === 'AMOUNT' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-black hover:bg-gray-50'}`}
+                  className={`rounded-2xl border px-2 py-2 text-xs font-semibold transition ${discountType === 'AMOUNT' ? 'border-[#171717] bg-[#171717] text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
                 >
                   Amount
                 </button>
@@ -1486,7 +1692,7 @@ export default function Billing() {
                   onChange={(e) => setDiscountPercent(Math.min(parseFloat(e.target.value) || 0, 100))}
                   min="0"
                   max="100"
-                  className="w-full px-3 py-2 border border-black focus:ring-0"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               ) : (
                 <input
@@ -1495,7 +1701,7 @@ export default function Billing() {
                   onChange={(e) => setDiscountAmountInput(parseFloat(e.target.value) || 0)}
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-black focus:ring-0"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
                 />
               )}
             </div>
@@ -1503,18 +1709,42 @@ export default function Billing() {
           </div>
 
           {/* Bill Summary */}
-          <div className="bg-white border border-black sticky top-4">
-            <div className="border-b border-black px-4 py-2">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-black">Bill Summary</h2>
+          <div className="sticky top-4 overflow-hidden rounded-[30px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_22px_44px_rgba(15,23,42,0.08)]">
+            <div className="border-b border-[color:var(--border)] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-900 px-5 py-5 text-white">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">Bill Summary</p>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm text-slate-300">Grand Total</p>
+                  <p className="text-3xl font-semibold tracking-tight">{formatCurrency(totals.grandTotal)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-right">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Collected</p>
+                  <p className="text-sm font-semibold">{formatCurrency(effectiveAmountPaid)}</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Mode</p>
+                  <p className="mt-1 text-sm font-semibold">{paymentMode}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Lines</p>
+                  <p className="mt-1 text-sm font-semibold">{billItems.length}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Due</p>
+                  <p className="mt-1 text-sm font-semibold">{formatCurrency(Math.abs(balanceAmount))}</p>
+                </div>
+              </div>
             </div>
-            <div className="text-sm text-black">
-              <div className="flex justify-between border-b border-black px-4 py-2">
+            <div className="text-sm text-slate-900">
+              <div className="flex justify-between border-b border-slate-100 px-5 py-3">
                 <span className="font-medium">Subtotal (Incl. GST)</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
               
               {totals.discountAmount > 0 && (
-                <div className="flex justify-between border-b border-black px-4 py-2">
+                <div className="flex justify-between border-b border-slate-100 px-5 py-3">
                   <span className="font-medium">Discount ({discountType === 'PERCENT' ? `${Number(discountPercent || 0).toFixed(2)}%` : 'Amount'})</span>
                   <span>-{formatCurrency(totals.discountAmount)}</span>
                 </div>
@@ -1523,42 +1753,42 @@ export default function Billing() {
               {/* GST Breakdown */}
               <div>
                 {totals.isInterstate ? (
-                  <div className="flex justify-between border-b border-black px-4 py-2">
+                  <div className="flex justify-between border-b border-slate-100 px-5 py-3">
                     <span className="font-medium">IGST</span>
                     <span>{formatCurrency(totals.totalIgst)}</span>
                   </div>
                 ) : (
                   <>
-                    <div className="flex justify-between border-b border-black px-4 py-2">
+                    <div className="flex justify-between border-b border-slate-100 px-5 py-3">
                       <span className="font-medium">CGST</span>
                       <span>{formatCurrency(totals.totalCgst)}</span>
                     </div>
-                    <div className="flex justify-between border-b border-black px-4 py-2">
+                    <div className="flex justify-between border-b border-slate-100 px-5 py-3">
                       <span className="font-medium">SGST</span>
                       <span>{formatCurrency(totals.totalSgst)}</span>
                     </div>
                   </>
                 )}
-                <div className="flex justify-between border-b border-black px-4 py-2 font-medium">
+                <div className="flex justify-between border-b border-slate-100 px-5 py-3 font-medium">
                   <span>Total GST</span>
                   <span>{formatCurrency(totals.totalGst)}</span>
                 </div>
               </div>
               
-              <div className="flex justify-between px-4 py-3 text-2xl font-bold border-b border-black">
-                <span>Grand Total</span>
+              <div className="flex justify-between border-b border-slate-100 px-5 py-4 text-lg font-bold">
+                <span>Invoice Total</span>
                 <span>{formatCurrency(totals.grandTotal)}</span>
                 </div>
               
               {/* Payment Info */}
               <div>
-                <div className="flex justify-between border-b border-black px-4 py-2">
+                <div className="flex justify-between border-b border-slate-100 px-5 py-3">
                   <span className="font-medium">Paid</span>
                   <span>{formatCurrency(effectiveAmountPaid)}</span>
                 </div>
-                <div className="flex justify-between px-4 py-2">
+                <div className="flex justify-between px-5 py-3">
                   <span className="font-medium">{balanceAmount >= 0 ? 'Change / Balance' : 'Amount Due'}</span>
-                  <span className={balanceAmount >= 0 ? 'text-black' : 'text-red-700'}>
+                  <span className={balanceAmount >= 0 ? 'text-gray-900' : 'text-red-700'}>
                     {formatCurrency(Math.abs(balanceAmount))}
                   </span>
                 </div>
@@ -1566,11 +1796,11 @@ export default function Billing() {
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-2 border-t border-black p-4">
+            <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-4">
               <button
                 onClick={clearSavedBillingDraft}
                 disabled={!hasSavedDraft && billItems.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-white text-gray-900 py-3 border border-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 font-semibold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RotateCcw size={18} />
                 Clear Saved Draft
@@ -1578,7 +1808,7 @@ export default function Billing() {
               <button
                 onClick={() => handleSaveBill(false)}
                 disabled={saving || billItems.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-black text-white py-3 border border-black hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#171717] bg-[#171717] py-3 font-semibold text-white transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Save size={20} />
                 {saving ? 'Saving...' : 'Save Bill'}
@@ -1586,7 +1816,7 @@ export default function Billing() {
               <button
                 onClick={() => handleSaveBill(true)}
                 disabled={saving || billItems.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-white text-gray-900 py-3 border border-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 font-semibold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Printer size={20} />
                 Save & Print
@@ -1599,7 +1829,7 @@ export default function Billing() {
 
       {previewBill && (
         <div className="mt-8">
-          <div className="bill-print-controls no-print mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="bill-print-controls no-print mb-4 flex flex-col gap-3 rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Invoice Preview</h2>
               <p className="text-sm text-slate-600">

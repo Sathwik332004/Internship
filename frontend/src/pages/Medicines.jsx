@@ -240,23 +240,21 @@ export default function Medicines() {
 
   return (
     <div className="p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Medicines</h1>
-          <p className="text-sm text-gray-600">Manage your medicine inventory and details</p>
+          <h1 className="text-3xl font-semibold text-gray-900">Medicines</h1>
+          <p className="text-sm text-gray-600">Product master, pricing, expiry, and inventory definitions in one place</p>
         </div>
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+          className="flex items-center gap-2 rounded-2xl bg-[#171717] px-4 py-2.5 text-white transition-colors hover:bg-[#2a2a2a]"
         >
           <Plus size={20} />
           Add Medicine
         </button>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+      <div className="mb-6 rounded-[24px] border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -265,17 +263,16 @@ export default function Medicines() {
               placeholder="Search by name, brand, or barcode..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full rounded-2xl border border-gray-300 py-3 pl-10 pr-4 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-100 rounded-lg">
+            <div className="rounded-2xl bg-[#f2f8de] p-3">
               <Package className="text-emerald-600" size={24} />
             </div>
             <div>
@@ -284,9 +281,9 @@ export default function Medicines() {
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-yellow-100 rounded-lg">
+            <div className="rounded-2xl bg-[#f8f8f3] p-3">
               <AlertTriangle className="text-yellow-600" size={24} />
             </div>
             <div>
@@ -295,9 +292,9 @@ export default function Medicines() {
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-red-100 rounded-lg">
+            <div className="rounded-2xl bg-[#f8f8f3] p-3">
               <AlertTriangle className="text-red-600" size={24} />
             </div>
             <div>
@@ -308,8 +305,7 @@ export default function Medicines() {
         </div>
       </div>
 
-      {/* Medicines Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>

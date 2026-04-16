@@ -2,7 +2,6 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 
 // Pages
@@ -93,17 +92,15 @@ function AppRoutes() {
 
 function App() {
   return (
-    <ThemeProvider>
+    <AuthProvider>
       <AppContent />
-    </ThemeProvider>
+    </AuthProvider>
   );
 }
 
 function AppContent() {
-  const { isDark } = useTheme();
-
   return (
-    <AuthProvider>
+    <>
       <AppRoutes />
       <ToastContainer 
         position="top-right" 
@@ -115,13 +112,13 @@ function AppContent() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme={isDark ? 'dark' : 'colored'}
+        theme="colored"
         toastStyle={{
           borderRadius: '12px',
           fontFamily: 'Manrope, Segoe UI, sans-serif'
         }}
       />
-    </AuthProvider>
+    </>
   );
 }
 

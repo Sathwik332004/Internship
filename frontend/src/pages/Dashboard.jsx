@@ -296,7 +296,7 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-3">
           {recentBills.slice(0, 5).map((bill) => (
-            <div key={bill._id} className="flex items-center justify-between rounded-[22px] border border-[#e3eeef] bg-[#f7fbfb] px-4 py-3">
+            <div key={bill._id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-[#17373c]">{bill.invoiceNumber}</p>
                 <p className="text-sm text-slate-600">{bill.customerName || 'Walk-in Customer'}</p>
@@ -317,7 +317,7 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-3">
           {lowStockMedicines.slice(0, 5).map((item) => (
-            <div key={item.medicine?._id || item._id} className="flex items-center justify-between rounded-[22px] border border-[#f5d7dc] bg-[#fff0f3] px-4 py-3">
+            <div key={item.medicine?._id || item._id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-[#17373c]">{item.medicine?.medicineName || item.medicineName}</p>
                 <p className="text-sm text-slate-600">{item.medicine?.brandName || item.brandName || 'No brand'}</p>
@@ -338,7 +338,7 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-3">
           {expiringItems.slice(0, 5).map((item) => (
-            <div key={item._id} className="flex items-center justify-between rounded-[22px] border border-[#f8e1bf] bg-[#fff5df] px-4 py-3">
+            <div key={item._id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-[#17373c]">{item.medicine?.medicineName}</p>
                 <p className="text-sm text-slate-600">Batch: {item.batchNumber}</p>
@@ -361,7 +361,7 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-3">
           {expiredItems.slice(0, 5).map((item) => (
-            <div key={item._id} className="flex items-center justify-between rounded-[22px] border border-[#e3eeef] bg-[#f7fbfb] px-4 py-3">
+            <div key={item._id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-[#17373c]">{item.medicine?.medicineName}</p>
                 <p className="text-sm text-slate-600">Batch: {item.batchNumber}</p>
@@ -378,7 +378,7 @@ export default function Dashboard() {
 
     if (activeCard === 'suppliers') {
       return (
-        <div className="rounded-[22px] border border-[#f4dfb8] bg-[#fff4db] px-4 py-5">
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-5">
           <p className="text-sm text-[#9f7433]">Total registered suppliers</p>
           <p className="mt-1 text-2xl font-bold text-[#17373c]">{stats.totalSuppliers}</p>
         </div>
@@ -387,7 +387,7 @@ export default function Dashboard() {
 
     if (activeCard === 'assets') {
       return (
-        <div className="rounded-[22px] border border-[#dfe8ff] bg-[#eef4ff] px-4 py-5">
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-5">
           <p className="text-sm text-[#5a79ad]">Total tracked assets</p>
           <p className="mt-1 text-2xl font-bold text-[#17373c]">
             {isAdmin ? stats.totalAssets : 'Restricted'}
@@ -776,14 +776,14 @@ export default function Dashboard() {
 
       {isDetailsModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(22,41,46,0.28)] px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
           onClick={() => setIsDetailsModalOpen(false)}
         >
           <div
-            className="w-full max-w-3xl rounded-[30px] border border-white/70 bg-white/88 shadow-[0_30px_80px_rgba(33,74,78,0.18)] backdrop-blur-md"
+            className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white shadow-sm"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between border-b border-[#e4eff0] p-6">
+            <div className="flex items-start justify-between border-b border-gray-200 p-6">
               <div>
                 <h2 className="text-lg font-bold text-[#17373c]">{quickViewMeta[activeCard]?.title}</h2>
                 <p className="mt-1 text-sm text-slate-600">{quickViewMeta[activeCard]?.description}</p>
@@ -791,7 +791,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setIsDetailsModalOpen(false)}
-                className="rounded-full border border-[#dbe8e9] px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-[#f7fbfb]"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-gray-50"
               >
                 Close
               </button>

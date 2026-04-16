@@ -25,7 +25,7 @@ import {
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const PAYMENT_MODE_COLORS = ['#18c34a', '#8fdc55', '#d6f25c', '#0fa23a', '#b8e73a'];
+const PAYMENT_MODE_COLORS = ['#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1'];
 
 const getResponseData = (result, fallback) => (
   result.status === 'fulfilled' ? (result.value?.data?.data ?? fallback) : fallback
@@ -230,8 +230,8 @@ export default function Dashboard() {
       value: formatCurrency(stats.todaySales),
       note: `${stats.todayBills} bills today`,
       icon: IndianRupee,
-      iconClass: 'bg-[#f4f9e5] text-[#18c34a]',
-      accent: 'from-[#ffffff] via-[#fcfdf8] to-[#f8fbe9]'
+      iconClass: 'bg-slate-100 text-slate-700',
+      accent: 'from-[#ffffff] via-[#f8fafc] to-[#f1f5f9]'
     },
     {
       key: 'monthlySales',
@@ -239,8 +239,8 @@ export default function Dashboard() {
       value: formatCurrency(stats.monthlySales),
       note: `${stats.monthlyBills} bills this month`,
       icon: Calendar,
-      iconClass: 'bg-[#f4f9e5] text-[#18c34a]',
-      accent: 'from-[#ffffff] via-[#fcfdf8] to-[#f8fbe9]'
+      iconClass: 'bg-slate-100 text-slate-700',
+      accent: 'from-[#ffffff] via-[#f8fafc] to-[#f1f5f9]'
     },
     {
       key: 'todayGst',
@@ -248,8 +248,8 @@ export default function Dashboard() {
       value: formatCurrency(stats.todayGst),
       note: 'CGST + SGST / IGST',
       icon: TrendingUp,
-      iconClass: 'bg-[#f4f9e5] text-[#18c34a]',
-      accent: 'from-[#ffffff] via-[#fbfbf7] to-[#f5f7ee]'
+      iconClass: 'bg-slate-100 text-slate-700',
+      accent: 'from-[#ffffff] via-[#f8fafc] to-[#f1f5f9]'
     },
     {
       key: 'totalMedicines',
@@ -257,8 +257,8 @@ export default function Dashboard() {
       value: stats.totalMedicines,
       note: 'Available in inventory',
       icon: Package,
-      iconClass: 'bg-[#f4f9e5] text-[#18c34a]',
-      accent: 'from-[#ffffff] via-[#fbfbf7] to-[#f5f7ee]'
+      iconClass: 'bg-slate-100 text-slate-700',
+      accent: 'from-[#ffffff] via-[#f8fafc] to-[#f1f5f9]'
     }
   ];
 
@@ -269,7 +269,7 @@ export default function Dashboard() {
       value: stats.lowStockCount,
       note: 'Need reordering',
       icon: AlertTriangle,
-      iconClass: 'bg-[#f7f7f2] text-[#171717]'
+      iconClass: 'bg-slate-100 text-slate-700'
     },
     {
       key: 'expiring',
@@ -277,7 +277,7 @@ export default function Dashboard() {
       value: stats.expiringCount,
       note: 'Within 90 days',
       icon: Clock,
-      iconClass: 'bg-[#f4f9e5] text-[#18c34a]'
+      iconClass: 'bg-slate-100 text-slate-700'
     },
     {
       key: 'expired',
@@ -285,7 +285,7 @@ export default function Dashboard() {
       value: stats.expiredCount,
       note: 'Pending disposal',
       icon: TrendingUp,
-      iconClass: 'bg-[#f7f7f2] text-[#171717]'
+      iconClass: 'bg-slate-100 text-slate-700'
     }
   ];
 
@@ -406,7 +406,7 @@ export default function Dashboard() {
     return (
       <div className="p-6">
         <div className="flex h-64 items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600"></div>
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-slate-700"></div>
         </div>
       </div>
     );
@@ -416,12 +416,12 @@ export default function Dashboard() {
     <div className="p-4 sm:p-5 lg:p-6">
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.34em] text-[#6f8c8e]">Welcome to your workspace</p>
-          <h1 className="text-3xl font-semibold text-[#17373c] sm:text-4xl">Bhagya Medicals Dashboard</h1>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.34em] text-slate-500">Welcome to your workspace</p>
+          <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Bhagya Medicals Dashboard</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">Sales, inventory alerts, suppliers, and billing activity in one soft dashboard view inspired by the shared reference.</p>
         </div>
         <div className="inline-flex items-center gap-2 self-start rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#18c34a]" />
+          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-slate-700" />
           Live overview
         </div>
       </div>
@@ -443,7 +443,7 @@ export default function Dashboard() {
               onClick={() => handleCardClick(card.key)}
               className={`${cardBaseClasses} bg-gradient-to-br ${card.accent} text-left`}
             >
-              <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-[#18c34a] to-[#d6f25c]" />
+              <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-slate-700 to-slate-400" />
               <div className="relative flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-slate-600">{card.label}</p>
@@ -454,7 +454,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="relative mt-6 flex items-center gap-2 text-sm text-slate-600">
-                <ArrowUp size={16} className="text-[#18c34a]" />
+                <ArrowUp size={16} className="text-slate-700" />
                 <span>{card.note}</span>
               </div>
             </button>
@@ -495,7 +495,7 @@ export default function Dashboard() {
           className={`${cardBaseClasses} text-left`}
         >
           <div className="flex items-center gap-4">
-            <div className="rounded-[20px] bg-[#ffe7c4] p-3 text-[#9f7433]">
+            <div className="rounded-[20px] bg-slate-100 p-3 text-slate-700">
               <Users className="h-6 w-6" />
             </div>
             <div>
@@ -511,7 +511,7 @@ export default function Dashboard() {
           className={`${cardBaseClasses} text-left ${isAdmin ? '' : 'cursor-not-allowed opacity-80'}`}
         >
           <div className="flex items-center gap-4">
-            <div className="rounded-[20px] bg-[#d9e8ff] p-3 text-[#5a79ad]">
+            <div className="rounded-[20px] bg-slate-100 p-3 text-slate-700">
               <ShoppingCart className="h-6 w-6" />
             </div>
             <div>
@@ -605,13 +605,13 @@ export default function Dashboard() {
               <p className="mt-1 text-sm text-slate-500">Weekly performance with highest-sales highlight</p>
             </div>
             <div className="flex gap-3">
-              <div className="rounded-[18px] border border-[#ecefdf] bg-[#fbfcf7] px-4 py-3">
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Peak Day</p>
                 <p className="mt-1 text-sm font-semibold text-[#171717]">{topSalesDay?.day || '-'}</p>
               </div>
-              <div className="rounded-[18px] border border-[#ecefdf] bg-[#fbfcf7] px-4 py-3">
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Best Sale</p>
-                <p className="mt-1 text-sm font-semibold text-[#18c34a]">{formatCurrency(Number(topSalesDay?.sales || 0))}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-700">{formatCurrency(Number(topSalesDay?.sales || 0))}</p>
               </div>
             </div>
           </div>
@@ -621,39 +621,39 @@ export default function Dashboard() {
                 <AreaChart data={last7Days} margin={{ top: 16, right: 14, left: -12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="salesAreaFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#24cf53" stopOpacity="0.28" />
-                      <stop offset="55%" stopColor="#1ec84f" stopOpacity="0.14" />
-                      <stop offset="100%" stopColor="#18c34a" stopOpacity="0.02" />
+                      <stop offset="0%" stopColor="#334155" stopOpacity="0.24" />
+                      <stop offset="55%" stopColor="#475569" stopOpacity="0.12" />
+                      <stop offset="100%" stopColor="#64748b" stopOpacity="0.02" />
                     </linearGradient>
                     <linearGradient id="salesLineStroke" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#7ddc46" />
-                      <stop offset="100%" stopColor="#18c34a" />
+                      <stop offset="0%" stopColor="#64748b" />
+                      <stop offset="100%" stopColor="#334155" />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="#eef1e6" strokeDasharray="4 4" vertical={false} />
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
                   <XAxis
                     dataKey="day"
                     axisLine={false}
-                    stroke="#8d9387"
+                    stroke="#94a3b8"
                     tickLine={false}
-                    tick={{ fontSize: 13, fill: '#8d9387' }}
+                    tick={{ fontSize: 13, fill: '#94a3b8' }}
                   />
                   <YAxis
                     axisLine={false}
                     domain={[0, chartSalesMax || 1]}
-                    stroke="#8d9387"
+                    stroke="#94a3b8"
                     tickFormatter={(value) => `Rs ${value}`}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: '#8d9387' }}
+                    tick={{ fontSize: 12, fill: '#94a3b8' }}
                   />
-                  <Tooltip content={<SalesTooltip />} cursor={{ stroke: '#d8e97a', strokeDasharray: '3 3' }} />
+                  <Tooltip content={<SalesTooltip />} cursor={{ stroke: '#cbd5e1', strokeDasharray: '3 3' }} />
                   <Area
                     type="monotone"
                     dataKey="sales"
                     stroke="url(#salesLineStroke)"
                     strokeWidth={4}
                     fill="url(#salesAreaFill)"
-                    activeDot={{ r: 6, fill: '#18c34a', stroke: '#ffffff', strokeWidth: 3 }}
+                    activeDot={{ r: 6, fill: '#334155', stroke: '#ffffff', strokeWidth: 3 }}
                     dot={(props) => {
                       const value = Number(props.payload?.sales || 0);
                       if (value <= 0) return <g />;
@@ -663,7 +663,7 @@ export default function Dashboard() {
                           cy={props.cy}
                           r={4}
                           fill="#ffffff"
-                          stroke="#18c34a"
+                          stroke="#334155"
                           strokeWidth={2.5}
                         />
                       );
@@ -675,7 +675,7 @@ export default function Dashboard() {
                         <text
                           x={props.x}
                           y={props.y - 12}
-                          fill="#7d8378"
+                          fill="#64748b"
                           fontSize={11}
                           fontWeight={600}
                           textAnchor="middle"

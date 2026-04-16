@@ -146,12 +146,12 @@ const Layout = () => {
                 <Menu className="w-6 h-6" />
               </button>
               <div className="md:hidden">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#0e444a]">Bhagya Medicals Workspace</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">Bhagya Medicals Workspace</p>
               </div>
             </div>
 
             <div className="ml-0 flex items-center gap-3 sm:ml-auto">
-              <div className="hidden rounded-[20px] border border-gray-200 bg-[#fbfbf8] px-4 py-2 text-right sm:block">
+              <div className="hidden rounded-[20px] border border-gray-200 bg-white px-4 py-2 text-right sm:block">
                 <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Signed in as</p>
                 <span className="text-sm font-semibold text-slate-900">{user?.name}</span>
               </div>

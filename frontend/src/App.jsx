@@ -112,9 +112,12 @@ function AppContent() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="colored"
+        theme="light"
+        toastClassName="app-toast"
+        bodyClassName="app-toast-body"
+        progressClassName="app-toast-progress"
         toastStyle={{
-          borderRadius: '12px',
+          borderRadius: '16px',
           fontFamily: 'Manrope, Segoe UI, sans-serif'
         }}
       />

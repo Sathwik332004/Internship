@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   FileText
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -133,6 +135,161 @@ export default function Reports() {
     });
   };
 
+  const formatPdfCurrency = (amount) => {
+    const numericAmount = Number(amount || 0);
+    return `INR ${numericAmount.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
+  };
+
+  const getReportPeriodLabel = () => {
+    if (dateRange === 'custom') {
+      const from = startDate || 'start';
+      const to = endDate || 'end';
+      return `${from} to ${to}`;
+    }
+
+    return dateRange.charAt(0).toUpperCase() + dateRange.slice(1);
+  };
+
+  const exportReportAsPdf = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const titleMap = {
+      sales: 'Sales Report',
+      purchase: 'Purchase Report',
+      gst: 'GST Report',
+      inventory: 'Inventory Report',
+      expiry: 'Expiry Report'
+    };
+
+    const reportTitle = titleMap[activeTab] || 'Report';
+    const summaryRows = [];
+    let columns = [];
+    let body = [];
+
+    if (activeTab === 'sales') {
+      summaryRows.push(
+        ['Total Sales', formatPdfCurrency(salesData.summary.totalSales)],
+        ['Total GST', formatPdfCurrency(salesData.summary.totalGst)],
+        ['Total Bills', String(salesData.summary.totalBills || 0)],
+        ['Total Discount', formatPdfCurrency(salesData.summary.totalDiscount)]
+      );
+
+      columns = ['Invoice', 'Date', 'Customer', 'Subtotal', 'GST', 'Total'];
+      body = (salesData.bills || []).map((bill) => [
+        bill.invoiceNumber || '-',
+        formatDate(bill.billDate),
+        bill.customerName || 'Walk-in',
+        formatPdfCurrency(bill.subtotal || 0),
+        formatPdfCurrency(bill.totalGst || 0),
+        formatPdfCurrency(bill.grandTotal || 0)
+      ]);
+    } else if (activeTab === 'purchase') {
+      summaryRows.push(
+        ['Total Purchases', formatPdfCurrency(purchaseData.summary.totalPurchases)],
+        ['Total GST', formatPdfCurrency(purchaseData.summary.totalGst)],
+        ['Total Items', String(purchaseData.summary.totalItems || 0)]
+      );
+
+      columns = ['Invoice', 'Date', 'Supplier', 'Subtotal', 'GST', 'Total'];
+      body = (purchaseData.purchases || []).map((purchase) => [
+        purchase.purchaseNumber || '-',
+        formatDate(purchase.purchaseDate),
+        purchase.supplier?.supplierName || 'N/A',
+        formatPdfCurrency(purchase.subtotal || 0),
+        formatPdfCurrency(purchase.totalGst || 0),
+        formatPdfCurrency(purchase.grandTotal || 0)
+      ]);
+    } else if (activeTab === 'gst') {
+      summaryRows.push(
+        ['Total Sales (Base)', formatPdfCurrency(gstData.summary.totalSales)],
+        ['Total GST', formatPdfCurrency(gstData.summary.totalGst)],
+        ['CGST', formatPdfCurrency(gstData.summary.totalCgst)],
+        ['SGST', formatPdfCurrency(gstData.summary.totalSgst)],
+        ['IGST', formatPdfCurrency(gstData.summary.totalIgst)],
+        ['Total Bills', String(gstData.summary.totalBills || 0)]
+      );
+
+      columns = ['Invoice', 'Date', 'Customer', 'Subtotal', 'GST', 'Total'];
+      body = (gstData.bills || []).map((bill) => [
+        bill.invoiceNumber || '-',
+        formatDate(bill.billDate),
+        bill.customerName || 'Walk-in',
+        formatPdfCurrency(bill.subtotal || 0),
+        formatPdfCurrency(bill.totalGst || 0),
+        formatPdfCurrency(bill.grandTotal || 0)
+      ]);
+    } else if (activeTab === 'inventory') {
+      summaryRows.push(
+        ['Total Medicines', String(inventoryData.summary.totalMedicines || 0)],
+        ['Low Stock', String(inventoryData.summary.lowStockCount || 0)],
+        ['Expiring Soon', String(inventoryData.summary.expiringCount || 0)],
+        ['Stock Value', formatPdfCurrency(inventoryData.summary.totalValue)]
+      );
+
+      columns = ['Medicine', 'Brand', 'Qty', 'GST %', 'Expiry'];
+      body = (inventoryData.medicines || []).map((med) => [
+        med.medicineName || '-',
+        med.brandName || '-',
+        String(med.quantity || 0),
+        `${med.gstPercent || 0}%`,
+        med.expiryDate ? formatDate(med.expiryDate) : 'N/A'
+      ]);
+    } else {
+      summaryRows.push(
+        ['Expiring Soon', String(expiryData.expiring?.length || 0)],
+        ['Expired', String(expiryData.expired?.length || 0)]
+      );
+
+      columns = ['Medicine', 'Batch', 'Qty', 'Expiry Date', 'Status'];
+      const expiringRows = (expiryData.expiring || []).map((item) => [
+        item.medicine?.medicineName || '-',
+        item.batchNumber || '-',
+        String(item.quantityAvailable || 0),
+        item.expiryDate ? formatDate(item.expiryDate) : 'N/A',
+        `${item.daysUntilExpiry || 0} days left`
+      ]);
+      const expiredRows = (expiryData.expired || []).map((item) => [
+        item.medicine?.medicineName || '-',
+        item.batchNumber || '-',
+        String(item.quantityAvailable || 0),
+        item.expiryDate ? formatDate(item.expiryDate) : 'N/A',
+        'Expired'
+      ]);
+      body = [...expiringRows, ...expiredRows];
+    }
+
+    doc.setFontSize(16);
+    doc.text(reportTitle, 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Period: ${getReportPeriodLabel()}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    autoTable(doc, {
+      startY: 32,
+      head: [['Summary', 'Value']],
+      body: summaryRows,
+      theme: 'grid',
+      headStyles: { fillColor: [23, 23, 23] },
+      styles: { fontSize: 9 }
+    });
+
+    const tableStartY = (doc.lastAutoTable?.finalY || 40) + 6;
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [columns],
+      body,
+      theme: 'striped',
+      headStyles: { fillColor: [16, 163, 74] },
+      styles: { fontSize: 8 },
+      margin: { left: 10, right: 10 }
+    });
+
+    const fileName = `${reportTitle.replace(/\s+/g, '_')}_${dateRange}.pdf`;
+    doc.save(fileName);
+  };
+
   const tabs = [
     { id: 'sales', label: 'Sales Report', icon: IndianRupee },
     { id: 'gst', label: 'GST Report', icon: BarChart3 },
@@ -151,6 +308,14 @@ export default function Reports() {
           <h1 className="text-3xl font-semibold text-gray-900">Reports</h1>
           <p className="text-sm text-gray-600">Professional reporting across sales, GST, inventory, and expiry trends</p>
         </div>
+        <button
+          onClick={exportReportAsPdf}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-2xl border border-[#171717] bg-[#171717] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <FileText size={18} />
+          Export PDF
+        </button>
       </div>
 
       <div className="mb-6 flex overflow-x-auto gap-2 rounded-[22px] border border-gray-200 bg-white p-2 shadow-sm">

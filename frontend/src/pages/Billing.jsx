@@ -17,7 +17,6 @@ import {
   Boxes,
   Pill,
   Receipt,
-  ShieldCheck,
   Package2,
   BadgePercent
 } from 'lucide-react';
@@ -1070,24 +1069,6 @@ export default function Billing() {
     }
   }, []);
 
-  const billingStats = [
-    {
-      label: 'Items',
-      value: billItems.length,
-      tone: 'border-emerald-200 bg-emerald-50 text-emerald-700'
-    },
-    {
-      label: 'Draft',
-      value: hasSavedDraft ? 'Saved' : 'Live',
-      tone: hasSavedDraft ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-100 text-slate-700'
-    },
-    {
-      label: 'Payment',
-      value: paymentMode,
-      tone: 'border-sky-200 bg-sky-50 text-sky-700'
-    }
-  ];
-
   const paymentModes = [
     { value: 'CASH', icon: Banknote, label: 'Cash' },
     { value: 'UPI', icon: Smartphone, label: 'UPI' },
@@ -1103,73 +1084,31 @@ export default function Billing() {
   return (
     <div className="min-h-screen bg-transparent p-3 sm:p-4 lg:p-6">
       <div className="no-print">
-        <div className="mb-6 overflow-hidden rounded-[34px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_24px_56px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="relative overflow-hidden border-b border-[color:var(--border)] bg-[linear-gradient(135deg,#101827_0%,#172033_45%,#143228_100%)] px-5 py-5 text-white sm:px-6 lg:px-7 lg:py-6">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,242,92,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.14),transparent_22%)]" />
-            <div className="relative flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100">
-                <ShieldCheck size={14} />
-                Pharmacy Billing Desk
-              </div>
-              <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-[2.15rem]">Billing / POS</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                A cleaner, dispense-inspired workspace with stronger customer context, sharper item handling, and a modern payment handoff.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {billingStats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${stat.tone}`}
-                  >
-                    <span className="uppercase tracking-[0.18em]">{stat.label}</span>
-                    <span>{stat.value}</span>
-                  </div>
-                ))}
-              </div>
+        <div className="mb-4 rounded-[20px] border border-[color:var(--border)] bg-[var(--surface)] px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.05)] sm:px-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">Billing</h1>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">Create the bill, add medicines, and complete payment.</p>
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:w-[360px] xl:grid-cols-1">
-              <div className="rounded-[26px] border border-white/10 bg-white/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-100/80">Current Invoice</p>
-                    <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{formatCurrency(totals.grandTotal)}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-2 text-right">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-slate-300">Collected</p>
-                    <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(effectiveAmountPaid)}</p>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Lines</p>
-                    <p className="mt-1 text-sm font-semibold text-white">{billItems.length}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Units</p>
-                    <p className="mt-1 text-sm font-semibold text-white">{totalUnits}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Due</p>
-                    <p className="mt-1 text-sm font-semibold text-white">{formatCurrency(Math.abs(balanceAmount))}</p>
-                  </div>
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">Items: {billItems.length}</div>
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">Units: {totalUnits}</div>
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">Total: {formatCurrency(totals.grandTotal)}</div>
               <button
                 onClick={handleScannerToggle}
-                className={`inline-flex items-center justify-center gap-2 rounded-[24px] px-4 py-4 text-sm font-semibold text-white shadow-sm transition-colors ${
-                  scannerActive ? 'bg-[#18c34a] hover:bg-[#0fa23a]' : 'bg-white/10 hover:bg-white/15'
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  scannerActive
+                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    : 'bg-slate-900 text-white hover:bg-slate-800'
                 }`}
               >
-                <QrCode size={18} />
+                <QrCode size={16} />
                 {scannerActive ? 'Scanner Active' : 'Start Scanner'}
               </button>
             </div>
           </div>
-          </div>
 
-          <div className="grid gap-3 bg-gradient-to-r from-[#f8fbf3] via-white to-[#f3fbfb] px-5 py-4 sm:grid-cols-3 sm:px-6 lg:px-7">
+          <div className="hidden grid gap-3 border-t border-[#e3d785] bg-gradient-to-r from-[#dcc75b] via-[#e2ce67] to-[#d3be4f] px-4 py-3 text-[#4b4214] sm:grid-cols-3 sm:px-5 lg:px-6">
             <div className="rounded-[22px] border border-white/80 bg-white/80 p-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
@@ -1249,38 +1188,20 @@ export default function Billing() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         {/* Left Column - Search and Items */}
         <div className="space-y-5 xl:col-span-8">
-          {/* Customer Details */}
+          {/* Patient Details */}
           <div className="rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] p-5 shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text)]">
-                  <User size={20} /> Customer Details
+                  <User size={20} /> Patient / Prescriber
                 </h2>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">Patient and prescriber details for invoice and compliance records.</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">Keep patient, state, and doctor details visible before issuing medicines.</p>
               </div>
               {totals.isInterstate && (
                 <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
                   Interstate billing: IGST applied
                 </div>
               )}
-            </div>
-            <div className="mb-5 grid gap-3 rounded-[24px] border border-slate-200/80 bg-[linear-gradient(135deg,#f8fafc_0%,#ffffff_60%,#effcf4_100%)] p-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Counter Context</p>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Keep customer identity, doctor details, and state selection visible upfront so GST treatment and print output stay clear before items are finalized.
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white bg-white/90 px-3 py-3 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Customer</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{customerDetails.name || 'Walk-in customer'}</p>
-                </div>
-                <div className="rounded-2xl border border-white bg-white/90 px-3 py-3 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Doctor</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{customerDetails.doctorName || 'Not added'}</p>
-                </div>
-              </div>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
               <div>
@@ -1358,9 +1279,9 @@ export default function Billing() {
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text)]">
-                  <Search size={20} /> Search Medicines
+                  <Search size={20} /> Store Pharmacy
                 </h2>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">Find by medicine name, brand, strength, or scanned barcode.</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">Search medicines by generic name, brand, strength, or scanned barcode.</p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">Stock-aware search</span>
@@ -1374,7 +1295,7 @@ export default function Billing() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name, brand, or barcode..."
+                placeholder="Search by generic name or brand name..."
                 className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-32 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
               />
               <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 sm:block">
@@ -1429,18 +1350,18 @@ export default function Billing() {
             </div>
           </div>
 
-          {/* Bill Items Table */}
+          {/* Dispense Table */}
           <div className="overflow-hidden rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
-            <div className="border-b border-[color:var(--border)] bg-[linear-gradient(135deg,#0f172a_0%,#162033_58%,#18283d_100%)] px-5 py-5 text-white">
+            <div className="border-b border-[#d8cf7a] bg-[linear-gradient(135deg,#121927_0%,#1b2334_68%,#202c40_100%)] px-5 py-5 text-white">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                 <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-                  <ShoppingCart size={20} /> Bill Items ({billItems.length})
+                  <ShoppingCart size={20} /> Store Pharmacy ({billItems.length})
                 </h2>
-                <p className="mt-1 text-sm text-slate-300">Review batches, quantity, unit type, and invoice totals before save.</p>
+                <p className="mt-1 text-sm text-slate-300">Review issue quantity, batch, stock, expiry, and amount before dispensing.</p>
               </div>
               <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200">
-                Live dispense table
+                Live issue table
               </div>
             </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -1468,18 +1389,18 @@ export default function Billing() {
               <div className="overflow-x-auto bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-3 py-3 sm:px-4">
                 <table className="w-full min-w-[1120px] overflow-hidden rounded-[22px]">
                   <thead>
-                    <tr className="bg-[#eef3f8]">
-                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Item</th>
+                    <tr className="bg-[#f0f1e8]">
+                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Item Name / Generic</th>
                       <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pack</th>
-                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Unit</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Issue Unit</th>
                       <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Batch</th>
                       <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">HSN</th>
                       <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Expiry</th>
-                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Qty</th>
-                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">MRP</th>
+                      <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Issue Qty.</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Unit Rate</th>
                       <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">CGST</th>
                       <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">SGST</th>
-                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Amount</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Amount Payable</th>
                       <th className="px-3 py-3"></th>
                     </tr>
                   </thead>
@@ -1620,14 +1541,14 @@ export default function Billing() {
           {/* Payment Details */}
           <div className="overflow-hidden rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
             <div className="border-b border-[color:var(--border)] px-5 py-4">
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900">Payment</h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">Choose a payment mode and confirm received amount.</p>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900">Payments</h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">Select mode, amount collected, and billing discount.</p>
             </div>
             <div className="space-y-5 p-5">
             
             {/* Payment Mode */}
             <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Mode</label>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Mode of Payment</label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {paymentModes.map(({ value, icon: Icon, label }) => (
                   <button
@@ -1648,7 +1569,7 @@ export default function Billing() {
 
             {/* Amount Paid */}
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Amount Paid</label>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Amount Collected</label>
               <input
                 type="number"
                 value={amountPaid}
@@ -1662,7 +1583,7 @@ export default function Billing() {
 
             {/* Bill Discount */}
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Bill Discount</label>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Discounts</label>
               <div className="mb-2 grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -1710,11 +1631,11 @@ export default function Billing() {
 
           {/* Bill Summary */}
           <div className="sticky top-4 overflow-hidden rounded-[30px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_22px_44px_rgba(15,23,42,0.08)]">
-            <div className="border-b border-[color:var(--border)] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-900 px-5 py-5 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">Bill Summary</p>
+            <div className="border-b border-[color:var(--border)] bg-gradient-to-br from-slate-950 via-slate-900 to-[#303722] px-5 py-5 text-white">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e6eba8]">Summary</p>
               <div className="mt-3 flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-sm text-slate-300">Grand Total</p>
+                  <p className="text-sm text-slate-300">Payable Amount</p>
                   <p className="text-3xl font-semibold tracking-tight">{formatCurrency(totals.grandTotal)}</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-right">

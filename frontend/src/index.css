@@ -61,6 +61,7 @@ body {
 
 .app-shell {
   position: relative;
+  zoom: 0.8;
 }
 
 .app-shell::before {

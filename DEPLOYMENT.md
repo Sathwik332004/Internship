@@ -30,7 +30,7 @@ Backend variables:
 
 ```text
 MONGODB_URI=<your MongoDB Atlas connection string>
-MONGODB_DB_NAME=medical_store
+MONGODB_DB_NAME=test
 FRONTEND_URL=https://medical-store-frontend.onrender.com
 SMTP_USER=<your email address>
 SMTP_PASS=<your email app password>
@@ -45,7 +45,7 @@ VITE_API_URL=https://medical-store-api.onrender.com/api
 
 If Render changes either service URL because the service name is already taken, update `FRONTEND_URL` and `VITE_API_URL` with the actual URLs from your Render dashboard.
 
-Make sure `MONGODB_DB_NAME` matches the Atlas database that contains your app collections. The expected collection names are Mongoose's default plural names, such as `users`, `medicines`, `inventories`, `bills`, `suppliers`, `purchases`, `assets`, and `hsns`.
+Make sure `MONGODB_DB_NAME` matches the Atlas database that contains your app collections. In the current Atlas setup, the collections are under `test`. The expected collection names are Mongoose's default plural names, such as `users`, `medicines`, `inventories`, `bills`, `suppliers`, `purchases`, `assets`, and `hsns`.
 
 ## 3. Verify
 

@@ -3,6 +3,16 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext();
 
+const getStoredUser = () => {
+  try {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    localStorage.removeItem('user');
+    return null;
+  }
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -12,7 +22,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getStoredUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +38,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setUser(null);
       }
     }
     setLoading(false);
@@ -53,7 +64,7 @@ export const AuthProvider = ({ children }) => {
   loading,
   login,
   logout,
-  isAuthenticated: !!user,
+  isAuthenticated: !!user || !!localStorage.getItem('token'),
   isAdmin: user?.role === 'admin',
   isStaff: user?.role === 'staff'
 };

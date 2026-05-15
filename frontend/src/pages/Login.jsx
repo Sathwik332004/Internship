@@ -31,7 +31,7 @@ const Login = () => {
     try {
       await login(normalizeEmail(email), password);
       toast.success('Login successful');
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
     } finally {

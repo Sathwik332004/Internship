@@ -6,6 +6,8 @@ This project deploys as two Render services and one MongoDB Atlas database:
 - `medical-store-frontend`: Vite static frontend from `frontend`
 - MongoDB Atlas `M0` free cluster for the database
 
+The backend web service uses Render's free instance type. Static sites are already free on Render and do not use a `plan` field in `render.yaml`.
+
 ## 1. Create MongoDB Atlas Database
 
 1. Create a free MongoDB Atlas `M0` cluster.

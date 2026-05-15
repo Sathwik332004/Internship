@@ -35,19 +35,6 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await authAPI.login({ email, password });
-    if (response.data.requiresOTP) {
-      // Admin requires OTP verification
-      return { requiresOTP: true, userId: response.data.userId };
-    }
-    // Staff login directly (no OTP required)
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.data));
-    setUser(response.data.data);
-    return response.data;
-  };
-
-  const verifyOTP = async (userId, otp) => {
-    const response = await authAPI.verifyOTP({ userId, otp });
     localStorage.setItem('token', response.data.token);
     localStorage.setItem('user', JSON.stringify(response.data.data));
     setUser(response.data.data);
@@ -65,7 +52,6 @@ export const AuthProvider = ({ children }) => {
   setUser,
   loading,
   login,
-  verifyOTP,
   logout,
   isAuthenticated: !!user,
   isAdmin: user?.role === 'admin',

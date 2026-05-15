@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -39,8 +39,6 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
-  verifyOTP: (data) => api.post('/auth/verify-login-otp', data),
-  resendOTP: (data) => api.post('/auth/resend-login-otp', data),
   register: (data) => api.post('/auth/register', data),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),

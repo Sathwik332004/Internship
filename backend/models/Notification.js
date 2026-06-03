@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['LOW_STOCK', 'EXPIRY_WARNING', 'EXPIRED', 'PENDING_PAYMENT'],
+    enum: ['LOW_STOCK', 'EXPIRY_WARNING', 'EXPIRED', 'PENDING_PAYMENT', 'APPLICATION_STATE_CHANGE'],
     required: true
   },
   title: {

@@ -2,6 +2,27 @@ const Notification = require('../models/Notification');
 const Inventory = require('../models/Inventory');
 const Medicine = require('../models/Medicine');
 const Bill = require('../models/Bill');
+const AuditLog = require('../models/AuditLog');
+
+const ACTION_LABELS = {
+  CREATE: 'created',
+  UPDATE: 'updated',
+  DELETE: 'deleted'
+};
+
+const buildStateChangeNotification = (auditLog) => {
+  const actionLabel = ACTION_LABELS[auditLog.action] || auditLog.action.toLowerCase();
+  const actor = auditLog.userName || auditLog.userEmail || 'A user';
+  const entityText = auditLog.entityId ? ` Reference: ${auditLog.entityId}.` : '';
+
+  return {
+    type: 'APPLICATION_STATE_CHANGE',
+    title: `${auditLog.module} ${actionLabel}`,
+    message: `${actor} ${actionLabel} ${auditLog.module}.${entityText}`,
+    referenceId: auditLog._id,
+    createdAt: auditLog.createdAt
+  };
+};
 
 const formatDate = (date) => new Date(date).toLocaleDateString('en-IN', {
   day: '2-digit',
@@ -118,7 +139,7 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
-// @desc    Generate inventory and payment notifications
+// @desc    Generate inventory, payment, and application state notifications
 // @route   POST /api/notifications/generate
 // @access  Private
 exports.generateNotifications = async (req, res) => {
@@ -242,6 +263,16 @@ exports.generateNotifications = async (req, res) => {
         referenceId: bill._id,
         createdAt: now
       });
+    });
+
+    const auditLogs = await AuditLog.find({
+      module: { $ne: 'Notifications' }
+    })
+      .sort({ createdAt: -1 })
+      .limit(200);
+
+    auditLogs.forEach((auditLog) => {
+      queueNotification(operations, queuedKeys, buildStateChangeNotification(auditLog));
     });
 
     const result = operations.length > 0

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Activity,
   AlertTriangle,
   Bell,
   CheckCheck,
@@ -39,10 +40,17 @@ const TYPE_CONFIG = {
     card: 'border-blue-200 bg-blue-50/80',
     iconWrap: 'bg-blue-100 text-blue-700',
     text: 'text-blue-800'
+  },
+  APPLICATION_STATE_CHANGE: {
+    label: 'Application Changes',
+    icon: Activity,
+    card: 'border-emerald-200 bg-emerald-50/80',
+    iconWrap: 'bg-emerald-100 text-emerald-700',
+    text: 'text-emerald-800'
   }
 };
 
-const TYPE_ORDER = ['LOW_STOCK', 'EXPIRY_WARNING', 'EXPIRED', 'PENDING_PAYMENT'];
+const TYPE_ORDER = ['APPLICATION_STATE_CHANGE', 'LOW_STOCK', 'EXPIRY_WARNING', 'EXPIRED', 'PENDING_PAYMENT'];
 
 const getTimeAgo = (dateValue) => {
   const date = new Date(dateValue);
@@ -157,7 +165,7 @@ export default function Notifications() {
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.34em] text-slate-500">Store alerts</p>
           <h1 className="text-3xl font-semibold text-slate-900">Notifications</h1>
-          <p className="mt-2 text-sm text-slate-500">Stock, expiry, and payment alerts generated from current store activity.</p>
+          <p className="mt-2 text-sm text-slate-500">Application changes, stock, expiry, and payment alerts generated from current store activity.</p>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -205,7 +213,7 @@ export default function Notifications() {
             <Bell className="h-8 w-8" />
           </div>
           <h2 className="text-lg font-semibold text-slate-900">No notifications</h2>
-          <p className="mt-2 max-w-md text-sm text-slate-500">Everything looks clear right now. Refresh anytime to scan inventory and payments again.</p>
+          <p className="mt-2 max-w-md text-sm text-slate-500">Everything looks clear right now. Refresh anytime to scan application activity, inventory, and payments again.</p>
         </div>
       ) : (
         <div className="space-y-7">

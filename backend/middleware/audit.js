@@ -1,4 +1,11 @@
 const AuditLog = require('../models/AuditLog');
+const Notification = require('../models/Notification');
+
+const ACTION_LABELS = {
+  CREATE: 'created',
+  UPDATE: 'updated',
+  DELETE: 'deleted'
+};
 
 const getEntityId = (req, responseBody) => {
   const responseData = responseBody?.data || responseBody;
@@ -28,7 +35,7 @@ const recordAuditLog = async ({ req, action, module, responseBody, entityId, det
   const resolvedEntityId = entityId !== undefined ? entityId : getEntityId(req, responseBody);
 
   try {
-    await AuditLog.create({
+    const auditLog = await AuditLog.create({
       user: user._id,
       userName: user.name || user.email || 'Unknown user',
       userEmail: user.email || '',
@@ -42,6 +49,20 @@ const recordAuditLog = async ({ req, action, module, responseBody, entityId, det
       details: details || null,
       createdAt: new Date()
     });
+
+    if (module !== 'Notifications') {
+      const actionLabel = ACTION_LABELS[action] || action.toLowerCase();
+      const actor = user.name || user.email || 'A user';
+      const entityText = resolvedEntityId ? ` Reference: ${resolvedEntityId}.` : '';
+
+      await Notification.create({
+        type: 'APPLICATION_STATE_CHANGE',
+        title: `${module} ${actionLabel}`,
+        message: `${actor} ${actionLabel} ${module}.${entityText}`,
+        referenceId: auditLog._id,
+        createdAt: auditLog.createdAt
+      });
+    }
   } catch (error) {
     console.error('Failed to record audit log:', error.message);
   }

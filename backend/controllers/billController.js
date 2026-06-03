@@ -908,6 +908,71 @@ exports.updateBill = async (req, res) => {
   }
 };
 
+// @desc    Delete bill and restore inventory
+// @route   DELETE /api/bills/:id
+// @access  Private
+exports.deleteBill = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const bill = await Bill.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    }).session(session);
+
+    if (!bill) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: 'Bill not found'
+      });
+    }
+
+    if (req.user.role === 'staff' && bill.createdBy.toString() !== req.user.id) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to delete this bill'
+      });
+    }
+
+    const salesReturnCount = await SalesReturn.countDocuments({ bill: bill._id }).session(session);
+    if (salesReturnCount > 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Bill cannot be deleted after sales returns have been recorded'
+      });
+    }
+
+    await restoreBillInventory({ bill, session });
+
+    bill.isDeleted = true;
+    await bill.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      success: true,
+      message: 'Bill deleted successfully and inventory stock restored'
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting bill',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Settle the remaining amount on a pending bill
 // @route   PATCH /api/bills/:id/settle-pending
 // @access  Private

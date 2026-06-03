@@ -9,19 +9,20 @@ const {
   deletePrescription
 } = require('../controllers/prescriptionController');
 const { protect } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 
 router.use(protect);
 
 router.route('/')
   .get(getAllPrescriptions)
-  .post(createPrescription);
+  .post(auditAction({ module: 'Prescriptions', action: 'CREATE' }), createPrescription);
 
 router.route('/:id/link-bill')
-  .put(linkBillToPrescription);
+  .put(auditAction({ module: 'Prescriptions', action: 'UPDATE' }), linkBillToPrescription);
 
 router.route('/:id')
   .get(getPrescriptionById)
-  .put(updatePrescription)
-  .delete(deletePrescription);
+  .put(auditAction({ module: 'Prescriptions', action: 'UPDATE' }), updatePrescription)
+  .delete(auditAction({ module: 'Prescriptions', action: 'DELETE' }), deletePrescription);
 
 module.exports = router;

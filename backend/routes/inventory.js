@@ -11,6 +11,7 @@ const {
   disposeInventoryItem
 } = require('../controllers/inventoryController');
 const { protect, adminOnly } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
 
 // All routes require authentication
@@ -37,7 +38,7 @@ router.route('/medicine/:medicineId')
   .get(getInventoryByMedicine);
 
 router.route('/:id/dispose')
-  .post(adminOnly, disposeInventoryItem);
+  .post(adminOnly, auditAction({ module: 'Inventory', action: 'UPDATE' }), disposeInventoryItem);
 
 router.route('/:id')
   .get(getInventoryItem);

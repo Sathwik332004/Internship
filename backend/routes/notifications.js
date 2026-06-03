@@ -7,6 +7,7 @@ const {
   generateNotifications
 } = require('../controllers/notificationController');
 const { protect } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 
 router.use(protect);
 
@@ -14,12 +15,12 @@ router.route('/')
   .get(getNotifications);
 
 router.route('/mark-all-read')
-  .put(markAllAsRead);
+  .put(auditAction({ module: 'Notifications', action: 'UPDATE' }), markAllAsRead);
 
 router.route('/generate')
-  .post(generateNotifications);
+  .post(auditAction({ module: 'Notifications', action: 'CREATE' }), generateNotifications);
 
 router.route('/:id/read')
-  .put(markAsRead);
+  .put(auditAction({ module: 'Notifications', action: 'UPDATE' }), markAsRead);
 
 module.exports = router;

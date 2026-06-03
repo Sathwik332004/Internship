@@ -5,6 +5,7 @@ const {
   getBill,
   createBill,
   updateBill,
+  deleteBill,
   settlePendingBill,
   getDailySales,
   getSalesReport,
@@ -16,6 +17,7 @@ const {
   handleBillingScan
 } = require('../controllers/billController');
 const { protect } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
 
 router.use(protect);
@@ -23,7 +25,7 @@ router.use(syncExpiredInventory);
 
 router.route('/')
   .get(getBills)
-  .post(createBill);
+  .post(auditAction({ module: 'Bills', action: 'CREATE' }), createBill);
 
 router.route('/dashboard')
   .get(getDashboardStats);
@@ -50,10 +52,11 @@ router.route('/scan')
   .post(handleBillingScan);
 
 router.route('/:id/settle-pending')
-  .patch(settlePendingBill);
+  .patch(auditAction({ module: 'Bills', action: 'UPDATE' }), settlePendingBill);
 
 router.route('/:id')
   .get(getBill)
-  .put(updateBill);
+  .put(auditAction({ module: 'Bills', action: 'UPDATE' }), updateBill)
+  .delete(auditAction({ module: 'Bills', action: 'DELETE' }), deleteBill);
 
 module.exports = router;

@@ -122,6 +122,11 @@ export const notificationAPI = {
   markAllAsRead: () => api.put('/notifications/mark-all-read')
 };
 
+// Audit Log API
+export const auditLogAPI = {
+  getAll: (params) => api.get('/audit-logs', { params })
+};
+
 // Prescription API
 export const prescriptionAPI = {
   getAll: (params) => api.get('/prescriptions', { params }),

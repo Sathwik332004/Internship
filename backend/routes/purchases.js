@@ -11,6 +11,7 @@ const {
   checkBatchExists
 } = require('../controllers/purchaseController');
 const { protect, adminOnly } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
 
 router.use(protect);
@@ -18,7 +19,7 @@ router.use(syncExpiredInventory);
 
 router.route('/')
   .get(getPurchases)
-  .post(addPurchase);
+  .post(auditAction({ module: 'Purchases', action: 'CREATE' }), addPurchase);
 
 router.route('/report')
   .get(adminOnly, getPurchaseReport);
@@ -29,7 +30,7 @@ router.get('/check-batch', checkBatchExists);
 
 router.route('/:id')
   .get(getPurchase)
-  .put(updatePurchase)
-  .delete(deletePurchase);
+  .put(auditAction({ module: 'Purchases', action: 'UPDATE' }), updatePurchase)
+  .delete(auditAction({ module: 'Purchases', action: 'DELETE' }), deletePurchase);
 
 module.exports = router;

@@ -23,6 +23,7 @@ const hsnRoutes = require('./routes/hsn');
 const inventoryRoutes = require('./routes/inventory');
 const notificationRoutes = require('./routes/notifications');
 const prescriptionRoutes = require('./routes/prescriptions');
+const auditLogRoutes = require('./routes/auditLogs');
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/api/hsn', hsnRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

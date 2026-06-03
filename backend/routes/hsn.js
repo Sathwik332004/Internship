@@ -10,6 +10,7 @@ const {
   deleteHSNCode
 } = require('../controllers/hsnController');
 const { protect, adminOnly } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 
 // Public within auth routes
 router.get('/search', protect, searchHSNCodes);
@@ -18,11 +19,11 @@ router.get('/code/:hsnCode', protect, getHSNByCode);
 // CRUD routes
 router.route('/')
   .get(protect, getHSNCodes)
-  .post(protect, adminOnly, createHSNCode);
+  .post(protect, adminOnly, auditAction({ module: 'HSN Codes', action: 'CREATE' }), createHSNCode);
 
 router.route('/:id')
   .get(protect, getHSNCode)
-  .put(protect, adminOnly, updateHSNCode)
-  .delete(protect, adminOnly, deleteHSNCode);
+  .put(protect, adminOnly, auditAction({ module: 'HSN Codes', action: 'UPDATE' }), updateHSNCode)
+  .delete(protect, adminOnly, auditAction({ module: 'HSN Codes', action: 'DELETE' }), deleteHSNCode);
 
 module.exports = router;

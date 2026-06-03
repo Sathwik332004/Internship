@@ -16,6 +16,7 @@ const {
   getDashboardSummary
 } = require('../controllers/medicineController');
 const { protect, adminOnly } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 const { syncExpiredInventory } = require('../middleware/syncExpiredInventory');
 
 // Public within auth routes
@@ -33,11 +34,11 @@ router.get('/dashboard/summary', getDashboardSummary);
 // CRUD routes (Admin only for add, edit, delete)
 router.route('/')
   .get(getMedicines)
-  .post(adminOnly, addMedicine);
+  .post(adminOnly, auditAction({ module: 'Medicines', action: 'CREATE' }), addMedicine);
 
 router.route('/:id')
   .get(getMedicine)
-  .put(adminOnly, updateMedicine)
-  .delete(adminOnly, deleteMedicine);
+  .put(adminOnly, auditAction({ module: 'Medicines', action: 'UPDATE' }), updateMedicine)
+  .delete(adminOnly, auditAction({ module: 'Medicines', action: 'DELETE' }), deleteMedicine);
 
 module.exports = router;

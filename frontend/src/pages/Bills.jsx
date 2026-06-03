@@ -103,16 +103,17 @@ export default function Bills() {
 
   const handleDelete = async (id) => {
     try {
-      await api.delete(`/bills/${id}`);
+      const response = await api.delete(`/bills/${id}`);
       setDeleteConfirm(null);
       fetchBills();
       fetchPendingSummary();
       if (showPendingTab) {
         fetchPendingCustomers();
       }
+      toast.success(response.data?.message || 'Bill deleted successfully.');
     } catch (error) {
       console.error('Error deleting bill:', error);
-      toast.error('Error deleting bill. Please try again.');
+      toast.error(error.response?.data?.message || 'Error deleting bill. Please try again.');
     }
   };
 

@@ -16,6 +16,7 @@ const {
 } = require('../controllers/authController');
 
 const { protect, adminOnly } = require('../middleware/auth');
+const { auditAction } = require('../middleware/audit');
 
 
 /* ===========================
@@ -35,10 +36,10 @@ router.post('/reset-password', resetPassword);
 router.get('/me', protect, getMe);
 
 // Update profile details (name, email, phone, password)
-router.put('/updatedetails', protect, updateDetails);
+router.put('/updatedetails', protect, auditAction({ module: 'Profile', action: 'UPDATE' }), updateDetails);
 
 // Update password separately (optional)
-router.put('/updatepassword', protect, updatePassword);
+router.put('/updatepassword', protect, auditAction({ module: 'Profile', action: 'UPDATE' }), updatePassword);
 
 
 /* ===========================
@@ -46,19 +47,19 @@ router.put('/updatepassword', protect, updatePassword);
 =========================== */
 
 // Register staff/admin
-router.post('/register', protect, adminOnly, register);
+router.post('/register', protect, adminOnly, auditAction({ module: 'Users', action: 'CREATE' }), register);
 
 // Get all users
 router.get('/users', protect, adminOnly, getUsers);
 
 // Toggle active status
-router.put('/users/:id/toggle-status', protect, adminOnly, toggleUserStatus);
+router.put('/users/:id/toggle-status', protect, adminOnly, auditAction({ module: 'Users', action: 'UPDATE' }), toggleUserStatus);
 
 // Delete user
-router.delete('/users/:id', protect, adminOnly, deleteUser);
+router.delete('/users/:id', protect, adminOnly, auditAction({ module: 'Users', action: 'DELETE' }), deleteUser);
 
 // Update user
-router.put('/users/:id', protect, adminOnly, updateUser);
+router.put('/users/:id', protect, adminOnly, auditAction({ module: 'Users', action: 'UPDATE' }), updateUser);
 
 
 module.exports = router;

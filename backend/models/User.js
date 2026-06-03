@@ -48,18 +48,6 @@ const userSchema = new mongoose.Schema({
     type: Date,
     select: false
   },
-  loginOTP: {
-    type: String,
-    select: false
-  },
-  loginOTPExpire: {
-    type: Date,
-    select: false
-  },
-  isOTPVerified: {
-    type: Boolean,
-    default: false
-  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -102,20 +90,12 @@ userSchema.methods.getSignedJwtToken = function () {
 userSchema.methods.generateOTP = async function (otpType) {
   // Generate 6 digit OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expireMinutes = otpType === 'login' 
-    ? parseInt(process.env.LOGIN_OTP_EXPIRE_MINUTES) || 5 
-    : parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
+  const expireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
   
   const expireTime = Date.now() + expireMinutes * 60 * 1000;
 
-  if (otpType === 'login') {
-    this.loginOTP = otp;
-    this.loginOTPExpire = expireTime;
-    this.isOTPVerified = false;
-  } else {
-    this.resetOTP = otp;
-    this.resetOTPExpire = expireTime;
-  }
+  this.resetOTP = otp;
+  this.resetOTPExpire = expireTime;
 
   await this.save({ validateBeforeSave: false });
   return otp;
@@ -123,17 +103,10 @@ userSchema.methods.generateOTP = async function (otpType) {
 
 // Check if OTP is valid
 userSchema.methods.checkOTP = function (enteredOTP, otpType) {
-  if (otpType === 'login') {
-    return (
-      this.loginOTP === enteredOTP &&
-      this.loginOTPExpire > Date.now()
-    );
-  } else {
-    return (
-      this.resetOTP === enteredOTP &&
-      this.resetOTPExpire > Date.now()
-    );
-  }
+  return (
+    this.resetOTP === enteredOTP &&
+    this.resetOTPExpire > Date.now()
+  );
 };
 
 module.exports = mongoose.model('User', userSchema);

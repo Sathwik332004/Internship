@@ -3,6 +3,16 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext();
 
+const getStoredUser = () => {
+  try {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    localStorage.removeItem('user');
+    return null;
+  }
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -12,7 +22,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getStoredUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +38,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setUser(null);
       }
     }
     setLoading(false);
@@ -35,19 +46,6 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await authAPI.login({ email, password });
-    if (response.data.requiresOTP) {
-      // Admin requires OTP verification
-      return { requiresOTP: true, userId: response.data.userId };
-    }
-    // Staff login directly (no OTP required)
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.data));
-    setUser(response.data.data);
-    return response.data;
-  };
-
-  const verifyOTP = async (userId, otp) => {
-    const response = await authAPI.verifyOTP({ userId, otp });
     localStorage.setItem('token', response.data.token);
     localStorage.setItem('user', JSON.stringify(response.data.data));
     setUser(response.data.data);
@@ -65,9 +63,8 @@ export const AuthProvider = ({ children }) => {
   setUser,
   loading,
   login,
-  verifyOTP,
   logout,
-  isAuthenticated: !!user,
+  isAuthenticated: !!user || !!localStorage.getItem('token'),
   isAdmin: user?.role === 'admin',
   isStaff: user?.role === 'staff'
 };

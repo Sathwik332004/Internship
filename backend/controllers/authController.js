@@ -131,118 +131,12 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check user role
-    if (user.role === 'staff') {
-      // Staff login directly without OTP
-      sendTokenResponse(user, 200, res);
-    } else {
-      // Admin requires OTP
-      // Generate and send OTP
-      const otp = await user.generateOTP('login');
-      await sendOTPEmail(user.email, otp, 'login');
-
-      // Return success but require OTP verification
-      res.status(200).json({
-        success: true,
-        message: 'OTP sent to your email. Please verify to login.',
-        requiresOTP: true,
-        userId: user._id
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Error logging in',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Verify Login OTP
-// @route   POST /api/auth/verify-login-otp
-// @access  Public
-exports.verifyLoginOTP = async (req, res) => {
-  try {
-    const { userId, otp } = req.body;
-
-    if (!userId || !isValidOtp(otp)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid user and OTP are required'
-      });
-    }
-
-    const user = await User.findById(userId).select('+loginOTP +loginOTPExpire');
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Check OTP
-    if (!user.checkOTP(otp, 'login')) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired OTP'
-      });
-    }
-
-    // Mark OTP as verified
-    user.isOTPVerified = true;
-    user.loginOTP = undefined;
-    user.loginOTPExpire = undefined;
-    await user.save({ validateBeforeSave: false });
-
     sendTokenResponse(user, 200, res);
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Error verifying OTP',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Resend Login OTP
-// @route   POST /api/auth/resend-login-otp
-// @access  Public
-exports.resendLoginOTP = async (req, res) => {
-  try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'User is required'
-      });
-    }
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Generate new OTP
-    const otp = await user.generateOTP('login');
-    await sendOTPEmail(user.email, otp, 'login');
-
-    res.status(200).json({
-      success: true,
-      message: 'OTP resent to your email'
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Error resending OTP',
+      message: 'Error logging in',
       error: error.message
     });
   }

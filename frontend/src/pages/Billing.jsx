@@ -15,7 +15,8 @@ import {
   QrCode,
   AlertCircle,
   Boxes,
-  Pill
+  Pill,
+  ClipboardList
 } from 'lucide-react';
 import api from '../services/api';
 import BillPrintDocument from '../components/BillPrintDocument';
@@ -71,6 +72,12 @@ export default function Billing() {
   const [scannerActive, setScannerActive] = useState(false);
   const [scannerStream, setScannerStream] = useState('');
   const [lastAddedItemKey, setLastAddedItemKey] = useState('');
+  const [showPrescriptionPicker, setShowPrescriptionPicker] = useState(false);
+  const [prescriptionSearch, setPrescriptionSearch] = useState('');
+  const [prescriptionResults, setPrescriptionResults] = useState([]);
+  const [prescriptionLoading, setPrescriptionLoading] = useState(false);
+  const [applyingPrescription, setApplyingPrescription] = useState(false);
+  const [activePrescriptionForBill, setActivePrescriptionForBill] = useState(null);
 
   const scannerInputRef = useRef(null);
   const lastScanRef = useRef({ value: '', ts: 0 });
@@ -94,6 +101,7 @@ export default function Billing() {
     setDiscountAmountInput(0);
     setAmountPaid('');
     setErrorMessage('');
+    setActivePrescriptionForBill(null);
   };
 
   const removeBillingDraft = () => {
@@ -242,6 +250,44 @@ export default function Billing() {
     window.localStorage.setItem(BILLING_DRAFT_STORAGE_KEY, JSON.stringify(draft));
     setHasSavedDraft(true);
   }, [amountPaid, billItems, customerDetails, discountAmountInput, discountPercent, discountType, paymentMode]);
+
+  useEffect(() => {
+    if (!showPrescriptionPicker) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        setPrescriptionLoading(true);
+        const response = await api.get('/prescriptions', {
+          params: {
+            search: prescriptionSearch,
+            status: 'PENDING',
+            limit: 20
+          }
+        });
+
+        if (!isCancelled) {
+          setPrescriptionResults(response.data.data || []);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error('Error searching prescriptions:', error);
+          setPrescriptionResults([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setPrescriptionLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [prescriptionSearch, showPrescriptionPicker]);
 
   // Search medicines from backend so stock is sourced from inventory, not a stale preload
   useEffect(() => {
@@ -533,6 +579,145 @@ export default function Billing() {
     setBillItems([...billItems, newItem]);
     setSearchTerm('');
     setShowSearchResults(false);
+  };
+
+  const appendPrescriptionMedicineToItems = async (medicine, quantity, currentItems) => {
+    let nextItems = [...currentItems];
+    const conversionFactor = Number(medicine.conversionFactor) || 1;
+    const packSize = medicine.packSize || '1';
+    const baseUnit = medicine.baseUnit || 'TAB';
+    const sellingUnit = medicine.sellingUnit || baseUnit;
+    const defaultIsPack = conversionFactor > 1 && baseUnit !== 'ml';
+    const unitsToAdd = Math.max(parseInt(quantity, 10) || 1, 1);
+
+    for (let index = 0; index < unitsToAdd; index += 1) {
+      const allocation = await findAllocatableBatchForMedicine(medicine, nextItems, defaultIsPack);
+
+      if (!allocation.batch) {
+        throw new Error(`Insufficient stock for ${medicine.medicineName}`);
+      }
+
+      if (allocation.existingLine) {
+        nextItems = nextItems.map((item) => {
+          if (getBillItemKey(item) !== getBillItemKey(allocation.existingLine)) {
+            return item;
+          }
+
+          const nextQuantity = Number(item.quantity || 0) + 1;
+          const unitMrp = item.isPack ? item.packMrp : item.looseMrp;
+          return {
+            ...item,
+            quantity: nextQuantity,
+            amount: unitMrp * nextQuantity
+          };
+        });
+        continue;
+      }
+
+      const packMrp = Number(allocation.batch.mrp || medicine.defaultSellingPrice || 0);
+      const looseMrp = conversionFactor > 0 ? packMrp / conversionFactor : packMrp;
+
+      nextItems.push({
+        medicineId: medicine._id,
+        medicineName: medicine.medicineName,
+        brandName: medicine.brandName,
+        packSize,
+        conversionFactor,
+        baseUnit,
+        sellingUnit,
+        isPack: allocation.targetIsPack,
+        batchNumber: String(allocation.batch.batchNumber || '').toUpperCase(),
+        expiryDate: allocation.batch.expiryDate,
+        quantity: 1,
+        availableStock: allocation.batchCapacity,
+        mrp: allocation.batch.mrp,
+        packMrp,
+        looseMrp,
+        gstPercent: allocation.batch.gstPercent || 12,
+        hsnCode: allocation.batch.hsnCodeString || medicine.hsnCodeString || medicine.hsnCode || '',
+        inventoryBatchId: allocation.batch._id,
+        amount: (allocation.targetIsPack ? packMrp : looseMrp)
+      });
+    }
+
+    return nextItems;
+  };
+
+  const applyPrescriptionToBill = async (prescription) => {
+    if (!prescription) {
+      return;
+    }
+
+    if (billItems.length > 0) {
+      const confirmed = window.confirm('Replace current bill items with this prescription?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      setApplyingPrescription(true);
+      setErrorMessage('');
+
+      let nextItems = [];
+      const skippedMedicines = [];
+
+      for (const prescribedMedicine of prescription.medicines || []) {
+        const query = String(prescribedMedicine.medicineName || '').trim();
+        if (!query) {
+          continue;
+        }
+
+        const response = await api.get('/medicines/search', {
+          params: {
+            q: query,
+            limit: 1
+          }
+        });
+
+        const medicine = response.data.data?.[0];
+        if (!medicine) {
+          skippedMedicines.push(`${query} (not found)`);
+          continue;
+        }
+
+        try {
+          nextItems = await appendPrescriptionMedicineToItems(
+            medicine,
+            prescribedMedicine.quantity,
+            nextItems
+          );
+        } catch (error) {
+          skippedMedicines.push(error.message);
+        }
+      }
+
+      setCustomerDetails((current) => ({
+        ...current,
+        name: prescription.patientName || '',
+        phone: normalizePhone(prescription.patientPhone || ''),
+        doctorName: prescription.doctorName || '',
+        doctorRegNo: prescription.doctorLicense || ''
+      }));
+      setBillItems(nextItems);
+      setActivePrescriptionForBill(prescription);
+      setShowPrescriptionPicker(false);
+
+      if (nextItems.length === 0) {
+        toast.error('No prescription medicines could be added to the bill.');
+      } else if (skippedMedicines.length > 0) {
+        toast.warn(`Prescription loaded with skipped items: ${skippedMedicines.join(', ')}`);
+      } else {
+        toast.success(`Loaded ${prescription.prescriptionNumber} into billing.`);
+      }
+    } catch (error) {
+      console.error('Error applying prescription:', error);
+      const message = error.response?.data?.message || 'Unable to load prescription into billing';
+      setErrorMessage(message);
+      toast.error(message);
+    } finally {
+      setApplyingPrescription(false);
+    }
   };
 
   // Toggle between pack and loose units
@@ -969,6 +1154,16 @@ export default function Billing() {
 
       const response = await api.post('/bills', billData);
       const createdBill = response.data?.data || null;
+      if (createdBill && activePrescriptionForBill?._id) {
+        try {
+          await api.put(`/prescriptions/${activePrescriptionForBill._id}/link-bill`, {
+            billId: createdBill._id
+          });
+        } catch (linkError) {
+          console.error('Error linking prescription to bill:', linkError);
+          toast.warn('Bill saved, but prescription could not be linked automatically.');
+        }
+      }
       setLastSavedBill(createdBill);
       removeBillingDraft();
       
@@ -1091,6 +1286,19 @@ export default function Billing() {
               <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">Items: {billItems.length}</div>
               <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">Units: {totalUnits}</div>
               <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">Total: {formatCurrency(totals.grandTotal)}</div>
+              {activePrescriptionForBill ? (
+                <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                  {activePrescriptionForBill.prescriptionNumber}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowPrescriptionPicker(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+              >
+                <ClipboardList size={16} />
+                From Prescription
+              </button>
               <button
                 onClick={handleScannerToggle}
                 className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
@@ -1617,6 +1825,76 @@ export default function Billing() {
         </div>
         </div>
       </div>
+
+      {showPrescriptionPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-200 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Load Prescription</h2>
+                <p className="mt-1 text-sm text-slate-500">Search pending prescriptions and fill this bill.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPrescriptionPicker(false)}
+                className="rounded-2xl p-2 text-slate-500 transition hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="border-b border-gray-100 p-5">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={prescriptionSearch}
+                  onChange={(event) => setPrescriptionSearch(event.target.value)}
+                  placeholder="Search by patient name, phone, or RX number..."
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-[56vh] overflow-y-auto p-5">
+              {prescriptionLoading ? (
+                <div className="flex h-40 items-center justify-center">
+                  <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-emerald-600"></div>
+                </div>
+              ) : prescriptionResults.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-500">
+                  No pending prescriptions found.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {prescriptionResults.map((prescription) => (
+                    <button
+                      key={prescription._id}
+                      type="button"
+                      onClick={() => applyPrescriptionToBill(prescription)}
+                      disabled={applyingPrescription}
+                      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-slate-900">{prescription.prescriptionNumber} - {prescription.patientName}</p>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {prescription.patientPhone || 'No phone'} | Dr. {prescription.doctorName}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">{prescription.medicines?.length || 0} medicines</p>
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                          PENDING
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {previewBill && (
         <div className="mt-8">

@@ -15,15 +15,20 @@ import {
   X,
   Hash,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Bell,
+  BellRing,
+  ClipboardList
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import BrandLogo from './BrandLogo';
+import { notificationAPI } from '../services/api';
 
 const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const handleLogout = () => {
     logout();
@@ -33,6 +38,7 @@ const Layout = () => {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/billing', icon: ShoppingCart, label: 'Billing' },
+    { path: '/prescriptions', icon: ClipboardList, label: 'Prescriptions' },
     { path: '/medicines', icon: Pill, label: 'Medicines' },
     { path: '/suppliers', icon: Truck, label: 'Suppliers' },
     { path: '/purchases', icon: Package, label: 'Purchases' },
@@ -40,6 +46,7 @@ const Layout = () => {
     { path: '/inventory', icon: Archive, label: 'Inventory' },
     { path: '/bills', icon: FileText, label: 'Bills' },
     { path: '/sales-returns', icon: RotateCcw, label: 'Sales Return' },
+    { path: '/notifications', icon: BellRing, label: 'Notifications' },
     { path: '/reports', icon: BarChart3, label: 'Reports' },
     ...(isAdmin ? [
       { path: '/hsn-codes', icon: Hash, label: 'HSN Codes' },
@@ -47,6 +54,34 @@ const Layout = () => {
       { path: '/users', icon: Users, label: 'Users' }
     ] : [])
   ];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await notificationAPI.getAll();
+        const count = response.data.unreadCount ?? (response.data.data || []).filter((item) => !item.isRead).length;
+        if (isMounted) {
+          setUnreadCount(count);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setUnreadCount(0);
+        }
+      }
+    };
+
+    fetchUnreadCount();
+    const intervalId = window.setInterval(fetchUnreadCount, 60000);
+    window.addEventListener('notifications:updated', fetchUnreadCount);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('notifications:updated', fetchUnreadCount);
+    };
+  }, []);
 
   return (
     <div className="app-shell min-h-screen medical-grid">
@@ -151,6 +186,19 @@ const Layout = () => {
             </div>
 
             <div className="ml-0 flex items-center gap-3 sm:ml-auto">
+              <button
+                type="button"
+                onClick={() => navigate('/notifications')}
+                className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-slate-700 shadow-[0_14px_30px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50"
+                title="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none text-white ring-2 ring-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                ) : null}
+              </button>
               <div className="hidden rounded-[20px] border border-gray-200 bg-white px-4 py-2 text-right sm:block">
                 <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Signed in as</p>
                 <span className="text-sm font-semibold text-slate-900">{user?.name}</span>

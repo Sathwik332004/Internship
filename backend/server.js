@@ -21,6 +21,8 @@ const salesReturnRoutes = require('./routes/salesReturns');
 const assetRoutes = require('./routes/assets');
 const hsnRoutes = require('./routes/hsn');
 const inventoryRoutes = require('./routes/inventory');
+const notificationRoutes = require('./routes/notifications');
+const prescriptionRoutes = require('./routes/prescriptions');
 
 const app = express();
 
@@ -41,6 +43,8 @@ app.use('/api/sales-returns', salesReturnRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/hsn', hsnRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

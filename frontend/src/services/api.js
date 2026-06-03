@@ -116,6 +116,24 @@ export const billAPI = {
   getSalesReport: (params) => api.get('/bills/report/sales', { params })
 };
 
+// Notification API
+export const notificationAPI = {
+  getAll: () => api.get('/notifications'),
+  generate: () => api.post('/notifications/generate'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/mark-all-read')
+};
+
+// Prescription API
+export const prescriptionAPI = {
+  getAll: (params) => api.get('/prescriptions', { params }),
+  getOne: (id) => api.get(`/prescriptions/${id}`),
+  create: (data) => api.post('/prescriptions', data),
+  update: (id, data) => api.put(`/prescriptions/${id}`, data),
+  linkBill: (id, data) => api.put(`/prescriptions/${id}/link-bill`, data),
+  delete: (id) => api.delete(`/prescriptions/${id}`)
+};
+
 // Sales Return API
 export const salesReturnAPI = {
   getAll: (params) => api.get('/sales-returns', { params }),

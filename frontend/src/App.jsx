@@ -21,6 +21,8 @@ import Reports from './pages/Reports';
 import Assets from './pages/Assets';
 import Users from './pages/Users';
 import HSNCodes from './pages/HSNCodes';
+import Notifications from './pages/Notifications';
+import Prescriptions from './pages/Prescriptions';
 
 // Components
 import Layout from './components/Layout';
@@ -65,6 +67,7 @@ function AppRoutes() {
   { path: 'dashboard', element: <Dashboard /> },
   { path: 'medicines', element: <Medicines /> },
   { path: 'billing', element: <Billing /> },
+  { path: 'prescriptions', element: <Prescriptions /> },
   { path: 'suppliers', element: <Suppliers /> },
   { path: 'purchases', element: <Purchases /> },
   { path: 'purchase-returns', element: <PurchaseReturns /> },
@@ -72,6 +75,7 @@ function AppRoutes() {
   { path: 'bills', element: <Bills /> },
   { path: 'sales-returns', element: <SalesReturns /> },
   { path: 'reports', element: <Reports /> },
+  { path: 'notifications', element: <Notifications /> },
   { path: 'profile', element: <AdminProfile /> },   // âœ… ADD THIS
   { path: 'hsn-codes', element: <AdminRoute><HSNCodes /></AdminRoute> },
   { path: 'assets', element: <AdminRoute><Assets /></AdminRoute> },

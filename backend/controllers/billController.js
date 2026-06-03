@@ -4,6 +4,7 @@ const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const HSN = require('../models/HSN');
 const SalesReturn = require('../models/SalesReturn');
+const CashierSession = require('../models/CashierSession');
 const { parsePurchaseBarcode } = require('../utils/barcode');
 const {
   isNonNegativeNumber,
@@ -642,6 +643,8 @@ exports.getBills = async (req, res) => {
 
     const bills = await Bill.find(query)
       .populate('createdBy', 'name')
+      .populate('handledBy', 'name')
+      .populate('cashierSession', 'openedAt closedAt status')
       .populate('items.medicine', 'medicineName brandName packSize hsnCodeString')
       .sort({ billDate: -1 })
       .skip(skip)
@@ -679,6 +682,8 @@ exports.getBill = async (req, res) => {
       isDeleted: false
     })
       .populate('createdBy', 'name')
+      .populate('handledBy', 'name')
+      .populate('cashierSession', 'openedAt closedAt status')
       .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
 
     if (!bill) {
@@ -756,6 +761,10 @@ exports.createBill = async (req, res) => {
     const grandTotal = Math.round(totalAfterDiscount);
     const finalAmountPaid = amountPaid ?? grandTotal;
     const balance = finalAmountPaid - grandTotal;
+    const activeCashierSession = await CashierSession.findOne({
+      staff: req.user.id,
+      status: 'OPEN'
+    }).session(session);
 
     const bill = new Bill({
       invoiceNumber,
@@ -779,15 +788,26 @@ exports.createBill = async (req, res) => {
       paymentMode,
       amountPaid: finalAmountPaid,
       balance,
-      createdBy: req.user.id
+      createdBy: req.user.id,
+      handledBy: req.user.id,
+      cashierSession: activeCashierSession?._id || null
     });
 
     await bill.save({ session });
+
+    if (activeCashierSession) {
+      activeCashierSession.billCount = Number(activeCashierSession.billCount || 0) + 1;
+      activeCashierSession.totalSales = roundCurrency(Number(activeCashierSession.totalSales || 0) + Number(grandTotal || 0));
+      await activeCashierSession.save({ session });
+    }
+
     await session.commitTransaction();
     session.endSession();
 
     const populatedBill = await Bill.findById(bill._id)
       .populate('createdBy', 'name')
+      .populate('handledBy', 'name')
+      .populate('cashierSession', 'openedAt closedAt status')
       .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
 
     res.status(201).json({
@@ -902,6 +922,8 @@ exports.updateBill = async (req, res) => {
 
     const populatedBill = await Bill.findById(bill._id)
       .populate('createdBy', 'name')
+      .populate('handledBy', 'name')
+      .populate('cashierSession', 'openedAt closedAt status')
       .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
 
     res.status(200).json({
@@ -1039,6 +1061,8 @@ exports.settlePendingBill = async (req, res) => {
 
     const populatedBill = await Bill.findById(bill._id)
       .populate('createdBy', 'name')
+      .populate('handledBy', 'name')
+      .populate('cashierSession', 'openedAt closedAt status')
       .populate('items.medicine', 'medicineName brandName packSize hsnCodeString');
 
     const updatedReturnSummaryMap = await getReturnSummaryMap([bill._id]);
@@ -1112,6 +1136,8 @@ exports.getSalesReport = async (req, res) => {
 
     const bills = await Bill.find(query)
       .populate('createdBy', 'name')
+      .populate('handledBy', 'name')
+      .populate('cashierSession', 'openedAt closedAt status')
       .sort({ billDate: -1 });
 
     const salesByDate = {};
@@ -1187,6 +1213,8 @@ exports.getGstReport = async (req, res) => {
 
     const bills = await Bill.find(query)
       .populate('createdBy', 'name')
+      .populate('handledBy', 'name')
+      .populate('cashierSession', 'openedAt closedAt status')
       .sort({ billDate: -1 });
 
     const summary = bills.reduce(

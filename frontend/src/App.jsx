@@ -24,6 +24,7 @@ import HSNCodes from './pages/HSNCodes';
 import Notifications from './pages/Notifications';
 import Prescriptions from './pages/Prescriptions';
 import AuditLogs from './pages/AuditLogs';
+import StaffAttendance from './pages/StaffAttendance';
 
 // Components
 import Layout from './components/Layout';
@@ -77,6 +78,7 @@ function AppRoutes() {
   { path: 'sales-returns', element: <SalesReturns /> },
   { path: 'reports', element: <Reports /> },
   { path: 'notifications', element: <Notifications /> },
+  { path: 'staff-attendance', element: <StaffAttendance /> },
   { path: 'profile', element: <AdminProfile /> },   // âœ… ADD THIS
   { path: 'audit-logs', element: <AdminRoute><AuditLogs /></AdminRoute> },
   { path: 'hsn-codes', element: <AdminRoute><HSNCodes /></AdminRoute> },

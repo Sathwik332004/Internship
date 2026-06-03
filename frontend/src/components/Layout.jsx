@@ -19,7 +19,8 @@ import {
   Bell,
   BellRing,
   ClipboardList,
-  FileClock
+  FileClock,
+  CalendarClock
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import BrandLogo from './BrandLogo';
@@ -48,6 +49,7 @@ const Layout = () => {
     { path: '/bills', icon: FileText, label: 'Bills' },
     { path: '/sales-returns', icon: RotateCcw, label: 'Sales Return' },
     { path: '/notifications', icon: BellRing, label: 'Notifications' },
+    { path: '/staff-attendance', icon: CalendarClock, label: 'Attendance' },
     { path: '/reports', icon: BarChart3, label: 'Reports' },
     ...(isAdmin ? [
       { path: '/audit-logs', icon: FileClock, label: 'Audit Logs' },

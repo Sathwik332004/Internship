@@ -460,6 +460,7 @@ export default function Bills() {
                       <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                       <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                       <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Handled By</th>
                       <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
                       <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                       <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
@@ -494,6 +495,16 @@ export default function Bills() {
                           <div className="text-sm text-gray-900">
                             {new Date(bill.billDate).toLocaleDateString()}
                           </div>
+                        </td>
+                        <td className="hidden lg:table-cell px-4 py-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {bill.handledBy?.name || bill.createdBy?.name || 'Staff'}
+                          </div>
+                          {bill.cashierSession ? (
+                            <div className="text-xs text-emerald-700">Session tracked</div>
+                          ) : (
+                            <div className="text-xs text-slate-400">No session</div>
+                          )}
                         </td>
                         <td className="hidden md:table-cell px-4 py-4">
                           <div className="text-sm text-gray-900">

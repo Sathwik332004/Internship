@@ -127,6 +127,15 @@ export const auditLogAPI = {
   getAll: (params) => api.get('/audit-logs', { params })
 };
 
+// Staff Attendance API
+export const staffAttendanceAPI = {
+  getOverview: (params) => api.get('/staff-attendance', { params }),
+  clockIn: (data) => api.post('/staff-attendance/clock-in', data),
+  clockOut: (data) => api.post('/staff-attendance/clock-out', data),
+  openSession: (data) => api.post('/staff-attendance/cashier-sessions', data),
+  closeSession: (id, data) => api.post(`/staff-attendance/cashier-sessions/${id}/close`, data)
+};
+
 // Prescription API
 export const prescriptionAPI = {
   getAll: (params) => api.get('/prescriptions', { params }),

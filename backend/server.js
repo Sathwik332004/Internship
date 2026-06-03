@@ -24,6 +24,7 @@ const inventoryRoutes = require('./routes/inventory');
 const notificationRoutes = require('./routes/notifications');
 const prescriptionRoutes = require('./routes/prescriptions');
 const auditLogRoutes = require('./routes/auditLogs');
+const staffAttendanceRoutes = require('./routes/staffAttendance');
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/staff-attendance', staffAttendanceRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

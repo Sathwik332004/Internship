@@ -222,6 +222,16 @@ const billSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  handledBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  cashierSession: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CashierSession',
+    default: null
+  },
   isDeleted: {
     type: Boolean,
     default: false,

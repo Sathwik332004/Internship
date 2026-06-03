@@ -8,6 +8,7 @@ const {
 } = require('../utils/validation');
 
 const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
+const VALID_REFUND_MODES = ['CASH', 'UPI', 'CARD', 'STORE_CREDIT', 'ADJUSTED_IN_NEXT_BILL'];
 
 const createHttpError = (statusCode, message) => {
   const error = new Error(message);
@@ -16,7 +17,10 @@ const createHttpError = (statusCode, message) => {
 };
 
 const getReturnedQuantityMap = async (billId, session) => {
-  const returns = await SalesReturn.find({ bill: billId })
+  const returns = await SalesReturn.find({
+    bill: billId,
+    status: { $in: ['PENDING_APPROVAL', 'APPROVED'] }
+  })
     .select('items.originalItemIndex items.returnQuantity')
     .session(session);
 
@@ -33,6 +37,7 @@ const validateSalesReturnPayload = (payload = {}) => {
   const items = Array.isArray(payload.items) ? payload.items : [];
   const reason = normalizeOptionalText(payload.reason);
   const notes = normalizeOptionalText(payload.notes);
+  const refundMode = payload.refundMode || 'CASH';
   const seenItemIndexes = new Set();
 
   if (!payload.billId) {
@@ -41,6 +46,10 @@ const validateSalesReturnPayload = (payload = {}) => {
 
   if (!items.length) {
     throw createHttpError(400, 'Select at least one item to return');
+  }
+
+  if (!VALID_REFUND_MODES.includes(refundMode)) {
+    throw createHttpError(400, 'Invalid refund mode');
   }
 
   items.forEach((item, index) => {
@@ -62,12 +71,42 @@ const validateSalesReturnPayload = (payload = {}) => {
   return {
     billId: payload.billId,
     reason,
+    refundMode,
     notes,
     items: items.map((item) => ({
       originalItemIndex: Number(item.originalItemIndex),
       returnQuantity: Number(item.returnQuantity)
     }))
   };
+};
+
+const restoreReturnInventory = async (salesReturn, session) => {
+  for (const item of salesReturn.items || []) {
+    const inventoryQuery = {
+      medicine: item.medicine,
+      isDeleted: { $ne: true }
+    };
+
+    if (item.inventoryBatchId) {
+      inventoryQuery._id = item.inventoryBatchId;
+    } else {
+      inventoryQuery.batchNumber = {
+        $regex: new RegExp(`^${String(item.batchNumber).trim()}$`, 'i')
+      };
+    }
+
+    const inventory = await Inventory.findOne(inventoryQuery).session(session);
+
+    if (!inventory) {
+      throw createHttpError(
+        400,
+        `Inventory batch ${item.batchNumber} for ${item.medicineName} was not found`
+      );
+    }
+
+    inventory.quantityAvailable += Number(item.returnUnitQuantity || 0);
+    await inventory.save({ session });
+  }
 };
 
 // @desc    Get sales returns
@@ -80,6 +119,8 @@ exports.getSalesReturns = async (req, res) => {
       endDate,
       search,
       billId,
+      status,
+      refundMode,
       page = 1,
       limit = 20
     } = req.query;
@@ -92,6 +133,14 @@ exports.getSalesReturns = async (req, res) => {
 
     if (billId) {
       query.bill = billId;
+    }
+
+    if (status && ['PENDING_APPROVAL', 'APPROVED', 'REJECTED'].includes(status)) {
+      query.status = status;
+    }
+
+    if (refundMode && VALID_REFUND_MODES.includes(refundMode)) {
+      query.refundMode = refundMode;
     }
 
     if (startDate || endDate) {
@@ -123,6 +172,8 @@ exports.getSalesReturns = async (req, res) => {
     const returns = await SalesReturn.find(query)
       .populate('bill', 'invoiceNumber billDate')
       .populate('createdBy', 'name')
+      .populate('approvedBy', 'name')
+      .populate('rejectedBy', 'name')
       .sort({ returnDate: -1, createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
@@ -154,7 +205,9 @@ exports.getSalesReturn = async (req, res) => {
   try {
     const salesReturn = await SalesReturn.findById(req.params.id)
       .populate('bill', 'invoiceNumber billDate customerName customerPhone')
-      .populate('createdBy', 'name');
+      .populate('createdBy', 'name')
+      .populate('approvedBy', 'name')
+      .populate('rejectedBy', 'name');
 
     if (!salesReturn) {
       return res.status(404).json({
@@ -196,6 +249,7 @@ exports.createSalesReturn = async (req, res) => {
       billId,
       items,
       reason,
+      refundMode,
       notes
     } = validateSalesReturnPayload(req.body);
 
@@ -268,9 +322,6 @@ exports.createSalesReturn = async (req, res) => {
         );
       }
 
-      inventory.quantityAvailable += returnUnitQuantity;
-      await inventory.save({ session });
-
       const returnRatio = requestItem.returnQuantity / originalQuantity;
       const subtotalShare = roundCurrency(Number(originalItem.rate || 0) * requestItem.returnQuantity);
       const discountShare = bill.subtotal
@@ -342,7 +393,9 @@ exports.createSalesReturn = async (req, res) => {
           customerName: bill.customerName || null,
           customerPhone: bill.customerPhone || null,
           reason,
+          refundMode,
           notes,
+          status: 'PENDING_APPROVAL',
           items: returnItems,
           subtotal: roundCurrency(totals.subtotal),
           totalGst: roundCurrency(totals.totalGst),
@@ -362,10 +415,13 @@ exports.createSalesReturn = async (req, res) => {
 
     const populatedSalesReturn = await SalesReturn.findById(createdSalesReturn._id)
       .populate('bill', 'invoiceNumber billDate')
-      .populate('createdBy', 'name');
+      .populate('createdBy', 'name')
+      .populate('approvedBy', 'name')
+      .populate('rejectedBy', 'name');
 
     res.status(201).json({
       success: true,
+      message: 'Sales return request submitted for approval',
       data: populatedSalesReturn
     });
   } catch (error) {
@@ -375,6 +431,218 @@ exports.createSalesReturn = async (req, res) => {
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.statusCode ? error.message : 'Error creating sales return',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Approve a pending sales return and restore inventory
+// @route   PATCH /api/sales-returns/:id/approve
+// @access  Private/Admin
+exports.approveSalesReturn = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const salesReturn = await SalesReturn.findById(req.params.id).session(session);
+
+    if (!salesReturn) {
+      throw createHttpError(404, 'Sales return not found');
+    }
+
+    if (salesReturn.status !== 'PENDING_APPROVAL') {
+      throw createHttpError(400, 'Only pending sales returns can be approved');
+    }
+
+    await restoreReturnInventory(salesReturn, session);
+
+    salesReturn.status = 'APPROVED';
+    salesReturn.approvedBy = req.user.id;
+    salesReturn.approvedAt = new Date();
+    salesReturn.rejectedBy = null;
+    salesReturn.rejectedAt = null;
+    salesReturn.rejectionReason = null;
+
+    await salesReturn.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+
+    const populatedSalesReturn = await SalesReturn.findById(salesReturn._id)
+      .populate('bill', 'invoiceNumber billDate')
+      .populate('createdBy', 'name')
+      .populate('approvedBy', 'name')
+      .populate('rejectedBy', 'name');
+
+    res.status(200).json({
+      success: true,
+      message: 'Sales return approved and inventory stock restored',
+      data: populatedSalesReturn
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Error approving sales return',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Reject a pending sales return
+// @route   PATCH /api/sales-returns/:id/reject
+// @access  Private/Admin
+exports.rejectSalesReturn = async (req, res) => {
+  try {
+    const rejectionReason = normalizeOptionalText(req.body?.rejectionReason);
+
+    if (!rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    const salesReturn = await SalesReturn.findById(req.params.id);
+
+    if (!salesReturn) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sales return not found'
+      });
+    }
+
+    if (salesReturn.status !== 'PENDING_APPROVAL') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only pending sales returns can be rejected'
+      });
+    }
+
+    salesReturn.status = 'REJECTED';
+    salesReturn.rejectedBy = req.user.id;
+    salesReturn.rejectedAt = new Date();
+    salesReturn.rejectionReason = rejectionReason;
+    salesReturn.approvedBy = null;
+    salesReturn.approvedAt = null;
+
+    await salesReturn.save();
+
+    const populatedSalesReturn = await SalesReturn.findById(salesReturn._id)
+      .populate('bill', 'invoiceNumber billDate')
+      .populate('createdBy', 'name')
+      .populate('approvedBy', 'name')
+      .populate('rejectedBy', 'name');
+
+    res.status(200).json({
+      success: true,
+      message: 'Sales return rejected',
+      data: populatedSalesReturn
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error rejecting sales return',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get sales return approval/report summary
+// @route   GET /api/sales-returns/report
+// @access  Private
+exports.getSalesReturnReport = async (req, res) => {
+  try {
+    const {
+      startDate,
+      endDate
+    } = req.query;
+
+    const match = {};
+
+    if (req.user.role === 'staff') {
+      match.createdBy = new mongoose.Types.ObjectId(req.user.id);
+    }
+
+    if (startDate || endDate) {
+      match.returnDate = {};
+      if (startDate) {
+        match.returnDate.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        match.returnDate.$lte = end;
+      }
+    }
+
+    const [statusSummary, refundSummary, reasonSummary] = await Promise.all([
+      SalesReturn.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            amount: { $sum: '$grandTotal' }
+          }
+        }
+      ]),
+      SalesReturn.aggregate([
+        { $match: { ...match, status: 'APPROVED' } },
+        {
+          $group: {
+            _id: '$refundMode',
+            count: { $sum: 1 },
+            amount: { $sum: '$grandTotal' }
+          }
+        }
+      ]),
+      SalesReturn.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: { $ifNull: ['$reason', 'No reason'] },
+            count: { $sum: 1 },
+            amount: { $sum: '$grandTotal' }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 8 }
+      ])
+    ]);
+
+    const statusTotals = statusSummary.reduce((acc, item) => {
+      const key = item._id || 'PENDING_APPROVAL';
+      acc[key] = {
+        count: item.count,
+        amount: roundCurrency(item.amount)
+      };
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      success: true,
+      data: {
+        statusTotals,
+        refundSummary: refundSummary.map((item) => ({
+          refundMode: item._id || 'CASH',
+          count: item.count,
+          amount: roundCurrency(item.amount)
+        })),
+        reasonSummary: reasonSummary.map((item) => ({
+          reason: item._id,
+          count: item.count,
+          amount: roundCurrency(item.amount)
+        }))
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting sales return report',
       error: error.message
     });
   }

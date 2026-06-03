@@ -3,15 +3,45 @@ import { useLocation } from 'react-router-dom';
 import {
   AlertCircle,
   Calendar,
+  CheckCircle,
+  Clock,
   FileText,
   Phone,
   Receipt,
   RotateCcw,
   Save,
   Search,
-  User
+  User,
+  XCircle
 } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+const REFUND_MODES = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'UPI', label: 'UPI' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'STORE_CREDIT', label: 'Store Credit' },
+  { value: 'ADJUSTED_IN_NEXT_BILL', label: 'Adjusted in Next Bill' }
+];
+
+const STATUS_CONFIG = {
+  PENDING_APPROVAL: {
+    label: 'Pending',
+    icon: Clock,
+    className: 'bg-amber-100 text-amber-800 border-amber-200'
+  },
+  APPROVED: {
+    label: 'Approved',
+    icon: CheckCircle,
+    className: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+  },
+  REJECTED: {
+    label: 'Rejected',
+    icon: XCircle,
+    className: 'bg-red-100 text-red-800 border-red-200'
+  }
+};
 
 const formatAmount = (value) =>
   new Intl.NumberFormat('en-IN', {
@@ -26,6 +56,20 @@ const formatDate = (value) => {
     month: 'short',
     year: 'numeric'
   });
+};
+
+const formatRefundMode = (value) => REFUND_MODES.find((mode) => mode.value === value)?.label || 'Cash';
+
+const StatusBadge = ({ status }) => {
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING_APPROVAL;
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${config.className}`}>
+      <Icon size={13} />
+      {config.label}
+    </span>
+  );
 };
 
 const getItemUnitLabel = (item) => {
@@ -56,6 +100,7 @@ const getItemReturnState = (item, index, returnedByIndex, returnQuantities, sele
 };
 
 export default function SalesReturns() {
+  const { isAdmin } = useAuth();
   const location = useLocation();
   const preselectedBillId = location.state?.billId || '';
 
@@ -70,12 +115,18 @@ export default function SalesReturns() {
 
   const [returnQuantities, setReturnQuantities] = useState({});
   const [reason, setReason] = useState('');
+  const [refundMode, setRefundMode] = useState('CASH');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [historySearch, setHistorySearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [historyLoading, setHistoryLoading] = useState(false);
   const [recentReturns, setRecentReturns] = useState([]);
+  const [returnReport, setReturnReport] = useState(null);
+  const [approvalLoadingId, setApprovalLoadingId] = useState(null);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -106,7 +157,8 @@ export default function SalesReturns() {
         params: {
           page: 1,
           limit: 10,
-          search: searchValue
+          search: searchValue,
+          status: statusFilter === 'ALL' ? undefined : statusFilter
         }
       });
       setRecentReturns(response.data?.data || []);
@@ -115,6 +167,16 @@ export default function SalesReturns() {
       setRecentReturns([]);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const fetchReturnReport = async () => {
+    try {
+      const response = await api.get('/sales-returns/report');
+      setReturnReport(response.data?.data || null);
+    } catch (fetchError) {
+      console.error('Error fetching sales return report:', fetchError);
+      setReturnReport(null);
     }
   };
 
@@ -165,6 +227,7 @@ export default function SalesReturns() {
   useEffect(() => {
     fetchBillResults('');
     fetchRecentReturns('');
+    fetchReturnReport();
   }, []);
 
   useEffect(() => {
@@ -181,7 +244,7 @@ export default function SalesReturns() {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [historySearch]);
+  }, [historySearch, statusFilter]);
 
   useEffect(() => {
     if (preselectedBillId) {

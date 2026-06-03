@@ -72,7 +72,8 @@ const getReturnSummaryMap = async (billIds = []) => {
   const summaries = await SalesReturn.aggregate([
     {
       $match: {
-        bill: { $in: normalizedIds }
+        bill: { $in: normalizedIds },
+        status: 'APPROVED'
       }
     },
     {
@@ -117,7 +118,7 @@ const enrichBillWithReturnSummary = (bill, returnSummaryMap = new Map()) => {
 
 const getSalesReturnAggregate = async (match) => {
   const results = await SalesReturn.aggregate([
-    { $match: match },
+    { $match: { ...match, status: 'APPROVED' } },
     {
       $group: {
         _id: null,
@@ -1509,6 +1510,7 @@ exports.getDashboardStats = async (req, res) => {
       {
         $match: {
           returnDate: { $gte: last7DaysRangeStart, $lt: last7DaysRangeEnd },
+          status: 'APPROVED',
           ...(req.user.role === 'staff' ? { createdBy: new mongoose.Types.ObjectId(req.user.id) } : {})
         }
       },

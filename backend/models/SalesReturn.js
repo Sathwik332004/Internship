@@ -142,6 +142,16 @@ const salesReturnSchema = new mongoose.Schema(
       trim: true,
       default: null
     },
+    refundMode: {
+      type: String,
+      enum: ['CASH', 'UPI', 'CARD', 'STORE_CREDIT', 'ADJUSTED_IN_NEXT_BILL'],
+      default: 'CASH'
+    },
+    status: {
+      type: String,
+      enum: ['PENDING_APPROVAL', 'APPROVED', 'REJECTED'],
+      default: 'PENDING_APPROVAL'
+    },
     notes: {
       type: String,
       trim: true,
@@ -186,6 +196,29 @@ const salesReturnSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    approvedAt: {
+      type: Date,
+      default: null
+    },
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    rejectedAt: {
+      type: Date,
+      default: null
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      default: null
     }
   },
   {
@@ -194,6 +227,7 @@ const salesReturnSchema = new mongoose.Schema(
 );
 
 salesReturnSchema.index({ bill: 1, createdAt: -1 });
+salesReturnSchema.index({ status: 1, returnDate: -1 });
 
 salesReturnSchema.statics.generateReturnNumber = async function generateReturnNumber() {
   const date = new Date();

@@ -61,7 +61,8 @@ const formatDate = (value) => {
 const formatRefundMode = (value) => REFUND_MODES.find((mode) => mode.value === value)?.label || 'Cash';
 
 const StatusBadge = ({ status }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING_APPROVAL;
+  const normalizedStatus = status || 'APPROVED';
+  const config = STATUS_CONFIG[normalizedStatus] || STATUS_CONFIG.PENDING_APPROVAL;
   const Icon = config.icon;
 
   return (
@@ -322,23 +323,26 @@ export default function SalesReturns() {
       const response = await api.post('/sales-returns', {
         billId: selectedBill._id,
         reason,
+        refundMode,
         notes,
         items
       });
 
       const createdReturn = response.data?.data;
       setReason('');
+      setRefundMode('CASH');
       setNotes('');
       setReturnQuantities({});
 
       await Promise.all([
         loadBill(selectedBill._id),
-        fetchRecentReturns(historySearch.trim())
+        fetchRecentReturns(historySearch.trim()),
+        fetchReturnReport()
       ]);
 
       setSuccessMessage(createdReturn?.returnNumber
-        ? `Sales return ${createdReturn.returnNumber} saved successfully.`
-        : 'Sales return saved successfully.');
+        ? `Sales return ${createdReturn.returnNumber} submitted for approval.`
+        : 'Sales return submitted for approval.');
     } catch (saveError) {
       console.error('Error saving sales return:', saveError);
       setError(saveError.response?.data?.message || 'Unable to save sales return.');
@@ -347,18 +351,132 @@ export default function SalesReturns() {
     }
   };
 
+  const refreshReturnData = async () => {
+    await Promise.all([
+      fetchRecentReturns(historySearch.trim()),
+      fetchReturnReport(),
+      selectedBill?._id ? loadBill(selectedBill._id) : Promise.resolve()
+    ]);
+  };
+
+  const handleApproveReturn = async (salesReturn) => {
+    try {
+      setApprovalLoadingId(salesReturn._id);
+      setError('');
+      setSuccessMessage('');
+
+      const response = await api.patch(`/sales-returns/${salesReturn._id}/approve`);
+      await refreshReturnData();
+      setSuccessMessage(response.data?.message || `Sales return ${salesReturn.returnNumber} approved.`);
+    } catch (approveError) {
+      console.error('Error approving sales return:', approveError);
+      setError(approveError.response?.data?.message || 'Unable to approve sales return.');
+    } finally {
+      setApprovalLoadingId(null);
+    }
+  };
+
+  const openRejectModal = (salesReturn) => {
+    setRejectTarget(salesReturn);
+    setRejectionReason('');
+    setError('');
+    setSuccessMessage('');
+  };
+
+  const handleRejectReturn = async () => {
+    if (!rejectTarget?._id) return;
+
+    if (!rejectionReason.trim()) {
+      setError('Enter a rejection reason before rejecting this return.');
+      return;
+    }
+
+    try {
+      setApprovalLoadingId(rejectTarget._id);
+      const response = await api.patch(`/sales-returns/${rejectTarget._id}/reject`, {
+        rejectionReason
+      });
+      setRejectTarget(null);
+      setRejectionReason('');
+      await refreshReturnData();
+      setSuccessMessage(response.data?.message || `Sales return ${rejectTarget.returnNumber} rejected.`);
+    } catch (rejectError) {
+      console.error('Error rejecting sales return:', rejectError);
+      setError(rejectError.response?.data?.message || 'Unable to reject sales return.');
+    } finally {
+      setApprovalLoadingId(null);
+    }
+  };
+
+  const renderReturnCard = (entry) => {
+    const isPending = entry.status === 'PENDING_APPROVAL';
+
+    return (
+      <div key={entry._id} className="rounded-xl border border-gray-200 px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="break-all font-semibold text-gray-900">{entry.returnNumber}</div>
+            <div className="mt-1 break-all text-sm text-gray-600">{entry.invoiceNumber}</div>
+            <div className="mt-1 text-xs text-gray-500">
+              {entry.customerName || 'Walk-in Customer'} - {formatDate(entry.returnDate)}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusBadge status={entry.status} />
+              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
+                {formatRefundMode(entry.refundMode)}
+              </span>
+            </div>
+            {entry.reason && (
+              <div className="mt-2 text-xs text-gray-500">Reason: {entry.reason}</div>
+            )}
+            {entry.rejectionReason && (
+              <div className="mt-2 text-xs text-red-600">Rejected: {entry.rejectionReason}</div>
+            )}
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-semibold text-emerald-700">{formatAmount(entry.grandTotal)}</div>
+            <div className="text-xs text-gray-500">{entry.items?.length || 0} lines</div>
+          </div>
+        </div>
+
+        {isAdmin && isPending && (
+          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-3">
+            <button
+              type="button"
+              onClick={() => handleApproveReturn(entry)}
+              disabled={approvalLoadingId === entry._id}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CheckCircle size={14} />
+              {approvalLoadingId === entry._id ? 'Approving...' : 'Approve'}
+            </button>
+            <button
+              type="button"
+              onClick={() => openRejectModal(entry)}
+              disabled={approvalLoadingId === entry._id}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <XCircle size={14} />
+              Reject
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sales Return</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Sales Return Approval</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Process customer returns as a separate module without editing the original bill.
+            Submit return requests, approve stock restoration, and track refund decisions.
           </p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
           <RotateCcw size={16} />
-          Separate stock restoration flow
+          Approval-based stock restoration
         </div>
       </div>
 
@@ -374,6 +492,25 @@ export default function SalesReturns() {
           </div>
         </div>
       )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {[
+          { key: 'PENDING_APPROVAL', label: 'Pending Approval', color: 'text-amber-700', bg: 'bg-amber-50' },
+          { key: 'APPROVED', label: 'Approved Returns', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { key: 'REJECTED', label: 'Rejected Returns', color: 'text-red-700', bg: 'bg-red-50' }
+        ].map((item) => {
+          const total = returnReport?.statusTotals?.[item.key] || { count: 0, amount: 0 };
+          return (
+            <div key={item.key} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className={`mb-3 inline-flex rounded-xl px-3 py-2 text-sm font-semibold ${item.bg} ${item.color}`}>
+                {item.label}
+              </div>
+              <div className="text-2xl font-bold text-gray-900">{total.count || 0}</div>
+              <div className="mt-1 text-sm text-gray-500">{formatAmount(total.amount || 0)}</div>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr,1.35fr]">
         <div className="space-y-6">
@@ -448,7 +585,31 @@ export default function SalesReturns() {
                   className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 sm:max-w-[12rem]"
+              >
+                <option value="ALL">All statuses</option>
+                <option value="PENDING_APPROVAL">Pending</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
             </div>
+
+            {isAdmin && recentReturns.some((entry) => entry.status === 'PENDING_APPROVAL') && (
+              <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-800">
+                  <Clock size={16} />
+                  Pending approval queue
+                </div>
+                <div className="space-y-3">
+                  {recentReturns
+                    .filter((entry) => entry.status === 'PENDING_APPROVAL')
+                    .map(renderReturnCard)}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-3">
               {historyLoading ? (
@@ -670,6 +831,18 @@ export default function SalesReturns() {
                       />
                     </div>
                     <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-700">Refund Mode</label>
+                      <select
+                        value={refundMode}
+                        onChange={(event) => setRefundMode(event.target.value)}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                      >
+                        {REFUND_MODES.map((mode) => (
+                          <option key={mode.value} value={mode.value}>{mode.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">Notes</label>
                       <textarea
                         rows="4"
@@ -716,7 +889,7 @@ export default function SalesReturns() {
                       className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-center font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Save size={18} />
-                      {saving ? 'Saving Return...' : 'Save Sales Return'}
+                      {saving ? 'Submitting Request...' : 'Submit for Approval'}
                     </button>
                   </div>
                 </div>
@@ -735,8 +908,17 @@ export default function SalesReturns() {
                             <div>
                               <div className="font-semibold text-gray-900">{entry.returnNumber}</div>
                               <div className="mt-1 text-sm text-gray-600">{formatDate(entry.returnDate)}</div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <StatusBadge status={entry.status} />
+                                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
+                                  {formatRefundMode(entry.refundMode)}
+                                </span>
+                              </div>
                               {entry.reason && (
                                 <div className="mt-1 text-xs text-gray-500">Reason: {entry.reason}</div>
+                              )}
+                              {entry.rejectionReason && (
+                                <div className="mt-1 text-xs text-red-600">Rejected: {entry.rejectionReason}</div>
                               )}
                             </div>
                             <div className="text-right">
@@ -769,6 +951,16 @@ export default function SalesReturns() {
                   className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 sm:max-w-[12rem]"
+              >
+                <option value="ALL">All statuses</option>
+                <option value="PENDING_APPROVAL">Pending</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
             </div>
 
             <div className="space-y-3">
@@ -803,6 +995,52 @@ export default function SalesReturns() {
           </div>
         </div>
       </div>
+
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-full bg-red-100 p-3 text-red-700">
+                <XCircle size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Reject Sales Return</h3>
+                <p className="text-sm text-gray-500">{rejectTarget.returnNumber}</p>
+              </div>
+            </div>
+
+            <label className="mb-2 block text-sm font-medium text-gray-700">Rejection Reason</label>
+            <textarea
+              rows="4"
+              value={rejectionReason}
+              onChange={(event) => setRejectionReason(event.target.value)}
+              placeholder="Explain why this return request is rejected..."
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+            />
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectTarget(null);
+                  setRejectionReason('');
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectReturn}
+                disabled={approvalLoadingId === rejectTarget._id}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {approvalLoadingId === rejectTarget._id ? 'Rejecting...' : 'Reject Return'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

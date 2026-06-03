@@ -19,7 +19,10 @@ const createHttpError = (statusCode, message) => {
 const getReturnedQuantityMap = async (billId, session) => {
   const returns = await SalesReturn.find({
     bill: billId,
-    status: { $in: ['PENDING_APPROVAL', 'APPROVED'] }
+    $or: [
+      { status: { $in: ['PENDING_APPROVAL', 'APPROVED'] } },
+      { status: { $exists: false } }
+    ]
   })
     .select('items.originalItemIndex items.returnQuantity')
     .session(session);
@@ -583,14 +586,22 @@ exports.getSalesReturnReport = async (req, res) => {
         { $match: match },
         {
           $group: {
-            _id: '$status',
+            _id: { $ifNull: ['$status', 'APPROVED'] },
             count: { $sum: 1 },
             amount: { $sum: '$grandTotal' }
           }
         }
       ]),
       SalesReturn.aggregate([
-        { $match: { ...match, status: 'APPROVED' } },
+        {
+          $match: {
+            ...match,
+            $or: [
+              { status: 'APPROVED' },
+              { status: { $exists: false } }
+            ]
+          }
+        },
         {
           $group: {
             _id: '$refundMode',

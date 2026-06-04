@@ -40,87 +40,117 @@ const Login = () => {
   };
 
   return (
-    <div className="medical-grid relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_24%),linear-gradient(135deg,_#fbfcf8,_#f2f7ee_55%,_#f3efe6)] p-4">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(163,230,53,0.14),transparent_18%),radial-gradient(circle_at_20%_85%,rgba(34,197,94,0.12),transparent_20%)]" />
-      <div className="relative w-full max-w-xl overflow-hidden rounded-[36px] border border-white/50 bg-white/70 shadow-[0_30px_100px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-        <section className="p-6 sm:p-10">
-          <div className="mx-auto w-full max-w-md">
-            <div className="mb-8">
-              <div className="flex items-center justify-between">
-                <BrandLogo compact showTagline={false} />
-              </div>
-              <div className="mt-8">
-                <h1 className="text-3xl font-semibold text-slate-950">Welcome back</h1>
-                <p className="mt-2 text-sm leading-6 text-slate-500">Sign in to manage billing, purchases, and inventory for Bhagya Medicals.</p>
-              </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4"
+      style={{ background: 'linear-gradient(135deg, #0f1f3d 0%, #1e3a5f 50%, #0f2642 100%)' }}>
+
+      {/* Background blobs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, #2563eb, transparent 70%)' }} />
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full opacity-15"
+          style={{ background: 'radial-gradient(circle, #1d4ed8, transparent 70%)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full opacity-5"
+          style={{ background: 'radial-gradient(circle, #3b82f6, transparent 70%)' }} />
+      </div>
+
+      <div className="relative w-full max-w-md">
+        {/* Card */}
+        <div className="rounded-2xl overflow-hidden"
+          style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.35)' }}>
+
+          {/* Blue header strip */}
+          <div className="px-8 pt-8 pb-6"
+            style={{ background: 'linear-gradient(135deg, #1e3a5f, #0f2642)', borderBottom: '1px solid rgba(37,99,235,0.3)' }}>
+            <BrandLogo dark />
+          </div>
+
+          <section className="p-8">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Welcome back</h1>
+              <p className="mt-1 text-sm" style={{ color: '#64748b' }}>Sign in to your pharmacy management system</p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 shadow-sm"
-                placeholder="admin@bhagyamedicals.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Password
-              </label>
-              <div className="relative">
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium" style={{ color: '#374151' }}>
+                  Email Address
+                </label>
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-12 text-slate-900 shadow-sm"
-                  placeholder="Enter your password"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border px-4 py-3 text-sm"
+                  style={{ borderColor: '#d1d5db', borderRadius: 8, color: '#111827', background: '#f9fafb' }}
+                  placeholder="admin@bhagyamedicals.com"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium" style={{ color: '#374151' }}>
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border px-4 py-3 pr-12 text-sm"
+                    style={{ borderColor: '#d1d5db', borderRadius: 8, color: '#111827', background: '#f9fafb' }}
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    style={{ color: '#9ca3af' }}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center py-3 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                  borderRadius: 8,
+                  boxShadow: '0 4px 14px rgba(37,99,235,0.40)'
+                }}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in…
+                  </>
+                ) : (
+                  'Sign In to Dashboard'
+                )}
+              </button>
+
+              <div className="text-center pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-sm font-medium transition-colors"
+                  style={{ color: '#2563eb' }}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  Forgot Password?
                 </button>
               </div>
-            </div>
+            </form>
+          </section>
+        </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 via-lime-500 to-emerald-500 py-3.5 font-medium text-white shadow-[0_18px_40px_rgba(34,197,94,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-
-            <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/forgot-password')}
-                className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-              >
-                Forgot Password?
-              </button>
-            </div>
-          </form>
-          </div>
-        </section>
+        {/* Footer note */}
+        <p className="mt-4 text-center text-xs" style={{ color: 'rgba(148,163,184,0.7)' }}>
+          Bhagya Medicals © {new Date().getFullYear()} · Pharmacy Management System
+        </p>
       </div>
+
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { 
+import {
   LayoutDashboard,
   Pill,
   ShoppingCart,
@@ -20,7 +20,9 @@ import {
   BellRing,
   ClipboardList,
   FileClock,
-  CalendarClock
+  CalendarClock,
+  ChevronRight,
+  Activity
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import BrandLogo from './BrandLogo';
@@ -37,27 +39,42 @@ const Layout = () => {
     navigate('/login');
   };
 
-  const navItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/billing', icon: ShoppingCart, label: 'Billing' },
-    { path: '/prescriptions', icon: ClipboardList, label: 'Prescriptions' },
-    { path: '/medicines', icon: Pill, label: 'Medicines' },
-    { path: '/suppliers', icon: Truck, label: 'Suppliers' },
-    { path: '/purchases', icon: Package, label: 'Purchases' },
-    { path: '/purchase-orders', icon: ClipboardList, label: 'Purchase Orders' },
-    { path: '/purchase-returns', icon: RotateCcw, label: 'Purchase Return' },
-    { path: '/inventory', icon: Archive, label: 'Inventory' },
-    { path: '/bills', icon: FileText, label: 'Bills' },
-    { path: '/sales-returns', icon: RotateCcw, label: 'Sales Return' },
-    { path: '/notifications', icon: BellRing, label: 'Notifications' },
-    { path: '/staff-attendance', icon: CalendarClock, label: 'Attendance' },
-    { path: '/reports', icon: BarChart3, label: 'Reports' },
-    ...(isAdmin ? [
-      { path: '/audit-logs', icon: FileClock, label: 'Audit Logs' },
-      { path: '/hsn-codes', icon: Hash, label: 'HSN Codes' },
-      { path: '/assets', icon: Box, label: 'Assets' },
-      { path: '/users', icon: Users, label: 'Users' }
-    ] : [])
+  const navGroups = [
+    {
+      label: 'Operations',
+      items: [
+        { path: '/dashboard',       icon: LayoutDashboard, label: 'Dashboard' },
+        { path: '/billing',         icon: ShoppingCart,    label: 'Billing' },
+        { path: '/prescriptions',   icon: ClipboardList,   label: 'Prescriptions' },
+        { path: '/bills',           icon: FileText,        label: 'Bills' },
+        { path: '/sales-returns',   icon: RotateCcw,       label: 'Sales Returns' },
+      ]
+    },
+    {
+      label: 'Inventory',
+      items: [
+        { path: '/medicines',        icon: Pill,        label: 'Medicines' },
+        { path: '/inventory',        icon: Archive,     label: 'Inventory' },
+        { path: '/suppliers',        icon: Truck,       label: 'Suppliers' },
+        { path: '/purchases',        icon: Package,     label: 'Purchases' },
+        { path: '/purchase-orders',  icon: ClipboardList, label: 'Purchase Orders' },
+        { path: '/purchase-returns', icon: RotateCcw,   label: 'Purchase Returns' },
+      ]
+    },
+    {
+      label: 'Management',
+      items: [
+        { path: '/notifications',   icon: BellRing,      label: 'Notifications' },
+        { path: '/staff-attendance',icon: CalendarClock, label: 'Attendance' },
+        { path: '/reports',         icon: BarChart3,     label: 'Reports' },
+        ...(isAdmin ? [
+          { path: '/audit-logs',    icon: FileClock,     label: 'Audit Logs' },
+          { path: '/hsn-codes',     icon: Hash,          label: 'HSN Codes' },
+          { path: '/assets',        icon: Box,           label: 'Assets' },
+          { path: '/users',         icon: Users,         label: 'Users' },
+        ] : [])
+      ]
+    }
   ];
 
   useEffect(() => {
@@ -67,13 +84,9 @@ const Layout = () => {
       try {
         const response = await notificationAPI.getAll();
         const count = response.data.unreadCount ?? (response.data.data || []).filter((item) => !item.isRead).length;
-        if (isMounted) {
-          setUnreadCount(count);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setUnreadCount(0);
-        }
+        if (isMounted) setUnreadCount(count);
+      } catch {
+        if (isMounted) setUnreadCount(0);
       }
     };
 
@@ -89,138 +102,182 @@ const Layout = () => {
   }, []);
 
   return (
-    <div className="app-shell min-h-screen medical-grid">
+    <div className="app-shell min-h-screen flex" style={{ background: 'var(--bg)' }}>
 
-      {/* Mobile sidebar backdrop */}
+      {/* Mobile backdrop */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm lg:hidden"
+        <div
+          className="fixed inset-0 z-40 lg:hidden"
+          style={{ background: 'rgba(15,31,61,0.55)', backdropFilter: 'blur(3px)' }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={`app-sidebar fixed top-0 left-0 z-50 h-full w-[86vw] max-w-[320px] transform transition-transform duration-300 ease-in-out sm:max-w-[360px] lg:w-72 lg:max-w-none lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        
-        <div className="flex flex-col h-full">
+      {/* ── Sidebar ──────────────────────────────────────────────── */}
+      <aside
+        className={`app-sidebar fixed top-0 left-0 z-50 h-full flex flex-col
+          w-[272px] transform transition-transform duration-300 ease-in-out
+          lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ background: 'var(--sidebar-bg)' }}
+      >
+        {/* Logo bar */}
+        <div className="flex items-center justify-between px-5 py-5"
+          style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+          <BrandLogo compact />
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Logo */}
-          <div className="flex items-start justify-between border-b border-gray-200 px-5 py-5">
-            <BrandLogo compact />
-            <button onClick={() => setSidebarOpen(false)} className="rounded-xl p-2 text-slate-500 hover:bg-white/60 lg:hidden">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Navigation */}
-          <nav className="mt-4 px-3 overflow-auto flex-1">
-            <p className="px-4 pb-3 text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-500">Main Menu</p>
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `app-nav-item group mb-1.5 flex items-center gap-3 rounded-2xl px-4 py-3 transition-all ${
-                    isActive
-                      ? 'active'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`
-                }
-              >
-                <span className="app-nav-icon flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset">
-                  <item.icon className="h-5 w-5" />
-                </span>
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          {/* User Profile */}
-          <div className="border-t border-white/10 p-4">
-
-            <div
-              onClick={() => navigate('/profile')}
-              className="mb-4 flex cursor-pointer items-center rounded-[24px] border border-gray-200 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)]"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171717] text-white shadow-sm">
-                <span className="font-semibold">
-                  {user?.name?.charAt(0).toUpperCase()}
-                </span>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                style={{ color: 'rgba(148,163,184,0.6)' }}>
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) =>
+                      `app-nav-item flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all ${
+                        isActive ? 'active' : ''
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <span className="app-nav-icon flex h-8 w-8 items-center justify-center rounded-lg ring-1 ring-inset shrink-0">
+                          <item.icon className="h-4 w-4" />
+                        </span>
+                        <span className="flex-1 truncate">{item.label}</span>
+                        {isActive && <ChevronRight className="h-3.5 w-3.5 opacity-60 shrink-0" />}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
               </div>
-
-              <div className="ml-3">
-                <p className="text-sm font-semibold text-slate-900">{user?.name}</p>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{user?.role}</p>
-              </div>
-
             </div>
+          ))}
+        </nav>
 
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center rounded-2xl px-4 py-3 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:text-rose-800"
-            >
-              <LogOut className="w-4 h-4 mr-3" />
-              Logout
-            </button>
-
-          </div>
-
+        {/* User panel */}
+        <div className="p-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+          <button
+            onClick={() => { navigate('/profile'); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/8 transition-colors text-left mb-1"
+            style={{ '--tw-bg-opacity': 1 }}
+          >
+            <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 text-white font-bold text-sm"
+              style={{ background: 'var(--brand)' }}>
+              {user?.name?.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: '#e2e8f0' }}>{user?.name}</p>
+              <p className="text-xs capitalize" style={{ color: 'var(--sidebar-text)' }}>{user?.role}</p>
+            </div>
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
+            style={{ color: '#f87171' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.12)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            Sign Out
+          </button>
         </div>
 
       </aside>
 
-      {/* Main Content */}
-      <div className="lg:pl-72">
+      {/* ── Main area ─────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-[272px]">
 
-        {/* Header */}
-        <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 lg:px-6 lg:pt-4">
-          <div className="app-topbar flex min-h-[80px] items-center justify-between gap-3 rounded-[24px] px-4 py-3 sm:px-5">
-          
+        {/* Top bar */}
+        <header className="sticky top-0 z-30 px-4 pt-3 lg:px-6 lg:pt-4">
+          <div className="app-topbar flex items-center justify-between gap-4 rounded-2xl px-4 py-3 lg:px-5"
+            style={{ minHeight: 64 }}>
+
+            {/* Left: mobile menu + breadcrumb */}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="rounded-2xl p-3 text-slate-700 hover:bg-white/70 lg:hidden"
+                className="lg:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="h-5 w-5" />
               </button>
-              <div className="md:hidden">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">Bhagya Medicals Workspace</p>
+
+              {/* System badge — desktop */}
+              <div className="hidden lg:flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg flex items-center justify-center"
+                  style={{ background: 'var(--brand)' }}>
+                  <Activity className="h-3.5 w-3.5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>Bhagya Medicals</p>
+                  <p className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--text-faint)' }}>Pharmacy Management</p>
+                </div>
               </div>
             </div>
 
-            <div className="ml-0 flex items-center gap-3 sm:ml-auto">
+            {/* Right: notifications + user chip */}
+            <div className="flex items-center gap-2.5 ml-auto">
+
+              {/* Notification bell */}
               <button
-                type="button"
                 onClick={() => navigate('/notifications')}
-                className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-slate-700 shadow-[0_14px_30px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50"
+                className="relative flex h-10 w-10 items-center justify-center rounded-xl border transition-colors"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text-muted)' }}
                 title="Notifications"
+                onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface)'}
               >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none text-white ring-2 ring-white">
+                <Bell className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
-                ) : null}
+                )}
               </button>
-              <div className="hidden rounded-[20px] border border-gray-200 bg-white px-4 py-2 text-right sm:block">
-                <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Signed in as</p>
-                <span className="text-sm font-semibold text-slate-900">{user?.name}</span>
-              </div>
+
+              {/* User chip */}
+              <button
+                onClick={() => navigate('/profile')}
+                className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-colors"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface)'}
+              >
+                <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ background: 'var(--brand)' }}>
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-semibold leading-none" style={{ color: 'var(--text)' }}>{user?.name}</p>
+                  <p className="text-[10px] capitalize mt-0.5" style={{ color: 'var(--text-faint)' }}>{user?.role}</p>
+                </div>
+              </button>
+
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="p-3 sm:p-4 lg:p-6">
+        {/* Page content */}
+        <main className="flex-1 p-4 lg:p-6">
           <div className="app-content-shell mx-auto max-w-[1600px]">
             <Outlet />
           </div>
         </main>
 
       </div>
-
     </div>
   );
 };

@@ -4,6 +4,7 @@ const router = express.Router();
 const {
   register,
   login,
+  verifyLoginOTP,
   forgotPassword,
   resetPassword,
   getMe,
@@ -24,6 +25,7 @@ const { auditAction } = require('../middleware/audit');
 =========================== */
 
 router.post('/login', login);
+router.post('/verify-login-otp', verifyLoginOTP);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 

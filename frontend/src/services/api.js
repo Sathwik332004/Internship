@@ -39,14 +39,14 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
+  verifyLoginOTP: (data) => api.post('/auth/verify-login-otp', data),
   register: (data) => api.post('/auth/register', data),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
   getMe: () => api.get('/auth/me'),
   getUsers: () => api.get('/auth/users'),
   toggleUserStatus: (id) => api.put(`/auth/users/${id}/toggle-status`),
-  deleteUser: (id) => api.delete(`/auth/users/${id}`)
-  ,
+  deleteUser: (id) => api.delete(`/auth/users/${id}`),
   updateUser: (id, data) => api.put(`/auth/users/${id}`, data)
 };
 

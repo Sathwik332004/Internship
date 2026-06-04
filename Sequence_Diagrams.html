@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bhagya Medicals — System Sequence Diagrams</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    background: linear-gradient(135deg, #0f1f3d 0%, #1e3a5f 100%);
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  }
+  .header-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+  }
+  .header-text h1 { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .header-text p  { color: #94a3b8; font-size: 13px; margin-top: 3px; }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: calc(100vh - 96px); }
+
+  /* ── Sidebar nav ── */
+  .sidebar {
+    width: 270px; min-width: 270px;
+    background: #0f1f3d;
+    padding: 20px 12px;
+    overflow-y: auto;
+    position: sticky; top: 0; height: calc(100vh - 96px);
+  }
+  .sidebar-group { margin-bottom: 22px; }
+  .sidebar-group-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.18em; color: rgba(148,163,184,0.6);
+    padding: 0 10px; margin-bottom: 6px;
+  }
+  .nav-btn {
+    display: flex; align-items: center; gap-10px; width: 100%;
+    padding: 9px 12px; border-radius: 8px; border: none;
+    background: transparent; cursor: pointer; text-align: left;
+    font-size: 13px; font-weight: 500; color: #94a3b8;
+    transition: all 0.15s; gap: 10px;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
+  .nav-btn.active { background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+  .nav-btn .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: currentColor; opacity: 0.5;
+  }
+  .nav-btn.active .dot { opacity: 1; }
+
+  /* ── Main content ── */
+  .main { flex: 1; padding: 28px 32px; overflow-x: auto; }
+
+  .diagram-section { display: none; }
+  .diagram-section.visible { display: block; }
+
+  .section-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .section-title {
+    font-size: 20px; font-weight: 700; color: #0f172a;
+    letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px;
+  }
+  .section-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px;
+    border-radius: 20px; background: #eff6ff; color: #2563eb;
+    border: 1px solid #bfdbfe;
+  }
+  .section-desc { margin-top: 6px; font-size: 13px; color: #64748b; }
+
+  /* Diagram cards */
+  .diagram-grid { display: grid; gap: 24px; }
+  .diagram-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .diagram-card-header {
+    padding: 14px 20px;
+    background: #1e3a5f;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .diagram-card-header h3 { color: #fff; font-size: 14px; font-weight: 600; }
+  .diagram-card-header .card-badge {
+    margin-left: auto; font-size: 11px; font-weight: 600;
+    padding: 2px 9px; border-radius: 20px;
+    background: rgba(37,99,235,0.25); color: #93c5fd;
+    border: 1px solid rgba(37,99,235,0.3);
+  }
+  .diagram-card-body {
+    padding: 24px;
+    overflow-x: auto;
+  }
+
+  /* Mermaid tweaks */
+  .mermaid { display: flex; justify-content: center; }
+
+  /* Loading */
+  .loading {
+    display: flex; align-items: center; justify-content: center;
+    padding: 40px; color: #94a3b8; font-size: 14px; gap: 10px;
+  }
+  .spin {
+    width: 18px; height: 18px; border: 2px solid #e2e8f0;
+    border-top-color: #2563eb; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Legend */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    margin-top: 20px; padding: 14px 18px;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 10px; font-size: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; color: #475569; }
+  .legend-line {
+    width: 28px; height: 2px; border-radius: 1px;
+  }
+  .legend-dashed {
+    width: 28px; height: 0; border-top: 2px dashed;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="page-header">
+  <div class="header-icon">➕</div>
+  <div class="header-text">
+    <h1>Bhagya Medicals — System Sequence Diagrams</h1>
+    <p>Complete UML sequence diagrams for all 14 application workflows</p>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Authentication</div>
+      <button class="nav-btn active" onclick="show('auth-admin')" id="btn-auth-admin">
+        <span class="dot"></span> Admin Login (OTP)
+      </button>
+      <button class="nav-btn" onclick="show('auth-staff')" id="btn-auth-staff">
+        <span class="dot"></span> Staff Login
+      </button>
+      <button class="nav-btn" onclick="show('auth-reset')" id="btn-auth-reset">
+        <span class="dot"></span> Forgot / Reset Password
+      </button>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Sales</div>
+      <button class="nav-btn" onclick="show('billing')" id="btn-billing">
+        <span class="dot"></span> Create Bill (Billing)
+      </button>
+      <button class="nav-btn" onclick="show('settle')" id="btn-settle">
+        <span class="dot"></span> Settle Pending Bill
+      </button>
+      <button class="nav-btn" onclick="show('sales-return')" id="btn-sales-return">
+        <span class="dot"></span> Sales Return
+      </button>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Procurement</div>
+      <button class="nav-btn" onclick="show('purchase')" id="btn-purchase">
+        <span class="dot"></span> Create Purchase
+      </button>
+      <button class="nav-btn" onclick="show('purchase-return')" id="btn-purchase-return">
+        <span class="dot"></span> Purchase Return
+      </button>
+      <button class="nav-btn" onclick="show('purchase-order')" id="btn-purchase-order">
+        <span class="dot"></span> Purchase Orders (Auto PO)
+      </button>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Inventory & Medicines</div>
+      <button class="nav-btn" onclick="show('inventory')" id="btn-inventory">
+        <span class="dot"></span> Inventory Disposal
+      </button>
+      <button class="nav-btn" onclick="show('medicine')" id="btn-medicine">
+        <span class="dot"></span> Medicine Management
+      </button>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Clinical</div>
+      <button class="nav-btn" onclick="show('prescription')" id="btn-prescription">
+        <span class="dot"></span> Prescription Management
+      </button>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-label">Operations</div>
+      <button class="nav-btn" onclick="show('attendance')" id="btn-attendance">
+        <span class="dot"></span> Staff Attendance & Cashier
+      </button>
+      <button class="nav-btn" onclick="show('notifications')" id="btn-notifications">
+        <span class="dot"></span> Notifications
+      </button>
+      <button class="nav-btn" onclick="show('reports')" id="btn-reports">
+        <span class="dot"></span> Reports & Dashboard
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ══════════════ 1. ADMIN LOGIN ══════════════ -->
+    <div class="diagram-section visible" id="auth-admin">
+      <div class="section-header">
+        <div class="section-title">
+          Admin Login with OTP Verification
+          <span class="section-badge">Authentication</span>
+        </div>
+        <div class="section-desc">
+          Admin credentials are validated first. If correct, a 6-digit OTP is sent to the registered email.
+          The JWT token is only issued after successful OTP verification.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Admin 2-Factor Login Flow</h3>
+            <span class="card-badge">POST /auth/login → POST /auth/verify-login-otp</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant LP as Login Page
+    participant AC as Auth Controller
+    participant UM as User Model
+    participant ES as Email Service
+
+    Admin->>LP: Enter email & password
+    LP->>AC: POST /api/auth/login
+    AC->>UM: findOne({ email }).select(+password)
+    UM-->>AC: User document returned
+
+    alt User not found or inactive
+        AC-->>LP: 401 Invalid credentials
+        LP-->>Admin: Show error message
+    else Password mismatch
+        AC->>UM: matchPassword(password)
+        UM-->>AC: false
+        AC-->>LP: 401 Invalid credentials
+        LP-->>Admin: Show error message
+    else Valid admin credentials
+        AC->>UM: matchPassword(password)
+        UM-->>AC: true
+        Note over AC: role === 'admin' → OTP required
+        AC->>UM: generateOTP('login')
+        UM-->>AC: 6-digit OTP stored with 10-min expiry
+        AC->>ES: sendOTPEmail(email, otp, 'login')
+        ES-->>Admin: Email: "Your Login OTP is 123456"
+        AC-->>LP: 200 { requiresOTP: true, email }
+        LP->>LP: Switch to OTP verification screen
+        LP-->>Admin: Show masked email + OTP input
+    end
+
+    Admin->>LP: Enter 6-digit OTP
+    LP->>AC: POST /api/auth/verify-login-otp { email, otp }
+    AC->>UM: findOne({ email }).select(+resetOTP +resetOTPExpire)
+    UM-->>AC: User document
+
+    alt OTP invalid or expired
+        AC->>UM: checkOTP(otp)
+        UM-->>AC: false
+        AC-->>LP: 400 Invalid or expired OTP
+        LP-->>Admin: Error shown, OTP field cleared
+    else OTP valid
+        AC->>UM: checkOTP(otp)
+        UM-->>AC: true
+        AC->>UM: Clear resetOTP & resetOTPExpire
+        UM-->>AC: Saved
+        AC->>UM: getSignedJwtToken()
+        UM-->>AC: JWT token
+        AC-->>LP: 200 { token, user data }
+        LP->>LP: localStorage.setItem(token, user)
+        LP-->>Admin: Redirect to Dashboard
+    end
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 2. STAFF LOGIN ══════════════ -->
+    <div class="diagram-section" id="auth-staff">
+      <div class="section-header">
+        <div class="section-title">
+          Staff Direct Login
+          <span class="section-badge">Authentication</span>
+        </div>
+        <div class="section-desc">
+          Staff members log in directly with email and password — no OTP step required.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Staff Login Flow</h3>
+            <span class="card-badge">POST /auth/login</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Staff
+    participant LP as Login Page
+    participant AC as Auth Controller
+    participant UM as User Model
+
+    Staff->>LP: Enter email & password
+    LP->>AC: POST /api/auth/login
+    AC->>UM: findOne({ email }).select(+password)
+    UM-->>AC: User document
+
+    alt User not found / inactive
+        AC-->>LP: 401 Invalid credentials
+        LP-->>Staff: Show error message
+    else Password mismatch
+        AC->>UM: matchPassword(password)
+        UM-->>AC: false
+        AC-->>LP: 401 Invalid credentials
+        LP-->>Staff: Show error message
+    else Valid staff credentials
+        AC->>UM: matchPassword(password)
+        UM-->>AC: true
+        Note over AC: role === 'staff' → direct login
+        AC->>UM: getSignedJwtToken()
+        UM-->>AC: JWT token
+        AC-->>LP: 200 { token, user data }
+        LP->>LP: localStorage.setItem(token, user)
+        LP-->>Staff: Redirect to Dashboard
+    end
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 3. FORGOT PASSWORD ══════════════ -->
+    <div class="diagram-section" id="auth-reset">
+      <div class="section-header">
+        <div class="section-title">
+          Forgot Password / Reset Password
+          <span class="section-badge">Authentication</span>
+        </div>
+        <div class="section-desc">
+          Users request a password reset OTP via email, then submit the OTP along with their new password.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Forgot Password Flow</h3>
+            <span class="card-badge">POST /auth/forgot-password → POST /auth/reset-password</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant FP as Forgot Password Page
+    participant AC as Auth Controller
+    participant UM as User Model
+    participant ES as Email Service
+
+    User->>FP: Enter registered email
+    FP->>AC: POST /api/auth/forgot-password { email }
+    AC->>UM: findOne({ email })
+    UM-->>AC: User document
+
+    alt User not found
+        AC-->>FP: 404 No user with this email
+        FP-->>User: Show error
+    else User found
+        AC->>UM: generateOTP('reset')
+        UM-->>AC: OTP stored with expiry
+        AC->>ES: sendOTPEmail(email, otp, 'reset')
+        ES-->>User: Email: "Password Reset OTP: 654321"
+        AC-->>FP: 200 OTP sent successfully
+        FP-->>User: Show OTP + new password form
+    end
+
+    User->>FP: Enter OTP + new password + confirm password
+    FP->>AC: POST /api/auth/reset-password { email, otp, password }
+    AC->>UM: findOne({ email }).select(+resetOTP +resetOTPExpire)
+    UM-->>AC: User document
+
+    alt OTP invalid or expired
+        AC->>UM: checkOTP(otp)
+        UM-->>AC: false
+        AC-->>FP: 400 Invalid or expired OTP
+        FP-->>User: Show error
+    else Passwords do not match
+        AC-->>FP: 400 Password validation error
+        FP-->>User: Show error
+    else Valid OTP and password
+        AC->>UM: checkOTP(otp)
+        UM-->>AC: true
+        AC->>UM: Set new password, clear OTP fields
+        UM-->>AC: Saved (bcrypt hash applied in pre-save)
+        AC-->>FP: 200 Password reset successfully
+        FP-->>User: Redirect to Login
+    end
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 4. BILLING ══════════════ -->
+    <div class="diagram-section" id="billing">
+      <div class="section-header">
+        <div class="section-title">
+          Create Bill (Billing / POS)
+          <span class="section-badge">Sales</span>
+        </div>
+        <div class="section-desc">
+          Staff adds medicines to a bill. The system validates stock, deducts inventory using FIFO,
+          calculates GST, and creates the bill record.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Create Bill Flow</h3>
+            <span class="card-badge">POST /api/bills</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Staff/Admin
+    participant BP as Billing Page
+    participant BC as Bill Controller
+    participant MM as Medicine Model
+    participant IM as Inventory Model
+    participant BM as Bill Model
+    participant CSM as CashierSession Model
+
+    Staff/Admin->>BP: Enter customer details & scan/search medicines
+    Staff/Admin->>BP: Set quantity, payment mode, discount
+    BP->>BC: POST /api/bills { customerName, customerPhone, items, paymentMode, amountPaid }
+
+    BC->>BC: validateBillPayload() — check required fields
+    BC->>BC: Start MongoDB session & transaction
+
+    loop For each bill item
+        BC->>MM: findById(item.medicine)
+        MM-->>BC: Medicine found with conversionFactor, GST info
+        BC->>IM: Find ACTIVE batch (FIFO — earliest expiry first)
+        IM-->>BC: Inventory batch with MRP, gstPercent
+        BC->>BC: Calculate basePrice, CGST, SGST/IGST per unit
+        BC->>IM: Deduct unitQuantity from quantityAvailable
+        IM-->>BC: Inventory updated (status = EXHAUSTED if qty = 0)
+    end
+
+    BC->>BC: Sum subtotal, totalGst, apply discount → grandTotal
+    BC->>CSM: findOne({ staff, status: OPEN })
+    CSM-->>BC: Active cashier session (or null)
+
+    BC->>BM: Create Bill { invoiceNumber, items, grandTotal, balance, ... }
+    BM-->>BC: Bill document saved
+
+    alt Cashier session open
+        BC->>CSM: Increment billCount, add to totalSales
+        CSM-->>BC: Session updated
+    end
+
+    BC->>BC: commitTransaction()
+    BC->>BM: Populate createdBy, handledBy, items.medicine
+    BM-->>BC: Populated bill
+
+    BC-->>BP: 201 { bill data, invoiceNumber }
+    BP-->>Staff/Admin: Show bill summary + Print option
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 5. SETTLE PENDING BILL ══════════════ -->
+    <div class="diagram-section" id="settle">
+      <div class="section-header">
+        <div class="section-title">
+          Settle Pending Bill
+          <span class="section-badge">Sales</span>
+        </div>
+        <div class="section-desc">
+          When a customer pays an outstanding balance on a previously created bill.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Settle Pending Payment Flow</h3>
+            <span class="card-badge">PATCH /api/bills/:id/settle-pending</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Staff/Admin
+    participant BP as Bills Page
+    participant BC as Bill Controller
+    participant BM as Bill Model
+
+    Staff/Admin->>BP: Click "Settle" on pending bill
+    Staff/Admin->>BP: Enter settlement amount & payment mode
+    BP->>BC: PATCH /api/bills/:id/settle-pending { amountPaid, paymentMode }
+
+    BC->>BM: findOne({ _id, isDeleted: false })
+    BM-->>BC: Bill document
+
+    alt Bill not found
+        BC-->>BP: 404 Bill not found
+    else Bill has no pending balance
+        BC-->>BP: 400 No pending amount for this bill
+    else Valid settlement
+        BC->>BC: Calculate new amountPaid = existing + settlement
+        BC->>BC: Update balance = newAmountPaid - grandTotal
+        BC->>BM: Save updated bill { amountPaid, balance, paymentMode }
+        BM-->>BC: Bill saved
+        BC-->>BP: 200 { updated bill }
+        BP-->>Staff/Admin: Bill marked as settled
+    end
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 6. SALES RETURN ══════════════ -->
+    <div class="diagram-section" id="sales-return">
+      <div class="section-header">
+        <div class="section-title">
+          Sales Return
+          <span class="section-badge">Sales</span>
+        </div>
+        <div class="section-desc">
+          Customer returns medicines from a previous bill. Stock is restored to inventory.
+          Returns go through PENDING → APPROVED status.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Create Sales Return Flow</h3>
+            <span class="card-badge">POST /api/sales-returns</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Staff/Admin
+    participant SRP as Sales Return Page
+    participant SRC as SalesReturn Controller
+    participant BM as Bill Model
+    participant SRM as SalesReturn Model
+    participant IM as Inventory Model
+
+    Staff/Admin->>SRP: Select original bill & items to return
+    Staff/Admin->>SRP: Enter return quantity & reason
+    SRP->>SRC: POST /api/sales-returns { billId, items, reason, refundMode }
+
+    SRC->>SRC: validateSalesReturnPayload()
+    SRC->>SRC: Start MongoDB session & transaction
+
+    SRC->>BM: findOne({ _id: billId, isDeleted: false })
+    BM-->>SRC: Original bill found
+
+    SRC->>SRM: Aggregate already-returned quantities for this bill
+    SRM-->>SRC: returnedQuantityMap
+
+    loop For each return item
+        SRC->>SRC: Find original bill item by index
+        SRC->>SRC: Validate returnQty ≤ (originalQty - alreadyReturned)
+        SRC->>IM: Find inventory batch by medicine + batchNumber
+        IM-->>SRC: Batch found
+        SRC->>SRC: Calculate refund amount (proportional)
+    end
+
+    SRC->>SRM: Create SalesReturn { bill, items, grandTotal, status: PENDING }
+    SRM-->>SRC: SalesReturn created
+
+    SRC->>SRC: commitTransaction()
+    SRC-->>SRP: 201 { salesReturn data }
+    SRP-->>Staff/Admin: Return created, pending approval
+
+    Note over Staff/Admin,SRM: Admin approves the return
+
+    Staff/Admin->>SRP: Click Approve on sales return
+    SRP->>SRC: POST /api/sales-returns/:id/approve
+    SRC->>SRC: Start transaction
+    SRC->>SRM: findById(id)
+    SRM-->>SRC: SalesReturn (status: PENDING)
+
+    loop Restore inventory for each return item
+        SRC->>IM: findOne({ medicine, batchNumber })
+        IM-->>SRC: Batch found
+        SRC->>IM: Increment quantityAvailable by returnUnitQuantity
+        IM-->>SRC: Stock restored
+    end
+
+    SRC->>SRM: Update status to APPROVED
+    SRM-->>SRC: Saved
+    SRC->>SRC: commitTransaction()
+    SRC-->>SRP: 200 { approved return }
+    SRP-->>Staff/Admin: Stock restored, refund processed
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 7. PURCHASE ══════════════ -->
+    <div class="diagram-section" id="purchase">
+      <div class="section-header">
+        <div class="section-title">
+          Create Purchase (Goods Receipt)
+          <span class="section-badge">Procurement</span>
+        </div>
+        <div class="section-desc">
+          Records medicines received from a supplier. Each item is validated, GST is calculated,
+          and inventory batches are created or updated.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Purchase Entry Flow</h3>
+            <span class="card-badge">POST /api/purchases</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin/Staff
+    participant PP as Purchase Page
+    participant PC as Purchase Controller
+    participant SM as Supplier Model
+    participant MM as Medicine Model
+    participant HM as HSN Model
+    participant PrM as Purchase Model
+    participant IM as Inventory Model
+
+    Admin/Staff->>PP: Select supplier, enter invoice number & date
+    Admin/Staff->>PP: Add medicine items (batch, expiry, qty, MRP, rate, HSN)
+    PP->>PC: POST /api/purchases { supplier, supplierInvoiceNumber, items, ... }
+
+    PC->>SM: findOne({ _id: supplier, isDeleted: false })
+    SM-->>PC: Supplier exists and is active
+
+    PC->>PC: Start MongoDB session & transaction
+
+    loop For each purchase item
+        PC->>MM: findById(item.medicine)
+        MM-->>PC: Medicine found
+        PC->>HM: findOne({ hsnCode }) — if HSN provided
+        HM-->>PC: HSN & GST percent resolved
+        PC->>PC: Validate batch number, expiry date
+        PC->>PC: Calculate CGST/SGST/IGST, line total, discount
+    end
+
+    PC->>PC: Sum subtotal, totalGst, apply bill-level discount → grandTotal
+
+    PC->>PrM: generatePurchaseNumber() → P000001
+    PrM-->>PC: Next purchase number
+
+    PC->>PrM: Create Purchase { purchaseNumber, supplier, items, grandTotal, ... }
+    PrM-->>PC: Purchase document saved
+
+    loop For each purchase item (inventory update)
+        PC->>IM: findOne({ medicine, batchNumber })
+        IM-->>PC: Batch found or not
+
+        alt Batch exists
+            PC->>IM: Update quantityPurchased, freeQuantity, quantityAvailable
+            IM-->>PC: Batch updated
+        else New batch
+            PC->>IM: Create new Inventory { medicine, batchNumber, expiryDate, qty, supplier, purchase, ... }
+            IM-->>PC: New inventory batch created
+        end
+    end
+
+    PC->>PC: commitTransaction()
+    PC->>PrM: Populate supplier, createdBy, items.medicine
+    PrM-->>PC: Populated purchase
+
+    PC-->>PP: 201 { purchase data }
+    PP-->>Admin/Staff: Show purchase summary, updated stock
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 8. PURCHASE RETURN ══════════════ -->
+    <div class="diagram-section" id="purchase-return">
+      <div class="section-header">
+        <div class="section-title">
+          Purchase Return
+          <span class="section-badge">Procurement</span>
+        </div>
+        <div class="section-desc">
+          Returns damaged or incorrect medicines back to the supplier. Inventory is decremented.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Purchase Return Flow</h3>
+            <span class="card-badge">POST /api/purchase-returns</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant PRP as Purchase Return Page
+    participant PRC as PurchaseReturn Controller
+    participant PrM as Purchase Model
+    participant IM as Inventory Model
+    participant PRRM as PurchaseReturn Model
+    participant SM as Supplier Model
+
+    Admin->>PRP: Select original purchase
+    Admin->>PRP: Select items & quantities to return
+    PRP->>PRC: POST /api/purchase-returns { purchaseId, items, reason }
+
+    PRC->>PrM: findById(purchaseId)
+    PrM-->>PRC: Original purchase found
+
+    PRC->>PRC: Start MongoDB session & transaction
+
+    loop For each return item
+        PRC->>PRC: Validate returnQty ≤ original quantity
+        PRC->>IM: findOne({ medicine, batchNumber, supplier })
+        IM-->>PRC: Inventory batch found
+        PRC->>PRC: Validate returnQty ≤ quantityAvailable
+        PRC->>IM: Decrement quantityAvailable by returnQty
+        IM-->>PRC: Inventory updated (status recalculated in pre-save)
+        PRC->>PRC: Calculate return line total
+    end
+
+    PRC->>SM: findById(purchase.supplier)
+    SM-->>PRC: Supplier for reference
+
+    PRC->>PRRM: Create PurchaseReturn { purchase, supplier, items, grandTotal, reason }
+    PRRM-->>PRC: Return document saved
+
+    PRC->>PRC: commitTransaction()
+    PRC-->>PRP: 201 { purchaseReturn data }
+    PRP-->>Admin: Return recorded, stock decremented
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 9. PURCHASE ORDERS ══════════════ -->
+    <div class="diagram-section" id="purchase-order">
+      <div class="section-header">
+        <div class="section-title">
+          Automated Purchase Orders (Reorder Engine)
+          <span class="section-badge">Procurement</span>
+        </div>
+        <div class="section-desc">
+          The system auto-generates draft POs when stock falls at or below the reorder level.
+          Runs every 6 hours. Admin reviews, approves, and marks as sent.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Auto Reorder Check Flow</h3>
+            <span class="card-badge">POST /api/purchase-orders/run-reorder (scheduled every 6h)</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    participant Scheduler as Server Scheduler (6h)
+    participant RS as Reorder Service
+    participant IM as Inventory Model
+    participant MM as Medicine Model
+    participant PrM as Purchase Model
+    participant POM as PurchaseOrder Model
+    participant NM as Notification Model
+
+    Scheduler->>RS: checkAndCreateReorderPOs()
+
+    RS->>IM: Aggregate total stock per medicine (ACTIVE batches)
+    IM-->>RS: stockMap { medicineId → totalQty }
+
+    RS->>MM: Find all ACTIVE medicines with reorderLevel > 0
+    MM-->>RS: Medicine list with reorderLevel & preferredSupplier
+
+    RS->>RS: Filter: medicines where stock ≤ reorderLevel
+
+    alt No medicines need reorder
+        RS-->>Scheduler: { createdCount: 0 }
+    else Low-stock medicines found
+        RS->>POM: Find existing DRAFT POs (get medicine IDs already covered)
+        POM-->>RS: alreadyInDraft set
+
+        RS->>RS: Remove medicines already in a draft PO
+
+        loop For each low-stock medicine (not in draft)
+            RS->>MM: Check preferredSupplier
+            alt preferredSupplier set and active
+                RS->>RS: Use preferredSupplier
+            else No preferred supplier
+                RS->>IM: Find last purchase supplier from inventory
+                IM-->>RS: lastSupplier
+            end
+            RS->>PrM: Get lastPurchasePrice for medicine
+            PrM-->>RS: Last purchase price
+            RS->>RS: Calculate requestedQty = max(2×reorderLevel - currentStock, reorderLevel)
+            RS->>RS: Group medicine under supplier
+        end
+
+        loop For each supplier group
+            RS->>POM: generatePONumber() → PO00001
+            POM-->>RS: PO number
+            RS->>POM: Create PurchaseOrder { status: DRAFT, generatedBy: AUTO, items }
+            POM-->>RS: Draft PO created
+            RS->>NM: bulkWrite upsert LOW_STOCK notification
+            NM-->>RS: Notification saved
+        end
+
+        RS-->>Scheduler: { createdCount: N, itemCount: M }
+    end
+            </div>
+          </div>
+        </div>
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Admin Approves & Sends Purchase Order</h3>
+            <span class="card-badge">PUT /api/purchase-orders/:id/approve → PUT /api/purchase-orders/:id/send</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant POP as Purchase Orders Page
+    participant POC as PurchaseOrder Controller
+    participant POM as PurchaseOrder Model
+
+    Admin->>POP: View draft POs, review items & quantities
+    Admin->>POP: Edit requested quantity (inline)
+    POP->>POC: PUT /api/purchase-orders/:id { items: [{itemId, requestedQty}] }
+    POC->>POM: findOne({ _id, status: DRAFT })
+    POM-->>POC: PO found
+    POC->>POC: Update item.requestedQty
+    POC->>POM: save()
+    POM-->>POC: Updated PO
+    POC-->>POP: 200 { updated PO }
+
+    Admin->>POP: Click Approve
+    POP->>POC: PUT /api/purchase-orders/:id/approve
+    POC->>POM: findOne({ _id, status: DRAFT })
+    POM-->>POC: PO found
+    POC->>POM: Set status = APPROVED, approvedBy, approvedAt
+    POM-->>POC: Saved
+    POC-->>POP: 200 { approved PO }
+    POP-->>Admin: PO status → APPROVED
+
+    Admin->>POP: Click Mark as Sent (after ordering from supplier)
+    POP->>POC: PUT /api/purchase-orders/:id/send
+    POC->>POM: findOne({ _id, status: APPROVED })
+    POM-->>POC: PO found
+    POC->>POM: Set status = SENT
+    POM-->>POC: Saved
+    POC-->>POP: 200 { sent PO }
+    POP-->>Admin: PO status → SENT
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 10. INVENTORY ══════════════ -->
+    <div class="diagram-section" id="inventory">
+      <div class="section-header">
+        <div class="section-title">
+          Inventory Disposal
+          <span class="section-badge">Inventory</span>
+        </div>
+        <div class="section-desc">
+          Manual disposal of damaged/expired stock. The system also auto-disposes expired batches every hour.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Manual Inventory Disposal Flow</h3>
+            <span class="card-badge">POST /api/inventory/:id/dispose</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant INP as Inventory Page
+    participant IC as Inventory Controller
+    participant IDS as InventoryDisposalService
+    participant IM as Inventory Model
+    participant IDM as InventoryDisposal Model
+
+    Admin->>INP: Select inventory batch to dispose
+    Admin->>INP: Enter quantity & disposal reason
+    INP->>IC: POST /api/inventory/:id/dispose { quantity, disposalReason, notes }
+
+    IC->>IM: findOne({ _id, isDeleted: false })
+    IM-->>IC: Inventory batch found
+
+    IC->>IC: Validate qty > 0 and qty ≤ quantityAvailable
+
+    IC->>IDS: disposeInventoryQuantity({ inventory, quantity, reason, source: MANUAL })
+    IDS->>IM: findOneAndUpdate — decrement quantityAvailable, increment quantityDisposed
+    IM-->>IDS: Updated inventory (atomic update)
+    IDS->>IDM: Create InventoryDisposal { inventory, medicine, quantity, reason, disposedAt }
+    IDM-->>IDS: Disposal record saved
+    IDS-->>IC: { inventory, disposal }
+
+    IC-->>INP: 200 { disposal record }
+    INP-->>Admin: Disposal recorded, stock updated
+
+    Note over IC,IDM: Auto-disposal runs every 1 hour (server scheduler)
+    participant Sch as Server Scheduler
+    Sch->>IDS: autoDisposeExpiredInventory()
+    IDS->>IM: Find all batches where expiryDate < today AND qty > 0
+    IM-->>IDS: Expired batches list
+    loop For each expired batch
+        IDS->>IDS: disposeInventoryQuantity(batch, fullQty, EXPIRED, AUTO_EXPIRY)
+    end
+    IDS-->>Sch: { disposedCount, disposedUnits }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 11. MEDICINE ══════════════ -->
+    <div class="diagram-section" id="medicine">
+      <div class="section-header">
+        <div class="section-title">
+          Medicine Management (CRUD)
+          <span class="section-badge">Inventory</span>
+        </div>
+        <div class="section-desc">
+          Create, update, and manage medicines including HSN codes, reorder levels, preferred suppliers,
+          and unit conversion settings.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Add / Update Medicine Flow</h3>
+            <span class="card-badge">POST /api/medicines · PUT /api/medicines/:id</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant MP as Medicines Page
+    participant MC as Medicine Controller
+    participant MM as Medicine Model
+    participant HM as HSN Model
+    participant IM as Inventory Model
+
+    Admin->>MP: Click Add Medicine / Edit
+    Admin->>MP: Fill medicineName, brandName, HSN, reorderLevel, preferredSupplier
+    MP->>MC: POST /api/medicines OR PUT /api/medicines/:id
+
+    MC->>MC: Validate required fields, normalize text to uppercase
+    MC->>MM: findOne({ medicineName }) — duplicate check
+    MM-->>MC: No duplicate found
+
+    alt HSN code provided
+        MC->>HM: findOne({ hsnCode })
+        HM-->>MC: HSN found with GST percent
+    end
+
+    alt Create new medicine
+        MC->>MM: create({ medicineName, brandName, reorderLevel, preferredSupplier, hsnCode, ... })
+        MM-->>MC: Medicine document saved
+        MC-->>MP: 201 { medicine data }
+    else Update existing
+        MC->>MM: findByIdAndUpdate(id, fields, { new: true })
+        MM-->>MC: Updated medicine
+        MC-->>MP: 200 { updated medicine }
+    end
+
+    MP->>IM: getLowStockItems() — refresh stock display
+    IM-->>MP: Updated stock levels
+    MP-->>Admin: Medicine list refreshed
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 12. PRESCRIPTION ══════════════ -->
+    <div class="diagram-section" id="prescription">
+      <div class="section-header">
+        <div class="section-title">
+          Prescription Management
+          <span class="section-badge">Clinical</span>
+        </div>
+        <div class="section-desc">
+          Create prescriptions for patients, link them to dispensed bills, and track prescription status
+          (PENDING → DISPENSED / PARTIAL).
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Create & Dispense Prescription Flow</h3>
+            <span class="card-badge">POST /api/prescriptions · PUT /api/prescriptions/:id/link-bill</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Staff/Admin
+    participant PRP as Prescriptions Page
+    participant PRC as Prescription Controller
+    participant PRM as Prescription Model
+    participant BP as Billing Page
+    participant BC as Bill Controller
+    participant BM as Bill Model
+
+    Staff/Admin->>PRP: Enter patient name, phone, doctor, medicines
+    PRP->>PRC: POST /api/prescriptions { patientName, patientPhone, doctorName, medicines }
+
+    PRC->>PRC: Validate required fields
+    PRC->>PRM: Auto-generate prescriptionNumber (RX-001, RX-002...)
+    PRC->>PRM: create({ patientName, patientPhone, doctorName, medicines, status: PENDING })
+    PRM-->>PRC: Prescription saved
+    PRC-->>PRP: 201 { prescription, prescriptionNumber }
+    PRP-->>Staff/Admin: Prescription created (RX-001)
+
+    Note over Staff/Admin,BC: Staff fills billing from prescription
+
+    Staff/Admin->>BP: Load prescription into billing form
+    BP->>BC: POST /api/bills { customerName, customerPhone, items, ... }
+    BC->>BM: Bill created (invoiceNumber generated)
+    BM-->>BC: Bill saved
+
+    BC->>BP: Return created bill
+    BP->>PRC: PUT /api/prescriptions/:id/link-bill { billId }
+
+    PRC->>PRM: findById(prescriptionId)
+    PRM-->>PRC: Prescription found
+
+    PRC->>PRM: Set billId = bill._id
+    PRC->>PRM: Determine status: DISPENSED (all items) or PARTIAL
+    PRM-->>PRC: Prescription updated
+
+    PRC-->>BP: 200 { updated prescription }
+    BP-->>Staff/Admin: Prescription linked to bill (DISPENSED)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 13. ATTENDANCE ══════════════ -->
+    <div class="diagram-section" id="attendance">
+      <div class="section-header">
+        <div class="section-title">
+          Staff Attendance & Cashier Sessions
+          <span class="section-badge">Operations</span>
+        </div>
+        <div class="section-desc">
+          Tracks staff clock-in/out attendance. Cashier sessions track sales totals per shift.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Staff Attendance Flow</h3>
+            <span class="card-badge">POST /api/staff-attendance/clock-in · /clock-out</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Staff/Admin
+    participant AP as Attendance Page
+    participant SAC as StaffAttendance Controller
+    participant SAM as StaffAttendance Model
+    participant UM as User Model
+
+    Staff/Admin->>AP: Click Clock In
+    AP->>SAC: POST /api/staff-attendance/clock-in { staffId, notes }
+
+    SAC->>UM: findById(staffId)
+    UM-->>SAC: Staff user found
+
+    SAC->>SAM: findOne({ staff, date: today, clockOut: null })
+    SAM-->>SAC: No open session found
+
+    SAC->>SAM: create({ staff, clockIn: now, date: today })
+    SAM-->>SAC: Attendance record created
+    SAC-->>AP: 201 { attendance record }
+    AP-->>Staff/Admin: Clocked In at 09:00 AM
+
+    Staff/Admin->>AP: Click Clock Out
+    AP->>SAC: POST /api/staff-attendance/clock-out { staffId }
+
+    SAC->>SAM: findOne({ staff, date: today, clockOut: null })
+    SAM-->>SAC: Open session found
+
+    SAC->>SAM: Set clockOut = now, calculate totalHours
+    SAM-->>SAC: Attendance closed
+    SAC-->>AP: 200 { attendance with totalHours }
+    AP-->>Staff/Admin: Clocked Out — 8.5 hours worked
+            </div>
+          </div>
+        </div>
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Cashier Session Flow</h3>
+            <span class="card-badge">POST /cashier-sessions · /cashier-sessions/:id/close</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Staff/Admin
+    participant AP as Attendance Page
+    participant SAC as StaffAttendance Controller
+    participant CSM as CashierSession Model
+    participant BM as Bill Model
+
+    Staff/Admin->>AP: Open Cashier Session (Start of shift)
+    AP->>SAC: POST /api/staff-attendance/cashier-sessions { openingBalance }
+
+    SAC->>CSM: findOne({ staff, status: OPEN })
+    CSM-->>SAC: No open session
+
+    SAC->>CSM: create({ staff, openingBalance, openedAt: now, status: OPEN })
+    CSM-->>SAC: Session created
+    SAC-->>AP: 201 { cashier session }
+    AP-->>Staff/Admin: Session opened
+
+    Note over BM,CSM: Every bill created during session auto-links and updates billCount + totalSales
+
+    Staff/Admin->>AP: Close Cashier Session (End of shift)
+    AP->>SAC: POST /api/staff-attendance/cashier-sessions/:id/close { closingBalance, notes }
+
+    SAC->>CSM: findById(sessionId)
+    CSM-->>SAC: Open session found
+
+    SAC->>BM: Aggregate total sales for this session
+    BM-->>SAC: sessionSales total
+
+    SAC->>CSM: Set closedAt = now, closingBalance, status = CLOSED
+    CSM-->>SAC: Session closed
+    SAC-->>AP: 200 { closed session with summary }
+    AP-->>Staff/Admin: Session closed — Total Sales: ₹12,450
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 14. NOTIFICATIONS ══════════════ -->
+    <div class="diagram-section" id="notifications">
+      <div class="section-header">
+        <div class="section-title">
+          Notification Generation
+          <span class="section-badge">Operations</span>
+        </div>
+        <div class="section-desc">
+          Notifications are generated on demand or when low-stock POs are created.
+          Types: LOW_STOCK, EXPIRY_WARNING, EXPIRED, PENDING_PAYMENT, APPLICATION_STATE_CHANGE.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Generate Notifications Flow</h3>
+            <span class="card-badge">POST /api/notifications/generate</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin/Staff
+    participant NP as Notifications Page
+    participant NC as Notification Controller
+    participant IM as Inventory Model
+    participant MM as Medicine Model
+    participant BM as Bill Model
+    participant ALM as AuditLog Model
+    participant NM as Notification Model
+
+    Admin/Staff->>NP: Click "Generate / Refresh" notifications
+    NP->>NC: POST /api/notifications/generate
+
+    NC->>IM: Aggregate total stock per medicine (ACTIVE, qty > 0)
+    IM-->>NC: stockTotals (medicineId → totalQty < 10)
+
+    NC->>MM: findById each low-stock medicineId
+    MM-->>NC: Medicine names
+
+    NC->>NC: Queue LOW_STOCK notifications for each low-stock medicine
+
+    NC->>IM: Find batches expiring within 30 days
+    IM-->>NC: Expiring batches with medicine names, days until expiry
+
+    NC->>NC: Queue EXPIRY_WARNING notifications
+
+    NC->>IM: Find batches already expired (expiryDate < today, qty > 0)
+    IM-->>NC: Expired batches
+
+    NC->>NC: Queue EXPIRED notifications
+
+    NC->>BM: Find bills with balance < 0 (pending payment)
+    BM-->>NC: Pending payment bills
+
+    NC->>NC: Queue PENDING_PAYMENT notifications
+
+    NC->>ALM: Find recent 200 audit log entries
+    ALM-->>NC: Audit log entries (CREATE/UPDATE/DELETE actions)
+
+    NC->>NC: Queue APPLICATION_STATE_CHANGE notifications
+
+    NC->>NM: bulkWrite(operations, upsert — prevents duplicates by type+referenceId)
+    NM-->>NC: Inserted count
+
+    NC->>NM: Find all notifications sorted by createdAt desc
+    NM-->>NC: Full notification list
+
+    NC-->>NP: 200 { notifications, unreadCount, generatedCount }
+    NP-->>Admin/Staff: Display notification list with unread badges
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 15. REPORTS ══════════════ -->
+    <div class="diagram-section" id="reports">
+      <div class="section-header">
+        <div class="section-title">
+          Reports & Dashboard Stats
+          <span class="section-badge">Operations</span>
+        </div>
+        <div class="section-desc">
+          The dashboard aggregates real-time KPIs. Reports provide date-range sales, GST,
+          top medicines, and inventory summaries.
+        </div>
+      </div>
+      <div class="diagram-grid">
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Dashboard Stats Flow</h3>
+            <span class="card-badge">GET /api/bills/dashboard</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin/Staff
+    participant DP as Dashboard Page
+    participant BC as Bill Controller
+    participant BM as Bill Model
+    participant IM as Inventory Model
+    participant SRM as SalesReturn Model
+
+    Admin/Staff->>DP: Open Dashboard
+    DP->>BC: GET /api/bills/dashboard
+
+    BC->>BM: Aggregate today's sales (billDate = today, isDeleted: false)
+    BM-->>BC: { todaySales, todayBillCount, todayGst }
+
+    BC->>BM: Aggregate this month's sales
+    BM-->>BC: { monthSales, monthBillCount }
+
+    BC->>BM: Count pending bills (balance < 0)
+    BM-->>BC: pendingCount, pendingAmount
+
+    BC->>IM: getLowStockItems() — qty ≤ reorderLevel
+    IM-->>BC: lowStockCount
+
+    BC->>IM: getExpiringItems(30 days)
+    IM-->>BC: expiringCount
+
+    BC->>SRM: Count sales returns this month
+    SRM-->>BC: returnCount, returnAmount
+
+    BC-->>DP: 200 { todaySales, monthSales, pendingCount, lowStock, expiring, ... }
+    DP-->>Admin/Staff: Render KPI cards and charts
+            </div>
+          </div>
+        </div>
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <h3>Sales Report Flow</h3>
+            <span class="card-badge">GET /api/bills/report/sales · GET /api/bills/report/gst</span>
+          </div>
+          <div class="diagram-card-body">
+            <div class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant RP as Reports Page
+    participant BC as Bill Controller
+    participant BM as Bill Model
+    participant SRM as SalesReturn Model
+
+    Admin->>RP: Select date range, filter options
+    RP->>BC: GET /api/bills/report/sales?startDate=&endDate=
+
+    BC->>BM: getSalesWithGst(startDate, endDate)
+    BM-->>BC: { totalSales, totalBaseAmount, totalGst, totalCgst, totalSgst, totalIgst, totalBills }
+
+    BC->>SRM: getSalesReturnAggregate({ billDate in range })
+    SRM-->>BC: { totalReturns, totalReturnGst, totalSalesReturns }
+
+    BC->>BC: netSales = totalSales - totalReturns
+
+    BC->>BM: getTopMedicines(startDate, endDate, limit=10)
+    BM-->>BC: Top selling medicines by revenue
+
+    BC-->>RP: 200 { sales summary, returns summary, netSales, topMedicines }
+    RP-->>Admin: Render sales report table and charts
+
+    Admin->>RP: Export as Excel/PDF
+    RP->>RP: Generate download from report data
+    RP-->>Admin: File downloaded
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Init Mermaid
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#1e3a5f',
+      primaryTextColor: '#ffffff',
+      primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb',
+      secondaryColor: '#eff6ff',
+      tertiaryColor: '#f1f5f9',
+      background: '#ffffff',
+      mainBkg: '#1e3a5f',
+      nodeBorder: '#2563eb',
+      clusterBkg: '#f0f6ff',
+      titleColor: '#0f172a',
+      edgeLabelBackground: '#eff6ff',
+      actorBkg: '#1e3a5f',
+      actorBorder: '#2563eb',
+      actorTextColor: '#ffffff',
+      actorLineColor: '#2563eb',
+      signalColor: '#0f172a',
+      signalTextColor: '#0f172a',
+      labelBoxBkgColor: '#eff6ff',
+      labelBoxBorderColor: '#bfdbfe',
+      labelTextColor: '#1d4ed8',
+      loopTextColor: '#1d4ed8',
+      noteBorderColor: '#fbbf24',
+      noteBkgColor: '#fffbeb',
+      noteTextColor: '#92400e',
+      activationBorderColor: '#2563eb',
+      activationBkgColor: '#dbeafe',
+      sequenceNumberColor: '#ffffff',
+      fontFamily: 'Inter, Segoe UI, system-ui, sans-serif',
+      fontSize: '13px'
+    },
+    sequence: {
+      diagramMarginX: 20,
+      diagramMarginY: 10,
+      actorMargin: 50,
+      width: 160,
+      height: 65,
+      boxMargin: 10,
+      boxTextMargin: 5,
+      noteMargin: 10,
+      messageMargin: 40,
+      mirrorActors: true,
+      bottomMarginAdj: 2,
+      useMaxWidth: true,
+      rightAngles: false,
+      showSequenceNumbers: false
+    }
+  });
+
+  // Navigation
+  let current = 'auth-admin';
+
+  function show(id) {
+    // Hide all
+    document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('visible'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+    // Show target
+    document.getElementById(id).classList.add('visible');
+    document.getElementById('btn-' + id).classList.add('active');
+
+    // Render mermaid diagrams in this section if not yet rendered
+    const section = document.getElementById(id);
+    const diagrams = section.querySelectorAll('.mermaid:not([data-processed])');
+    if (diagrams.length > 0) {
+      mermaid.run({ nodes: diagrams });
+    }
+
+    current = id;
+
+    // Scroll to top of main
+    document.querySelector('.main').scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Render initial visible diagram
+  document.addEventListener('DOMContentLoaded', () => {
+    const initial = document.querySelectorAll('#auth-admin .mermaid');
+    mermaid.run({ nodes: initial });
+  });
+</script>
+</body>
+</html>

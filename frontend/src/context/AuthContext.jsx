@@ -46,6 +46,21 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await authAPI.login({ email, password });
+
+    // Admin 2FA: OTP required — don't store token yet
+    if (response.data.requiresOTP) {
+      return response.data; // { requiresOTP: true, email }
+    }
+
+    // Staff direct login
+    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('user', JSON.stringify(response.data.data));
+    setUser(response.data.data);
+    return response.data;
+  };
+
+  const verifyLoginOTP = async (email, otp) => {
+    const response = await authAPI.verifyLoginOTP({ email, otp });
     localStorage.setItem('token', response.data.token);
     localStorage.setItem('user', JSON.stringify(response.data.data));
     setUser(response.data.data);
@@ -59,15 +74,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = {
-  user,
-  setUser,
-  loading,
-  login,
-  logout,
-  isAuthenticated: !!user || !!localStorage.getItem('token'),
-  isAdmin: user?.role === 'admin',
-  isStaff: user?.role === 'staff'
-};
+    user,
+    setUser,
+    loading,
+    login,
+    verifyLoginOTP,
+    logout,
+    isAuthenticated: !!user || !!localStorage.getItem('token'),
+    isAdmin: user?.role === 'admin',
+    isStaff: user?.role === 'staff'
+  };
 
 return (
   <AuthContext.Provider value={value}>

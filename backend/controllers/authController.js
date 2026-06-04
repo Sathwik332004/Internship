@@ -88,6 +88,8 @@ exports.register = async (req, res) => {
 };
 
 // @desc    Login user
+//          Staff  → returns JWT immediately
+//          Admin  → sends OTP to email, returns { requiresOTP: true }
 // @route   POST /api/auth/login
 // @access  Public
 exports.login = async (req, res) => {
@@ -95,7 +97,6 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
-    // Validate email & password
     if (!isValidEmail(normalizedEmail) || !password) {
       return res.status(400).json({
         success: false,
@@ -103,42 +104,90 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check for user
     const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Check if user is active
     if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'Your account has been deactivated'
-      });
+      return res.status(401).json({ success: false, message: 'Your account has been deactivated' });
     }
 
-    // Check if password matches
     const isMatch = await user.matchPassword(password);
-
     if (!isMatch) {
-      return res.status(401).json({
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // ── Staff: direct login, no OTP ─────────────────────────────
+    if (user.role !== 'admin') {
+      return sendTokenResponse(user, 200, res);
+    }
+
+    // ── Admin: generate OTP and send email ───────────────────────
+    const otp = await user.generateOTP('login');
+    const emailSent = await sendOTPEmail(user.email, otp, 'login');
+
+    if (!emailSent) {
+      return res.status(500).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Failed to send OTP email. Please try again.'
       });
     }
 
-    sendTokenResponse(user, 200, res);
+    return res.status(200).json({
+      success: true,
+      requiresOTP: true,
+      email: user.email,
+      message: 'OTP sent to your registered email address'
+    });
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Error logging in',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Error logging in', error: error.message });
+  }
+};
+
+// @desc    Verify login OTP (admin only) — returns JWT on success
+// @route   POST /api/auth/verify-login-otp
+// @access  Public
+exports.verifyLoginOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email' });
+    }
+
+    if (!isValidOtp(otp)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid 6-digit OTP' });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select('+resetOTP +resetOTPExpire');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({ success: false, message: 'Your account has been deactivated' });
+    }
+
+    if (!user.checkOTP(otp, 'login')) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP. Please try again.' });
+    }
+
+    // Clear OTP fields after successful verification
+    user.resetOTP = undefined;
+    user.resetOTPExpire = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    sendTokenResponse(user, 200, res);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Error verifying OTP', error: error.message });
   }
 };
 

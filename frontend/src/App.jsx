@@ -25,6 +25,7 @@ import Notifications from './pages/Notifications';
 import Prescriptions from './pages/Prescriptions';
 import AuditLogs from './pages/AuditLogs';
 import StaffAttendance from './pages/StaffAttendance';
+import PurchaseOrders from './pages/PurchaseOrders';
 
 // Components
 import Layout from './components/Layout';
@@ -72,6 +73,7 @@ function AppRoutes() {
   { path: 'prescriptions', element: <Prescriptions /> },
   { path: 'suppliers', element: <Suppliers /> },
   { path: 'purchases', element: <Purchases /> },
+  { path: 'purchase-orders', element: <PurchaseOrders /> },
   { path: 'purchase-returns', element: <PurchaseReturns /> },
   { path: 'inventory', element: <Inventory /> },
   { path: 'bills', element: <Bills /> },

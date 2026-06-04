@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const { autoDisposeExpiredInventory } = require('./services/inventoryDisposalService');
+const { checkAndCreateReorderPOs } = require('./services/reorderService');
 
 // Load env vars
 dotenv.config();
@@ -25,6 +26,7 @@ const notificationRoutes = require('./routes/notifications');
 const prescriptionRoutes = require('./routes/prescriptions');
 const auditLogRoutes = require('./routes/auditLogs');
 const staffAttendanceRoutes = require('./routes/staffAttendance');
+const purchaseOrderRoutes = require('./routes/purchaseOrders');
 
 const app = express();
 
@@ -61,6 +63,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/staff-attendance', staffAttendanceRoutes);
+app.use('/api/purchase-orders', purchaseOrderRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -110,6 +113,22 @@ runAutoDisposal();
 
 const autoDisposalIntervalMinutes = parseInt(process.env.AUTO_DISPOSAL_INTERVAL_MINUTES || '60', 10);
 setInterval(runAutoDisposal, Math.max(autoDisposalIntervalMinutes, 1) * 60 * 1000);
+
+// Auto reorder check — runs on startup then every N hours (default 6)
+const runAutoReorderCheck = async () => {
+  try {
+    const result = await checkAndCreateReorderPOs();
+    if (result.createdCount > 0) {
+      console.log(`Auto reorder: created ${result.createdCount} draft PO(s) for ${result.itemCount} low-stock item(s)`);
+    }
+  } catch (error) {
+    console.error('Auto reorder check failed:', error.message);
+  }
+};
+
+runAutoReorderCheck();
+const reorderIntervalHours = parseInt(process.env.REORDER_CHECK_INTERVAL_HOURS || '6', 10);
+setInterval(runAutoReorderCheck, Math.max(reorderIntervalHours, 1) * 60 * 60 * 1000);
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {

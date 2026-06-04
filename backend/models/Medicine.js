@@ -131,6 +131,13 @@ const medicineSchema = new mongoose.Schema(
     min: 0
   },
 
+  // Preferred supplier for auto-generated purchase orders
+  preferredSupplier: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Supplier',
+    default: null
+  },
+
   status: {
     type: String,
     enum: ['ACTIVE', 'INACTIVE'],

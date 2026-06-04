@@ -153,6 +153,20 @@ export const salesReturnAPI = {
   create: (data) => api.post('/sales-returns', data)
 };
 
+// Purchase Order API
+export const purchaseOrderAPI = {
+  getAll: (params) => api.get('/purchase-orders', { params }),
+  getOne: (id) => api.get(`/purchase-orders/${id}`),
+  create: (data) => api.post('/purchase-orders', data),
+  update: (id, data) => api.put(`/purchase-orders/${id}`, data),
+  approve: (id) => api.put(`/purchase-orders/${id}/approve`),
+  send: (id) => api.put(`/purchase-orders/${id}/send`),
+  cancel: (id) => api.put(`/purchase-orders/${id}/cancel`),
+  delete: (id) => api.delete(`/purchase-orders/${id}`),
+  removeItem: (id, itemId) => api.delete(`/purchase-orders/${id}/items/${itemId}`),
+  runReorder: () => api.post('/purchase-orders/run-reorder')
+};
+
 // Asset API
 export const assetAPI = {
   getAll: (params) => api.get('/assets', { params }),

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2, AlertTriangle, Package, X, ChevronLeft, ChevronRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { supplierAPI } from '../services/api';
 import {
   normalizeTextInput,
   validateMedicineForm
@@ -51,11 +52,19 @@ export default function Medicines() {
     colorType: '',
     packing: '',
     decimalAllowed: false,
-    itemType: ''
+    itemType: '',
+    preferredSupplier: ''
   });
 
   // More Options toggle state
   const [moreOptions, setMoreOptions] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+
+  useEffect(() => {
+    supplierAPI.getAll({ limit: 200 }).then((res) => {
+      setSuppliers((res.data.data || []).filter((s) => s.isActive !== false));
+    }).catch(() => {});
+  }, []);
 
   const itemsPerPage = 10;
 
@@ -128,7 +137,8 @@ export default function Medicines() {
         colorType: normalizeTextInput(formData.colorType).trim() || null,
         packing: normalizeTextInput(formData.packing).trim() || null,
         decimalAllowed: formData.decimalAllowed || false,
-        itemType: formData.itemType || null
+        itemType: formData.itemType || null,
+        preferredSupplier: formData.preferredSupplier || null
       };
 
       if (editingMedicine) {
@@ -180,12 +190,13 @@ export default function Medicines() {
       colorType: medicine.colorType || '',
       packing: medicine.packing || '',
       decimalAllowed: medicine.decimalAllowed || false,
-      itemType: medicine.itemType || ''
+      itemType: medicine.itemType || '',
+      preferredSupplier: medicine.preferredSupplier?._id || medicine.preferredSupplier || ''
     });
     // Show more options if any advanced field is filled
     const hasAdvancedFields = medicine.askDose || medicine.salt || medicine.colorType ||
                   medicine.packing || medicine.decimalAllowed || medicine.itemType ||
-                  medicine.defaultSellingPrice ||
+                  medicine.defaultSellingPrice || medicine.preferredSupplier ||
                   Number(medicine.reorderLevel || 10) !== 10 ||
                   (medicine.status && medicine.status !== 'ACTIVE');
     setMoreOptions(!!hasAdvancedFields);
@@ -214,7 +225,8 @@ export default function Medicines() {
       colorType: '',
       packing: '',
       decimalAllowed: false,
-      itemType: ''
+      itemType: '',
+      preferredSupplier: ''
     });
     setMoreOptions(false);
   };
@@ -625,6 +637,21 @@ export default function Medicines() {
                           onChange={(e) => setFormData({ ...formData, reorderLevel: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Preferred Supplier <span className="text-gray-400 font-normal">(for auto PO)</span>
+                        </label>
+                        <select
+                          value={formData.preferredSupplier}
+                          onChange={(e) => setFormData({ ...formData, preferredSupplier: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        >
+                          <option value="">— None —</option>
+                          {suppliers.map((s) => (
+                            <option key={s._id} value={s._id}>{s.supplierName}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
